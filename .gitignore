@@ -168,3 +168,5 @@ cython_debug/
 # VSCode
 *.code-workspace
 .vscode/
+export-out
+playground.ipynb

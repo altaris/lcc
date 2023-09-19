@@ -1,5 +1,6 @@
 black
+ipykernel
+ipywidgets
 mypy
 pdoc
 pylint
-types-click

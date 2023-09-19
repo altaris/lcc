@@ -1,2 +1,12 @@
 click
+git+https://github.com/altaris/turbo-broccoli.git
+joblib
 loguru
+matplotlib
+numpy
+pytorch-lightning
+safetensors
+scikit-learn
+tensorboard
+torch
+torchvision
