@@ -2,23 +2,26 @@ from pathlib import Path
 
 import bokeh.plotting as bk
 import numpy as np
+from sklearn import mixture
 import torchvision
 import turbo_broccoli as tb
 from bokeh.palettes import viridis
 from loguru import logger as logging
 from sklearn.manifold import TSNE
+from sklearn.mixture import GaussianMixture
 from torch import Tensor
 
 from nlnas.pdist import pdist
+from nlnas.plotting import gaussian_mixture_plot
 from nlnas.tensor_dataset import TensorDataset
 from nlnas.tv_classifier import TorchvisionClassifier
 from nlnas.utils import train_model_guarded
 
 
 def main():
-    model_name, ds_name = "resnet18", "cifar10"
+    model_name, ds_name = "resnet50", "cifar10"
     input_shape, n_classes = [3, 32, 32], 10
-    n = 10000  # Number of samples for eval/embed/plot
+    n = 10000  # Number of samples for eval
 
     root_path = Path(f"export-out/{model_name}/{ds_name}")
 
@@ -97,10 +100,18 @@ def main():
             h.result[k] = t.embedding_
     embeddings: dict[str, np.ndarray] = h.result
 
+    h = tb.GuardedBlockHandler(root_path / "gm" / "gm.json")
+    for _ in h.guard():
+        h.result = {}
+        for k, e in embeddings.items():
+            logging.debug("Fitting GM for outputs of submodule '{}'", k)
+            h.result[k] = GaussianMixture(n_classes).fit(e)
+    mixtures: dict[str, GaussianMixture] = h.result
+
     h = tb.GuardedBlockHandler(root_path / "plots" / "plots.json")
     for _ in h.guard():
         h.result = {}
-        for k, x in embeddings.items():
+        for k, e in embeddings.items():
             logging.debug(
                 "Plotting TSNE embedding for outputs of submodule '{}'", k
             )
@@ -108,7 +119,7 @@ def main():
             figure, palette = bk.figure(), viridis(n_classes)
             figure.title = f"{model_name}/{k}, {ds_name}"
             for j in range(10):
-                a, b = x[y == j], palette[j]
+                a, b = e[y == j], palette[j]
                 figure.scatter(
                     a[:, 0],
                     a[:, 1],
@@ -117,6 +128,14 @@ def main():
                     line_width=0,
                     size=3,
                 )
+            gaussian_mixture_plot(
+                figure,
+                mixtures[k],
+                x_min=e[:, 0].min() - 10,
+                x_max=e[:, 0].max() + 10,
+                y_min=e[:, 1].min() - 10,
+                y_max=e[:, 1].max() + 10,
+            )
             h.result[k] = figure
 
 
