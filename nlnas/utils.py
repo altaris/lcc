@@ -266,6 +266,7 @@ def train_model(
                 save_top_k=1,
                 monitor="val/loss",
                 mode="min",
+                every_n_epochs=1,
             ),
             pl.callbacks.RichProgressBar(),
             # pl.callbacks.BatchSizeFinder(),

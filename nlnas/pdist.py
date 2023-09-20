@@ -33,8 +33,7 @@ def _guarded_cdist(
 
 
 def _pdist_merge_chunks(
-    blocks: dict[Tuple[int, int], np.ndarray],
-    n_bins: int,
+    blocks: dict[Tuple[int, int], np.ndarray], n_bins: int
 ) -> np.ndarray:
     """
     Merges a dict of chunks into a full distance matrix. The input dict indexes

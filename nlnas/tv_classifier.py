@@ -32,7 +32,7 @@ class TorchvisionClassifier(pl.LightningModule):
         model_name: str,
         input_shape: list[int],
         n_classes: int = 10,
-        weights: Any = "DEFAULT",
+        weights: Any = None,
         **kwargs,
     ) -> None:
         """
