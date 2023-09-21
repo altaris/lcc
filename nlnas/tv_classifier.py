@@ -55,9 +55,9 @@ class TorchvisionClassifier(pl.LightningModule):
             conv0 = nn.Conv2d(
                 in_channels=input_shape[0],
                 out_channels=3,
-                kernel_size=3,
+                kernel_size=1,
                 stride=1,
-                padding=1,
+                padding=0,
                 bias=False,
             )
             submodules = [conv0] + submodules
