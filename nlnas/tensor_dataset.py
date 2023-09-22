@@ -2,7 +2,7 @@
 __docformat__ = "google"
 
 from pathlib import Path
-from typing import Tuple
+from typing import Any, Tuple
 
 import numpy as np
 import torch
@@ -72,28 +72,48 @@ class TensorDataset(torch.utils.data.Dataset):
         return TensorDataset(torch.stack(x), torch.Tensor(y))
 
     @staticmethod
-    def from_torchvision_dataset(name: str, **kwargs) -> "TensorDataset":
+    def from_torchvision_dataset(
+        name: str, transform: Any = None, **kwargs
+    ) -> "TensorDataset":
         """
         Self-explanatory, but unlike `from_torch_dataset`, takes a (lower case)
         dataset name. See
         [here](https://pytorch.org/vision/stable/datasets.html#image-classification)
         for the list. You should probably specify transforms in the `kwargs`.
         """
-        tvds = torchvision.datasets
-        tvdscls = {n.lower(): getattr(tvds, n) for n in tvds.__all__}
-        dscls, p = tvdscls[name], Path.home() / "torchvision" / "datasets"
+        m = torchvision.datasets
+        factories = {n.lower(): getattr(m, n) for n in m.__all__}
+        D, p = factories[name], Path.home() / "torchvision" / "datasets"
         logging.debug("Loading torchvision dataset '{}' in '{}'", name, p)
-        a_ds = dscls(p, download=True, train=True, **kwargs)
-        b_ds = dscls(p, download=False, train=False, **kwargs)
-        a_tds = TensorDataset.from_torch_dataset(a_ds)
-        b_tds = TensorDataset.from_torch_dataset(b_ds)
-        return a_tds.concatenate(b_tds)
+        if transform is None:
+            transform = torchvision.transforms.Compose(
+                [
+                    torchvision.transforms.ToTensor(),
+                    # torchvision.transforms.Resize([256, 256], antialias=True),
+                    # torchvision.transforms.Normalize([0], [1]),
+                ]
+            )
+        a1 = D(p, download=True, train=True, transform=transform, **kwargs)
+        b1 = D(p, download=False, train=False, transform=transform, **kwargs)
+        a2 = TensorDataset.from_torch_dataset(a1)
+        b2 = TensorDataset.from_torch_dataset(b1)
+        return a2.concatenate(b2)
+
+    @property
+    def image_shape(self) -> list[int]:
+        """Return the shape of an image in this dataset"""
+        return list(self.x[0].shape)
 
     @staticmethod
     def load(path: Path) -> "TensorDataset":
         """Self-explanatory"""
         data = st.load_file(path)
         return TensorDataset(data["x"], data["y"])
+
+    @property
+    def n_classes(self) -> int:
+        """The number of classes"""
+        return len(self.y[0]) if self.y.ndim == 2 else len(self.y.unique())
 
     def plot(
         self,

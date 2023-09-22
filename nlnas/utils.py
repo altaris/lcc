@@ -263,7 +263,7 @@ def train_model(
             pl.callbacks.EarlyStopping(**early_stopping_kwargs),
             # pl.callbacks.LearningRateMonitor("epoch"),
             pl.callbacks.ModelCheckpoint(
-                save_top_k=1,
+                save_top_k=-1,
                 monitor="val/loss",
                 mode="min",
                 every_n_epochs=1,
