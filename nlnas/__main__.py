@@ -45,7 +45,6 @@ def _setup_logging(logging_level: str) -> None:
 @click.argument(
     "output_dir", type=click.Path(exists=True, file_okay=False, writable=True)
 )
-@click.option("--n-samples", default=10000, type=int)
 @click.option(
     "--logging-level",
     default=os.getenv("LOGGING_LEVEL", "info"),
@@ -75,21 +74,29 @@ def main(
     submodule_names: str,
     dataset_name: str,
     output_dir: Path,
-    n_samples: int,
     logging_level: str,
 ):
     """Entrypoint"""
 
-    from .nlnas import train_and_analyse_best
+    from .nlnas import train_and_analyse_all
+    from .classifier import Classifier
+    from .tensor_dataset import TensorDataset
 
     _setup_logging(logging_level)
 
-    train_and_analyse_best(
-        model_name=model_name,
-        submodule_names=submodule_names,
-        dataset_name=dataset_name,
+    output_dir = Path("export-out") / model_name / dataset_name
+    ds = TensorDataset.from_torchvision_dataset(dataset_name)
+    if ds.x.shape[1] != 3:
+        logging.info("Converting the image dataset to RGB")
+        ds.x = ds.x.repeat(1, 3, 1, 1)
+    train_and_analyse_all(
+        model=Classifier.torchvision_classifier(
+            model_name, n_classes=ds.n_classes
+        ),
+        submodule_names=submodule_names.split(","),
+        dataset=ds,
         output_dir=output_dir,
-        n_samples=n_samples,
+        model_name=model_name,
     )
 
 

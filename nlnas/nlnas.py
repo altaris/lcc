@@ -3,6 +3,7 @@
 from glob import glob
 import random
 from pathlib import Path
+from typing import Any
 
 import bokeh.plotting as bk
 import numpy as np
@@ -15,30 +16,30 @@ from sklearn.manifold import TSNE
 from sklearn.svm import SVC
 from torch import Tensor
 
-from nlnas.pdist import pdist
-from nlnas.plotting import class_scatter
-from nlnas.tensor_dataset import TensorDataset
-from nlnas.tv_classifier import TorchvisionClassifier
-from nlnas.utils import train_model_guarded
+from .pdist import pdist
+from .plotting import class_scatter
+from .tensor_dataset import TensorDataset
+from .classifier import Classifier
+from .utils import train_model_guarded
 
 
 def analysis(
-    model: TorchvisionClassifier | str | Path,
-    submodule_names: str | list[str],
+    model: Classifier | str | Path,
+    submodule_names: list[str],
     dataset: TensorDataset | str,
     output_dir: str | Path,
-    n_samples: int = 10000,
+    n_samples: int = 5000,
     max_class_pairs: int = 200,
 ):
     """
     Full separability analysis and plottings
 
     Args:
-        model (TorchvisionClassifier | str | Path): A model or a path to a
+        model (Classifier | str | Path): A model or a path to a
             model checkpoint
-        submodule_names (str | list[str]): List or comma-separated list of
+        submodule_names (list[str]): List or comma-separated list of
             submodule names. For example, the interesting submodules of
-            `resnet18` are `maxpool,layer1,layer2,layer3,layer4,fc`
+            `resnet18` are `maxpool, layer1, layer2, layer3, layer4, fc`
         dataset_name (TensorDataset | str): A tensor dataset or the name of a
             torchvision dataset
         output_dir (str | Path):
@@ -48,31 +49,15 @@ def analysis(
     output_dir = Path(output_dir)
 
     # LOAD MODEL IF NEEDED
-    if not isinstance(model, TorchvisionClassifier):
-        model = TorchvisionClassifier.load_from_checkpoint(model)
-    assert isinstance(model, TorchvisionClassifier)
+    if not isinstance(model, Classifier):
+        model = Classifier.load_from_checkpoint(model)
+    assert isinstance(model, Classifier)
     model.eval()
 
     # LOAD DATASET IF NEEDED
     if not isinstance(dataset, TensorDataset):
         dataset = TensorDataset.from_torchvision_dataset(dataset)
     assert isinstance(dataset, TensorDataset)
-
-    # MAP SUBMODULE NAMES
-    # ... of the model (e.g. `ResNet18`) to those of the actual
-    # model (`TorchvisionClassifier`). For example, `layer1` becomes
-    # `model.0.layer1`. BUT if the dataset has non-RGB images, an initial 1x1
-    # convolution layer is prepended, so the name is actually `model.1.layer1`.
-    # In addition to all that, the output layer (`model.1` or `model.2`) is
-    # also automatically added to `submodule_names`
-    if isinstance(submodule_names, str):
-        submodule_names = submodule_names.split(",")
-    if dataset.image_shape[0] == 3:
-        submodule_names = ["model.0." + s for s in submodule_names]
-        submodule_names.append("model.1")
-    else:
-        submodule_names = ["model.1." + s for s in submodule_names]
-        submodule_names.append("model.2")
 
     # EVALUATION
     logging.debug("Evaluating model")
@@ -170,16 +155,22 @@ def analysis(
         df = df.reset_index(names="submodule")
         figure = sns.lineplot(df, x="submodule", y="mean_score")
         figure.set(title="Mean pairwise separability score")
-        figure.set_xticklabels(figure.get_xticklabels(), rotation=45)
+        figure.set_xticklabels(
+            figure.get_xticklabels(),
+            rotation=45,
+            rotation_mode="anchor",
+            ha="right",
+        )
         figure.get_figure().savefig(h.output_path.parent / "separability.png")
 
 
 def train_and_analyse_all(
-    model_name: str,
-    submodule_names: str | list[str],
-    dataset_name: str,
+    model: Classifier,
+    submodule_names: list[str],
+    dataset: TensorDataset | str,
     output_dir: str | Path,
-    n_samples: int = 10000,
+    model_name: str | None = None,
+    n_samples: int = 5000,
     max_class_pairs: int = 200,
 ):
     """
@@ -187,25 +178,31 @@ def train_and_analyse_all(
     `nlnas.nlnas.analyse`) on ALL models, obtained at the end of each epochs.
 
     Args:
-        model_name (str):
-        submodule_names (str): List or comma-separated list of submodule names.
-            For example, the interesting submodules of `resnet18` are
-            `maxpool,layer1,layer2,layer3,layer4,fc`
-        dataset_name (str):
+        model (Classifier):
+        submodule_names (list[str]): List or comma-separated list of
+            submodule names. For example, the interesting submodules of
+            `resnet18` are `maxpool, layer1, layer2, layer3, layer4, fc`
+        dataset (TensorDataset | str):
         output_dir (str | Path):
-        n_samples (int):
-        n_class_pairs (int): The last stage of this suite compute pairwise
-            separability scores. That means that for each pair of distinct
-            classes, a SVC is fitted and a score is computed. If there are many
-            classes, the number of pairs can be very large. If this number is
-            greater than `n_class_pairs`, then `n_class_pairs` pairs are chosen
-            at random for the separability scoring.
+        model_kwargs (dict[str, Any], optional): Defaults to None.
+        model_name (str, optional): Model name override (for naming
+            directories and for logging). If left to `None`, is set to the
+            lower case class name, i.e. `model.__class__.__name__.lower()`.
+        n_samples (int, optional): Defaults to 5000.
+        max_class_pairs (int, optional): The last stage of this suite compute
+            pairwise separability scores. That means that for each pair of
+            distinct classes, a SVC is fitted and a score is computed. If there
+            are many classes, the number of pairs can be very large. If this
+            number is greater than `n_class_pairs`, then `n_class_pairs` pairs
+            are chosen at random for the separability scoring.
     """
     tb.set_max_nbytes(1000)  # Ensure artefacts
-    output_dir = Path(output_dir) / model_name / dataset_name
-    ds = TensorDataset.from_torchvision_dataset(dataset_name)
-    model = TorchvisionClassifier(model_name, ds.image_shape, ds.n_classes)
-    train, val = ds.train_test_split_dl()
+    model_name = model_name or model.__class__.__name__.lower()
+    if isinstance(output_dir, str):
+        output_dir = Path(output_dir)
+    if isinstance(dataset, str):
+        dataset = TensorDataset.from_torchvision_dataset(dataset)
+    train, val = dataset.train_test_split_dl()
     train_model_guarded(
         model,
         train,
@@ -224,60 +221,12 @@ def train_and_analyse_all(
         / "checkpoints"
         / "*.ckpt"
     )
-    all_ckpts = sorted(list(glob(ckpt_glob)))
-    for i, ckpt in enumerate(all_ckpts):
+    for i, ckpt in enumerate(glob(ckpt_glob)):
         analysis(
             ckpt,
             submodule_names,
-            ds,
+            dataset,
             output_dir / str(i),
             n_samples,
             max_class_pairs,
         )
-
-
-def train_and_analyse_best(
-    model_name: str,
-    submodule_names: str | list[str],
-    dataset_name: str,
-    output_dir: str | Path,
-    n_samples: int = 10000,
-    max_class_pairs: int = 200,
-):
-    """
-    Trains a model and performs a separability analysis (see
-    `nlnas.nlnas.analyse`) on the best model.
-
-    Args:
-        model_name (str):
-        submodule_names (str): List or comma-separated list of submodule names.
-            For example, the interesting submodules of `resnet18` are
-            `maxpool,layer1,layer2,layer3,layer4,fc`
-        dataset_name (str):
-        output_dir (str | Path):
-        n_samples (int):
-        n_class_pairs (int): The last stage of this suite compute pairwise
-            separability scores. That means that for each pair of distinct
-            classes, a SVC is fitted and a score is computed. If there are many
-            classes, the number of pairs can be very large. If this number is
-            greater than `n_class_pairs`, then `n_class_pairs` pairs are chosen
-            at random for the separability scoring.
-    """
-    tb.set_max_nbytes(1000)  # Ensure artefacts
-    output_dir = Path(output_dir) / model_name / dataset_name
-    ds = TensorDataset.from_torchvision_dataset(dataset_name)
-    model = TorchvisionClassifier(model_name, ds.image_shape, ds.n_classes)
-    train, val = ds.train_test_split_dl()
-    model = train_model_guarded(
-        model,
-        train,
-        val,
-        output_dir / "model",
-        name=model_name,
-        max_epochs=512,
-        strategy="ddp",
-    )
-    assert isinstance(model, TorchvisionClassifier)
-    analysis(
-        model, submodule_names, ds, output_dir, n_samples, max_class_pairs
-    )

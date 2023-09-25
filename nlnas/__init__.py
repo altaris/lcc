@@ -5,5 +5,6 @@
 
 from .pdist import pdist
 from .tensor_dataset import TensorDataset
-from .tv_classifier import TorchvisionClassifier
+from .classifier import Classifier
 from .utils import train_model, train_model_guarded
+from .nlnas import analysis, train_and_analyse_all

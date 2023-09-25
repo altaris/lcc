@@ -1,72 +1,34 @@
-"""
-Wrapped classifier model from torchvision
-"""
+"""Abstract image classifier model"""
 
 from typing import Any
 
 import pytorch_lightning as pl
 import torch
 import torchmetrics
-import torchvision
-from torch import nn
+from torch import Tensor, nn
 from torch.utils.hooks import RemovableHandle
+from torchvision.models import get_model
 
 from nlnas.utils import best_device
 
 
-class TorchvisionClassifier(pl.LightningModule):
-    """
-    Classifier model from torchvision wrapped inside a `pl.LightningModule`
-    """
+class Classifier(pl.LightningModule):
+    """Convenient module wrapper for image classifiers"""
 
     model: nn.Module
-    """Internal model"""
 
     n_classes: int
 
-    input_shape: list[int]
-    """Shape of a **SINGLE** input (as opposed to the shape of a batch)"""
-
     def __init__(
         self,
-        model_name: str,
-        input_shape: list[int],
-        n_classes: int = 10,
-        weights: Any = None,
+        model: nn.Module,
+        n_classes: int,
         **kwargs,
     ) -> None:
-        """
-        Args:
-            model_name (str): See https://pytorch.org/vision/stable/models.html#classification
-            input_shape (list[int]): Input shape of the image. For example,
-                `CIFAR10` is `(3, 32, 32)`. If the number of channels is not
-                `3`, an extra initial `1x1` convolution layer is added to
-                transform the input images to 3-channels images.
-            n_classes (int, optional):
-            weights (Any, optional): See for example `https://pytorch.org/vision/stable/models/generated/torchvision.models.resnet18.html#torchvision.models.ResNet18_Weights`
-        """
         super().__init__(**kwargs)
-        self.save_hyperparameters()
-        self.input_shape = input_shape
-        self.n_classes = n_classes
-        factory = getattr(torchvision.models, model_name)
-        submodules = [factory(weights=weights), nn.LazyLinear(n_classes)]
-        if input_shape[0] != 3:
-            conv0 = nn.Conv2d(
-                in_channels=input_shape[0],
-                out_channels=3,
-                kernel_size=1,
-                stride=1,
-                padding=0,
-                bias=False,
-            )
-            submodules = [conv0] + submodules
-        self.model = nn.Sequential(*submodules)
-        self.example_input_array = torch.zeros([1] + self.input_shape)
-        self.model.eval()
-        self.forward(self.example_input_array)
+        self.model, self.n_classes = model, n_classes
 
-    def _evaluate(self, batch, stage: str | None = None) -> torch.Tensor:
+    def _evaluate(self, batch, stage: str | None = None) -> Tensor:
         """Self-explanatory"""
         x, y = batch
         logits = self(x)
@@ -97,12 +59,12 @@ class TorchvisionClassifier(pl.LightningModule):
         return torch.optim.Adam(self.parameters())
 
     # pylint: disable=arguments-differ
-    def forward(self, x: torch.Tensor, *_, **__) -> torch.Tensor:
+    def forward(self, x: Tensor, *_, **__) -> Tensor:
         return self.model(x.to(self.device))  # type: ignore
 
     def forward_intermediate(
         self,
-        x: torch.Tensor,
+        x: Tensor,
         submodules: list[str],
         output_dict: dict,
     ) -> None:
@@ -113,15 +75,13 @@ class TorchvisionClassifier(pl.LightningModule):
         effects.
 
         Args:
-            x (torch.Tensor):
+            x (Tensor):
             submodules (list[str]):
             output_dict (dict):
         """
 
         def create_hook(key: str):
-            def hook(
-                _model: nn.Module, _args: Any, output: torch.Tensor
-            ) -> None:
+            def hook(_model: nn.Module, _args: Any, output: Tensor) -> None:
                 output_dict[key] = output.detach().cpu()
 
             return hook
@@ -146,3 +106,26 @@ class TorchvisionClassifier(pl.LightningModule):
 
     def validation_step(self, batch, *_, **__):
         return self._evaluate(batch, "val")
+
+    @staticmethod
+    def torchvision_classifier(
+        name: str,
+        n_classes: int,
+        config: dict[str, Any] | None = None,
+        add_final_fc: bool = False,
+    ):
+        """
+        Instanciates and wraps a torchvision image classifier. See also
+        https://pytorch.org/vision/stable/models.html#classification and
+
+        Args:
+            name (str):
+            config (dict[str, Any] | None, optional): Passed to the model class
+                at construction
+            n_classes (int):
+            add_final_fc (bool):
+        """
+        modules = [get_model(name, **(config or {}))]
+        if add_final_fc:
+            modules.append(nn.LazyLinear(n_classes))
+        return Classifier(nn.Sequential(*modules), n_classes)

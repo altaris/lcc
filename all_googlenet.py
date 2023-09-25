@@ -8,18 +8,20 @@ from nlnas import Classifier, TensorDataset, train_and_analyse_all
 
 def main():
     model_names = [
-        "resnet18",
-        # "resnet34",
-        # "resnet50",
-        # "resnet101",
-        # "resnet152",
+        "googlenet",
     ]
     submodule_names = [
-        "model.0.maxpool",
-        "model.0.layer1",
-        "model.0.layer2",
-        "model.0.layer3",
-        "model.0.layer4",
+        "model.0.maxpool1",
+        "model.0.maxpool2",
+        "model.0.inception3a",
+        "model.0.maxpool3",
+        "model.0.inception4a",
+        "model.0.inception4b",
+        "model.0.inception4c",
+        "model.0.inception4d",
+        "model.0.maxpool4",
+        "model.0.inception5a",
+        "model.0.inception5b",
         "model.0.fc",
         "model.1",
     ]
