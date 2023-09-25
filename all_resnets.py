@@ -2,27 +2,27 @@ from itertools import product
 
 from loguru import logger as logging
 
-from nlnas.nlnas import training_suite
+from nlnas.nlnas import train_and_analyse_all, train_and_analyse_best
 
 
 def main():
     model_names = [
         "resnet18",
-        "resnet34",
-        "resnet50",
-        "resnet101",
-        "resnet152",
+        # "resnet34",
+        # "resnet50",
+        # "resnet101",
+        # "resnet152",
     ]
     submodule_names = "maxpool,layer1,layer2,layer3,layer4,fc"
     dataset_names = [
-        # "mnist",
+        "mnist",
         # "kmnist",
-        # "fashionmnist",
-        # "cifar10",
-        "cifar100",
+        "fashionmnist",
+        "cifar10",
+        # "cifar100",
     ]
     for m, d in product(model_names, dataset_names):
-        training_suite(
+        train_and_analyse_all(
             model_name=m,
             submodule_names=submodule_names,
             dataset_name=d,

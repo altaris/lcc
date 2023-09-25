@@ -80,11 +80,11 @@ def main(
 ):
     """Entrypoint"""
 
-    from .nlnas import training_suite
+    from .nlnas import train_and_analyse_best
 
     _setup_logging(logging_level)
 
-    training_suite(
+    train_and_analyse_best(
         model_name=model_name,
         submodule_names=submodule_names,
         dataset_name=dataset_name,
