@@ -250,7 +250,7 @@ def train_model(
         str(root_dir / "tb_logs"),
         name=name,
         default_hp_metric=False,
-        log_graph=True,
+        log_graph=False,
     )
     csv_logger = pl.loggers.CSVLogger(
         str(root_dir / "csv_logs"),

@@ -1,6 +1,6 @@
 """Abstract image classifier model"""
 
-from typing import Any
+from typing import Any, Iterable
 
 import pytorch_lightning as pl
 import torch
@@ -21,12 +21,35 @@ class Classifier(pl.LightningModule):
 
     def __init__(
         self,
-        model: nn.Module,
+        model_name: str,
         n_classes: int,
+        input_shape: Iterable[int] | None = None,
+        model_config: dict[str, Any] | None = None,
+        add_final_fc: bool = False,
         **kwargs,
     ) -> None:
+        """
+        Args:
+            model_name (str):
+            n_classes (int):
+            input_shape (Iterable[int], optional): If give, a example run is
+                performed after construction. This can be useful to see the
+                model's computation graph on tensorboard.
+            model_config (dict[str, Any], optional):
+            add_final_fc (bool): If true, adds a final dense layer which
+                outputs `n_classes` logits
+        """
         super().__init__(**kwargs)
-        self.model, self.n_classes = model, n_classes
+        self.save_hyperparameters()
+        modules = [get_model(model_name, **(model_config or {}))]
+        if add_final_fc:
+            modules.append(nn.LazyLinear(n_classes))
+        self.model = nn.Sequential(*modules)
+        self.n_classes = n_classes
+        if input_shape is not None:
+            self.example_input_array = torch.zeros([1] + list(input_shape))
+            self.model.eval()
+            self.forward(self.example_input_array)
 
     def _evaluate(self, batch, stage: str | None = None) -> Tensor:
         """Self-explanatory"""
@@ -106,26 +129,3 @@ class Classifier(pl.LightningModule):
 
     def validation_step(self, batch, *_, **__):
         return self._evaluate(batch, "val")
-
-    @staticmethod
-    def torchvision_classifier(
-        name: str,
-        n_classes: int,
-        config: dict[str, Any] | None = None,
-        add_final_fc: bool = False,
-    ):
-        """
-        Instanciates and wraps a torchvision image classifier. See also
-        https://pytorch.org/vision/stable/models.html#classification and
-
-        Args:
-            name (str):
-            config (dict[str, Any] | None, optional): Passed to the model class
-                at construction
-            n_classes (int):
-            add_final_fc (bool):
-        """
-        modules = [get_model(name, **(config or {}))]
-        if add_final_fc:
-            modules.append(nn.LazyLinear(n_classes))
-        return Classifier(nn.Sequential(*modules), n_classes)

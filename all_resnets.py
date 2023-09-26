@@ -36,8 +36,14 @@ def main():
         if ds.x.shape[1] != 3:
             logging.debug("Converting the image dataset to RGB")
             ds.x = ds.x.repeat(1, 3, 1, 1)
+        model = Classifier(
+            model_name=m,
+            n_classes=ds.n_classes,
+            add_final_fc=True,
+            input_shape=ds.image_shape,
+        )
         train_and_analyse_all(
-            model=Classifier.torchvision_classifier(m, n_classes=ds.n_classes),
+            model=model,
             submodule_names=submodule_names,
             dataset=ds,
             output_dir=output_dir,
