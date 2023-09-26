@@ -79,7 +79,7 @@ def main(
     """Entrypoint"""
 
     from .nlnas import train_and_analyse_all
-    from .tv_classifier import TorchvisionClassifier
+    from .classifier import TorchvisionClassifier
     from .tv_dataset import TorchvisionDataset
     from .utils import targets
 

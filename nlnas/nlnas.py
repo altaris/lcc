@@ -22,7 +22,7 @@ from nlnas.utils import get_first_n
 
 from .pdist import pdist
 from .plotting import class_scatter
-from .tv_classifier import TorchvisionClassifier
+from .classifier import TorchvisionClassifier
 from .training import train_model_guarded
 
 

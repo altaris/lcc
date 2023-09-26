@@ -12,50 +12,14 @@ from torchvision.models import get_model
 from .utils import best_device
 
 
-class TorchvisionClassifier(pl.LightningModule):
-    """
-    A torchvision image classifier wrapped inside a `LightningModule`
-
-    See also:
-        https://pytorch.org/vision/stable/models.html#classification
-    """
-
-    model: nn.Module
+class Classifier(pl.LightningModule):
+    """Classifier model with some extra features"""
 
     n_classes: int
 
-    def __init__(
-        self,
-        model_name: str,
-        n_classes: int,
-        input_shape: Iterable[int] | None = None,
-        model_config: dict[str, Any] | None = None,
-        add_final_fc: bool = False,
-        **kwargs,
-    ) -> None:
-        """
-        Args:
-            model_name (str): Torchvision model name in lower case. See also
-                https://pytorch.org/vision/stable/generated/torchvision.models.list_models.html
-            n_classes (int):
-            input_shape (Iterable[int], optional): If give, a example run is
-                performed after construction. This can be useful to see the
-                model's computation graph on tensorboard.
-            model_config (dict[str, Any], optional):
-            add_final_fc (bool): If true, adds a final dense layer which
-                outputs `n_classes` logits
-        """
+    def __init__(self, n_classes: int, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self.save_hyperparameters()
-        modules = [get_model(model_name, **(model_config or {}))]
-        if add_final_fc:
-            modules.append(nn.LazyLinear(n_classes))
-        self.model = nn.Sequential(*modules)
         self.n_classes = n_classes
-        if input_shape is not None:
-            self.example_input_array = torch.zeros([1] + list(input_shape))
-            self.model.eval()
-            self.forward(self.example_input_array)
 
     def _evaluate(self, batch, stage: str | None = None) -> Tensor:
         """Self-explanatory"""
@@ -86,10 +50,6 @@ class TorchvisionClassifier(pl.LightningModule):
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters())
-
-    # pylint: disable=arguments-differ
-    def forward(self, x: Tensor, *_, **__) -> Tensor:
-        return self.model(x.to(self.device))  # type: ignore
 
     def forward_intermediate(
         self,
@@ -129,9 +89,56 @@ class TorchvisionClassifier(pl.LightningModule):
     # pylint: disable=arguments-differ
     def training_step(self, batch, *_, **__) -> Any:
         x, y = batch
-        loss = nn.functional.cross_entropy(self.model(x), y.long())
+        loss = nn.functional.cross_entropy(self(x), y.long())
         self.log("train/loss", loss, sync_dist=True)
         return loss
 
     def validation_step(self, batch, *_, **__):
         return self._evaluate(batch, "val")
+
+
+class TorchvisionClassifier(Classifier):
+    """
+    A torchvision image classifier with some extra features
+
+    See also:
+        https://pytorch.org/vision/stable/models.html#classification
+    """
+
+    model: nn.Module
+
+    def __init__(
+        self,
+        model_name: str,
+        n_classes: int,
+        input_shape: Iterable[int] | None = None,
+        model_config: dict[str, Any] | None = None,
+        add_final_fc: bool = False,
+        **kwargs,
+    ) -> None:
+        """
+        Args:
+            model_name (str): Torchvision model name in lower case. See also
+                https://pytorch.org/vision/stable/generated/torchvision.models.list_models.html
+            n_classes (int):
+            input_shape (Iterable[int], optional): If give, a example run is
+                performed after construction. This can be useful to see the
+                model's computation graph on tensorboard.
+            model_config (dict[str, Any], optional):
+            add_final_fc (bool): If true, adds a final dense layer which
+                outputs `n_classes` logits
+        """
+        super().__init__(n_classes=n_classes, **kwargs)
+        self.save_hyperparameters()
+        modules = [get_model(model_name, **(model_config or {}))]
+        if add_final_fc:
+            modules.append(nn.LazyLinear(n_classes))
+        self.model = nn.Sequential(*modules)
+        if input_shape is not None:
+            self.example_input_array = torch.zeros([1] + list(input_shape))
+            self.model.eval()
+            self.forward(self.example_input_array)
+
+    # pylint: disable=arguments-differ
+    def forward(self, x: Tensor, *_, **__) -> Tensor:
+        return self.model(x.to(self.device))  # type: ignore
