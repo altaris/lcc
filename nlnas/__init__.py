@@ -3,8 +3,8 @@
 .. include:: ../CHANGELOG.md
 """
 
-from .pdist import pdist
-from .tensor_dataset import TensorDataset
-from .classifier import Classifier
-from .utils import train_model, train_model_guarded
 from .nlnas import analysis, train_and_analyse_all
+from .pdist import pdist
+from .tv_classifier import TorchvisionClassifier
+from .tv_dataset import TorchvisionDataset
+from .training import train_model, train_model_guarded

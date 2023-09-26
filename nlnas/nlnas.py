@@ -3,7 +3,6 @@
 from glob import glob
 import random
 from pathlib import Path
-from typing import Any
 
 import bokeh.plotting as bk
 import numpy as np
@@ -15,18 +14,22 @@ from loguru import logger as logging
 from sklearn.manifold import TSNE
 from sklearn.svm import SVC
 from torch import Tensor
+import pytorch_lightning as pl
+
+from nlnas.tv_dataset import TorchvisionDataset
+from nlnas.utils import get_first_n
+
 
 from .pdist import pdist
 from .plotting import class_scatter
-from .tensor_dataset import TensorDataset
-from .classifier import Classifier
-from .utils import train_model_guarded
+from .tv_classifier import TorchvisionClassifier
+from .training import train_model_guarded
 
 
 def analysis(
-    model: Classifier | str | Path,
+    model: TorchvisionClassifier | str | Path,
     submodule_names: list[str],
-    dataset: TensorDataset | str,
+    dataset: pl.LightningDataModule | str,
     output_dir: str | Path,
     n_samples: int = 5000,
     max_class_pairs: int = 200,
@@ -40,8 +43,8 @@ def analysis(
         submodule_names (list[str]): List or comma-separated list of
             submodule names. For example, the interesting submodules of
             `resnet18` are `maxpool, layer1, layer2, layer3, layer4, fc`
-        dataset_name (TensorDataset | str): A tensor dataset or the name of a
-            torchvision dataset
+        dataset (pl.LightningDataModule | str): A lightning datamodule or the
+            name of a torchvision dataset
         output_dir (str | Path):
         n_samples (int, optional):
         max_class_pairs (int, optional):
@@ -49,15 +52,15 @@ def analysis(
     output_dir = Path(output_dir)
 
     # LOAD MODEL IF NEEDED
-    if not isinstance(model, Classifier):
-        model = Classifier.load_from_checkpoint(model)
-    assert isinstance(model, Classifier)
+    if not isinstance(model, TorchvisionClassifier):
+        model = TorchvisionClassifier.load_from_checkpoint(model)
+    assert isinstance(model, TorchvisionClassifier)
     model.eval()
 
     # LOAD DATASET IF NEEDED
-    if not isinstance(dataset, TensorDataset):
-        dataset = TensorDataset.from_torchvision_dataset(dataset)
-    assert isinstance(dataset, TensorDataset)
+    if not isinstance(dataset, pl.LightningDataModule):
+        dataset = TorchvisionDataset(dataset)
+    dataset.setup("fit")
 
     # EVALUATION
     logging.debug("Evaluating model")
@@ -66,7 +69,7 @@ def analysis(
         h.result = {}
         model.eval()
         model.forward_intermediate(
-            dataset.x[:n_samples],
+            get_first_n(dataset.train_dataloader(), n_samples)[0],
             submodule_names,
             h.result,
         )
@@ -108,7 +111,7 @@ def analysis(
     embeddings: dict[str, np.ndarray] = h.result
 
     # TSNE PLOTTING
-    y = dataset.y[:n_samples].numpy()
+    y = get_first_n(dataset.train_dataloader(), n_samples)[1].numpy()
     h = tb.GuardedBlockHandler(output_dir / "tsne" / "plots.json")
     for _ in h.guard():
         h.result = {}
@@ -125,12 +128,11 @@ def analysis(
             export_png(figure, filename=h.output_path.parent / (k + ".png"))
 
     # SEPARABILITY SCORE AND PLOTTING
+    n_classes = len(np.unique(y))
     class_idx_pairs = [
-        (i, j)
-        for i in range(dataset.n_classes)
-        for j in range(i + 1, dataset.n_classes)
+        (i, j) for i in range(n_classes) for j in range(i + 1, n_classes)
     ]
-    if (dataset.n_classes * (dataset.n_classes - 1) / 2) > max_class_pairs:
+    if (n_classes * (n_classes - 1) / 2) > max_class_pairs:
         class_idx_pairs = random.sample(class_idx_pairs, max_class_pairs)
     h = tb.GuardedBlockHandler(output_dir / "svc" / "svc.json")
     for _ in h.guard():
@@ -165,9 +167,9 @@ def analysis(
 
 
 def train_and_analyse_all(
-    model: Classifier,
+    model: TorchvisionClassifier,
     submodule_names: list[str],
-    dataset: TensorDataset | str,
+    dataset: pl.LightningDataModule | str,
     output_dir: str | Path,
     model_name: str | None = None,
     n_samples: int = 5000,
@@ -182,7 +184,7 @@ def train_and_analyse_all(
         submodule_names (list[str]): List or comma-separated list of
             submodule names. For example, the interesting submodules of
             `resnet18` are `maxpool, layer1, layer2, layer3, layer4, fc`
-        dataset (TensorDataset | str):
+        dataset (pl.LightningDataModule | str):
         output_dir (str | Path):
         model_kwargs (dict[str, Any], optional): Defaults to None.
         model_name (str, optional): Model name override (for naming
@@ -201,12 +203,10 @@ def train_and_analyse_all(
     if isinstance(output_dir, str):
         output_dir = Path(output_dir)
     if isinstance(dataset, str):
-        dataset = TensorDataset.from_torchvision_dataset(dataset)
-    train, val = dataset.train_test_split_dl()
+        dataset = TorchvisionDataset(dataset)
     train_model_guarded(
         model,
-        train,
-        val,
+        dataset,
         output_dir / "model",
         name=model_name,
         max_epochs=512,

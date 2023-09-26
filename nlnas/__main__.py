@@ -79,19 +79,19 @@ def main(
     """Entrypoint"""
 
     from .nlnas import train_and_analyse_all
-    from .classifier import Classifier
-    from .tensor_dataset import TensorDataset
+    from .tv_classifier import TorchvisionClassifier
+    from .tv_dataset import TorchvisionDataset
+    from .utils import targets
 
     _setup_logging(logging_level)
 
     output_dir = Path("export-out") / model_name / dataset_name
-    ds = TensorDataset.from_torchvision_dataset(dataset_name)
-    if ds.x.shape[1] != 3:
-        logging.info("Converting the image dataset to RGB")
-        ds.x = ds.x.repeat(1, 3, 1, 1)
+    ds = TorchvisionDataset(dataset_name)
+    ds.setup("fit")
     train_and_analyse_all(
-        model=Classifier.torchvision_classifier(
-            model_name, n_classes=ds.n_classes
+        model=TorchvisionClassifier(
+            model_name,
+            n_classes=len(targets(ds.train_dataloader())),
         ),
         submodule_names=submodule_names.split(","),
         dataset=ds,

@@ -1,4 +1,4 @@
-"""Abstract image classifier model"""
+"""A torchvision image classifier wrapped inside a `LightningModule`"""
 
 from typing import Any, Iterable
 
@@ -9,11 +9,16 @@ from torch import Tensor, nn
 from torch.utils.hooks import RemovableHandle
 from torchvision.models import get_model
 
-from nlnas.utils import best_device
+from .utils import best_device
 
 
-class Classifier(pl.LightningModule):
-    """Convenient module wrapper for image classifiers"""
+class TorchvisionClassifier(pl.LightningModule):
+    """
+    A torchvision image classifier wrapped inside a `LightningModule`
+
+    See also:
+        https://pytorch.org/vision/stable/models.html#classification
+    """
 
     model: nn.Module
 
@@ -30,7 +35,8 @@ class Classifier(pl.LightningModule):
     ) -> None:
         """
         Args:
-            model_name (str):
+            model_name (str): Torchvision model name in lower case. See also
+                https://pytorch.org/vision/stable/generated/torchvision.models.list_models.html
             n_classes (int):
             input_shape (Iterable[int], optional): If give, a example run is
                 performed after construction. This can be useful to see the

@@ -3,7 +3,12 @@ from pathlib import Path
 
 from loguru import logger as logging
 
-from nlnas import Classifier, TensorDataset, train_and_analyse_all
+from nlnas import (
+    TorchvisionClassifier,
+    TorchvisionDataset,
+    train_and_analyse_all,
+)
+from nlnas.utils import targets
 
 
 def main():
@@ -26,21 +31,21 @@ def main():
     dataset_names = [
         "mnist",
         # "kmnist",
-        "fashionmnist",
-        "cifar10",
+        # "fashionmnist",
+        # "cifar10",
         # "cifar100",
     ]
     for m, d in product(model_names, dataset_names):
         output_dir = Path("export-out") / m / d
-        ds = TensorDataset.from_torchvision_dataset(d)
-        if ds.x.shape[1] != 3:
-            logging.debug("Converting the image dataset to RGB")
-            ds.x = ds.x.repeat(1, 3, 1, 1)
-        model = Classifier(
+        ds = TorchvisionDataset(d)
+        ds.setup("fit")
+        n_classes = len(targets(ds.val_dataloader()))
+        image_shape = list(next(iter(ds.val_dataloader()))[0].shape)[1:]
+        model = TorchvisionClassifier(
             model_name=m,
-            n_classes=ds.n_classes,
+            n_classes=n_classes,
             add_final_fc=True,
-            input_shape=ds.image_shape,
+            input_shape=image_shape,
         )
         train_and_analyse_all(
             model=model,

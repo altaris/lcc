@@ -1,10 +1,17 @@
 from itertools import product
 from pathlib import Path
 
-import torchvision
 from loguru import logger as logging
 
-from nlnas import Classifier, TensorDataset, train_and_analyse_all
+from nlnas import (
+    TorchvisionClassifier,
+    TorchvisionDataset,
+    train_and_analyse_all,
+)
+from nlnas import transforms
+from nlnas.utils import targets
+from nlnas.transforms import EnsuresRGB
+import torchvision
 
 
 def main():
@@ -38,21 +45,20 @@ def main():
         [
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Resize([224, 224], antialias=True),
-            # torchvision.transforms.Normalize([0], [1]),
+            EnsuresRGB(),
         ]
     )
     for m, d in product(model_names, dataset_names):
         output_dir = Path("export-out") / m / d
-        ds = TensorDataset.from_torchvision_dataset(d, transform)
-        # ds.x, ds.y = ds.x[:512], ds.y[:512]
-        if ds.x.shape[1] != 3:
-            logging.debug("Converting the image dataset to RGB")
-            ds.x = ds.x.repeat(1, 3, 1, 1)
-        model = Classifier(
+        ds = TorchvisionDataset(d, transform=transform)
+        ds.setup("fit")
+        n_classes = len(targets(ds.val_dataloader()))
+        image_shape = list(next(iter(ds.val_dataloader()))[0].shape)[1:]
+        model = TorchvisionClassifier(
             model_name=m,
-            n_classes=ds.n_classes,
+            n_classes=n_classes,
             add_final_fc=True,
-            input_shape=ds.image_shape,
+            input_shape=image_shape,
         )
         train_and_analyse_all(
             model=model,
@@ -60,14 +66,14 @@ def main():
             dataset=ds,
             output_dir=output_dir,
             model_name=m,
+            n_samples=500,
         )
 
 
 if __name__ == "__main__":
-    main()
-    # try:
-    #     main()
-    # except KeyboardInterrupt:
-    #     pass
-    # except:
-    #     logging.exception(":sad trombone:")
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
+    except:
+        logging.exception(":sad trombone:")
