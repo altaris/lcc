@@ -134,9 +134,12 @@ def analysis(
     ]
     if (n_classes * (n_classes - 1) / 2) > max_class_pairs:
         class_idx_pairs = random.sample(class_idx_pairs, max_class_pairs)
-    h = tb.GuardedBlockHandler(output_dir / "svc" / "svc.json")
+    h = tb.GuardedBlockHandler(output_dir / "svc" / "pairwise_rbf.json")
+    # h = tb.GuardedBlockHandler(output_dir / "svc" / "pairwise_linear.json")
+    # h = tb.GuardedBlockHandler(output_dir / "svc" / "full_linear.json")
     for _ in h.guard():
         h.result = {}
+        # PAIRWISE RBF
         for k, e in embeddings.items():
             logging.debug("Fitting SVC for outputs of submodule '{}'", k)
             h.result[k] = []
@@ -144,19 +147,34 @@ def analysis(
                 yij = (y == i) + (y == j)
                 a, b = e[yij], y[yij] == i
                 svc = SVC(kernel="rbf").fit(a, b)
-                h.result[k].append(
-                    {"idx": (i, j), "svc": svc, "score": svc.score(a, b)}
-                )
+                h.result[k].append({"idx": (i, j), "score": svc.score(a, b)})
+
+        # PAIRWISE LINEAR
+        # for k, e in outputs.items():
+        #     logging.debug("Fitting SVC for outputs of submodule '{}'", k)
+        #     h.result[k] = []
+        #     for i, j in class_idx_pairs:
+        #         yij = (y == i) + (y == j)
+        #         a, b = e[yij].flatten(1).numpy(), y[yij] == i
+        #         svc = SVC(kernel="linear").fit(a, b)
+        #         h.result[k].append({"idx": (i, j), "score": svc.score(a, b)})
+
+        # FULL LINEAR
+        # for k, e in outputs.items():
+        #     logging.debug("Fitting SVC for outputs of submodule '{}'", k)
+        #     a = e.flatten(1).numpy()
+        #     svc = SVC(kernel="linear").fit(a, y)
+        #     h.result[k] = {"svc": svc, "score": svc.score(a, y)}
 
         # Plotting is done here to be in the guarded block
         logging.debug("Plotting separability scores")
-        scores = [np.mean([d["score"] for d in v]) for v in h.result.values()]
-        df = pd.DataFrame(
-            scores, index=h.result.keys(), columns=["mean_score"]
-        )
-        df = df.reset_index(names="submodule")
-        figure = sns.lineplot(df, x="submodule", y="mean_score")
-        figure.set(title="Mean pairwise separability score")
+        scores = [
+            [k, np.mean([d["score"] for d in v])] for k, v in h.result.items()
+        ]
+        # scores = [[k, v["score"]] for k, v in h.result.items()]
+        df = pd.DataFrame(scores, columns=["submodule", "score"])
+        figure = sns.lineplot(df, x="submodule", y="score")
+        figure.set(title="Linear separability score")
         figure.set_xticklabels(
             figure.get_xticklabels(),
             rotation=45,
@@ -164,6 +182,7 @@ def analysis(
             ha="right",
         )
         figure.get_figure().savefig(h.output_path.parent / "separability.png")
+        plt.clf()
 
 
 def train_and_analyse_all(

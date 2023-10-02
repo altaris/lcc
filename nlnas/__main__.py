@@ -85,7 +85,7 @@ def main(
 
     _setup_logging(logging_level)
 
-    output_dir = Path("export-out") / model_name / dataset_name
+    output_dir = Path("out") / model_name / dataset_name
     ds = TorchvisionDataset(dataset_name)
     ds.setup("fit")
     train_and_analyse_all(

@@ -49,7 +49,7 @@ def main():
         ]
     )
     for m, d in product(model_names, dataset_names):
-        output_dir = Path("export-out") / m / d
+        output_dir = Path("out") / m / d
         ds = TorchvisionDataset(d, transform=transform)
         ds.setup("fit")
         n_classes = len(targets(ds.val_dataloader()))
