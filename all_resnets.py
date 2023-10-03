@@ -29,11 +29,11 @@ def main():
         "model.1",
     ]
     dataset_names = [
-        "mnist",
+        # "mnist",
         "kmnist",
-        "fashionmnist",
+        # "fashionmnist",
         "cifar10",
-        "cifar100",
+        # "cifar100",
     ]
     for m, d in product(model_names, dataset_names):
         output_dir = Path("out") / m / d

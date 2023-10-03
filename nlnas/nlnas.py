@@ -1,29 +1,28 @@
 """Main module"""
 
-from glob import glob
 import random
+from glob import glob
 from pathlib import Path
 
 import bokeh.plotting as bk
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import pytorch_lightning as pl
 import seaborn as sns
 import turbo_broccoli as tb
 from bokeh.io import export_png
 from loguru import logger as logging
 from sklearn.manifold import TSNE
-from sklearn.svm import SVC
 from torch import Tensor
-import pytorch_lightning as pl
 
-from nlnas.tv_dataset import TorchvisionDataset
-from nlnas.utils import get_first_n
-
-
+from .separability import pairwise_svc_scores
+from .classifier import TorchvisionClassifier
 from .pdist import pdist
 from .plotting import class_scatter
-from .classifier import TorchvisionClassifier
 from .training import train_model_guarded
+from .tv_dataset import TorchvisionDataset
+from .utils import get_first_n
 
 
 def analysis(
@@ -53,6 +52,7 @@ def analysis(
 
     # LOAD MODEL IF NEEDED
     if not isinstance(model, TorchvisionClassifier):
+        logging.info("Analysing checkpoint {}", str(model))
         model = TorchvisionClassifier.load_from_checkpoint(model)
     assert isinstance(model, TorchvisionClassifier)
     model.eval()
@@ -63,9 +63,9 @@ def analysis(
     dataset.setup("fit")
 
     # EVALUATION
-    logging.debug("Evaluating model")
     h = tb.GuardedBlockHandler(output_dir / "eval" / "eval.json")
     for _ in h.guard():
+        logging.debug("Evaluating model")
         h.result = {}
         model.eval()
         model.forward_intermediate(
@@ -77,6 +77,7 @@ def analysis(
 
     # COMPUTE DISTANCE MATRICES
     h = tb.GuardedBlockHandler(output_dir / "pdist" / "pdist.json")
+    chunk_path = h.output_path.parent / "chunks"
     for _ in h.guard():
         h.result = {}
         for k, z in outputs.items():
@@ -86,7 +87,15 @@ def analysis(
             h.result[k] = pdist(
                 z.flatten(1).numpy(),
                 chunk_size=int(n_samples / 10),
-                chunk_path=h.output_path.parent / "chunks" / k,
+                chunk_path=chunk_path / k,
+            )
+    if chunk_path.is_dir():
+        logging.debug("Removing pdist chuncks directory '{}'", chunk_path)
+        try:
+            chunk_path.rmdir()
+        except OSError as err:
+            logging.error(
+                "Could not remove chunks directory '{}': {}", chunk_path, err
             )
     distance_matrices: dict[str, np.ndarray] = h.result
 
@@ -119,10 +128,7 @@ def analysis(
             logging.debug(
                 "Plotting TSNE embedding for outputs of submodule '{}'", k
             )
-            figure = bk.figure(
-                title=k,
-                toolbar_location=None,
-            )
+            figure = bk.figure(title=k, toolbar_location=None)
             class_scatter(figure, e, y, "viridis")
             h.result[k] = figure
             export_png(figure, filename=h.output_path.parent / (k + ".png"))
@@ -142,22 +148,12 @@ def analysis(
         # PAIRWISE RBF
         for k, e in embeddings.items():
             logging.debug("Fitting SVC for outputs of submodule '{}'", k)
-            h.result[k] = []
-            for i, j in class_idx_pairs:
-                yij = (y == i) + (y == j)
-                a, b = e[yij], y[yij] == i
-                svc = SVC(kernel="rbf").fit(a, b)
-                h.result[k].append({"idx": (i, j), "score": svc.score(a, b)})
-
-        # PAIRWISE LINEAR
-        # for k, e in outputs.items():
-        #     logging.debug("Fitting SVC for outputs of submodule '{}'", k)
-        #     h.result[k] = []
-        #     for i, j in class_idx_pairs:
-        #         yij = (y == i) + (y == j)
-        #         a, b = e[yij].flatten(1).numpy(), y[yij] == i
-        #         svc = SVC(kernel="linear").fit(a, b)
-        #         h.result[k].append({"idx": (i, j), "score": svc.score(a, b)})
+            h.result[k] = pairwise_svc_scores(
+                e, y, max_class_pairs, kernel="rbf"
+            )
+            h.result[k] = pairwise_svc_scores(
+                e, y, max_class_pairs, kernel="linear"
+            )
 
         # FULL LINEAR
         # for k, e in outputs.items():
@@ -217,7 +213,7 @@ def train_and_analyse_all(
             number is greater than `n_class_pairs`, then `n_class_pairs` pairs
             are chosen at random for the separability scoring.
     """
-    tb.set_max_nbytes(1000)  # Ensure artefacts
+    # tb.set_max_nbytes(1000)  # Ensure artefacts
     model_name = model_name or model.__class__.__name__.lower()
     if isinstance(output_dir, str):
         output_dir = Path(output_dir)
