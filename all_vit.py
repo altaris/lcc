@@ -8,7 +8,6 @@ from nlnas import (
     TorchvisionDataset,
     train_and_analyse_all,
 )
-from nlnas import transforms
 from nlnas.utils import targets
 from nlnas.transforms import EnsuresRGB
 import torchvision
@@ -20,16 +19,16 @@ def main():
     ]
     submodule_names = [
         "model.0.encoder.layers.encoder_layer_0",
-        "model.0.encoder.layers.encoder_layer_1",
-        "model.0.encoder.layers.encoder_layer_2",
-        "model.0.encoder.layers.encoder_layer_3",
+        # "model.0.encoder.layers.encoder_layer_1",
+        # "model.0.encoder.layers.encoder_layer_2",
+        # "model.0.encoder.layers.encoder_layer_3",
         "model.0.encoder.layers.encoder_layer_4",
-        "model.0.encoder.layers.encoder_layer_5",
-        "model.0.encoder.layers.encoder_layer_6",
-        "model.0.encoder.layers.encoder_layer_7",
+        # "model.0.encoder.layers.encoder_layer_5",
+        # "model.0.encoder.layers.encoder_layer_6",
+        # "model.0.encoder.layers.encoder_layer_7",
         "model.0.encoder.layers.encoder_layer_8",
-        "model.0.encoder.layers.encoder_layer_9",
-        "model.0.encoder.layers.encoder_layer_10",
+        # "model.0.encoder.layers.encoder_layer_9",
+        # "model.0.encoder.layers.encoder_layer_10",
         "model.0.encoder.layers.encoder_layer_11",
         "model.0.heads",
         "model.1",

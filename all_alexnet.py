@@ -1,6 +1,7 @@
 from itertools import product
 from pathlib import Path
 
+import torchvision
 from loguru import logger as logging
 
 from nlnas import (
@@ -8,43 +9,43 @@ from nlnas import (
     TorchvisionDataset,
     train_and_analyse_all,
 )
+from nlnas import transforms
+from nlnas.transforms import EnsuresRGB
 from nlnas.utils import targets
-
-
-def extract_logits(_module, _inputs, outputs) -> Tensor | None:
-    """Googlenet outputs a named tuple instead of a tensor"""
-    return outputs.logits if not isinstance(outputs, Tensor) else None
 
 
 def main():
     model_names = [
-        "googlenet",
+        "alexnet",
     ]
     submodule_names = [
-        "model.0.maxpool1",
-        # "model.0.maxpool2",
-        "model.0.inception3a",
-        "model.0.maxpool3",
-        # "model.0.inception4a",
-        # "model.0.inception4b",
-        # "model.0.inception4c",
-        "model.0.inception4d",
-        "model.0.maxpool4",
-        # "model.0.inception5a",
-        "model.0.inception5b",
-        "model.0.fc",
+        "model.0.features.2",
+        # "model.0.features.5",
+        "model.0.features.7",
+        # "model.0.features.9",
+        "model.0.avgpool",
+        "model.0.classifier.2",
+        # "model.0.classifier.5",
+        "model.0.classifier.6",
         "model.1",
     ]
     dataset_names = [
-        "mnist",
-        # "kmnist",
-        "fashionmnist",
+        # "mnist",
+        "kmnist",
+        # "fashionmnist",
         "cifar10",
         # "cifar100",
     ]
+    transform = torchvision.transforms.Compose(
+        [
+            torchvision.transforms.ToTensor(),
+            torchvision.transforms.Resize([64, 64], antialias=True),
+            EnsuresRGB(),
+        ]
+    )
     for m, d in product(model_names, dataset_names):
         output_dir = Path("out") / m / d
-        ds = TorchvisionDataset(d)
+        ds = TorchvisionDataset(d, transform=transform)
         ds.setup("fit")
         n_classes = len(targets(ds.val_dataloader()))
         image_shape = list(next(iter(ds.val_dataloader()))[0].shape)[1:]
@@ -54,7 +55,6 @@ def main():
             add_final_fc=True,
             input_shape=image_shape,
         )
-        model.model[0].register_forward_hook(extract_logits)
         train_and_analyse_all(
             model=model,
             submodule_names=submodule_names,
