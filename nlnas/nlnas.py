@@ -227,21 +227,21 @@ def train_and_analyse_all(
         max_epochs=512,
         strategy="ddp",
     )
-    ckpt_glob = str(
-        output_dir
-        / "model"
-        / "tb_logs"
-        / model_name
-        / "version_0"
-        / "checkpoints"
-        / "*.ckpt"
-    )
-    for i, ckpt in enumerate(glob(ckpt_glob)):
-        analysis(
-            ckpt,
-            submodule_names,
-            dataset,
-            output_dir / str(i),
-            n_samples,
-            max_class_pairs,
+    if model.global_rank == 0:
+        p = (
+            output_dir
+            / "model"
+            / "tb_logs"
+            / model_name
+            / "version_0"
+            / "checkpoints"
         )
+        for i, ckpt in enumerate(all_ckpt_paths(p)):
+            analysis(
+                ckpt,
+                submodule_names,
+                dataset,
+                output_dir / str(i),
+                n_samples,
+                max_class_pairs,
+            )

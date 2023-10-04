@@ -1,12 +1,33 @@
 """Useful stuff"""
 
 import os
+from glob import glob
+from pathlib import Path
 
 import torch
+from loguru import logger as logging
+import regex as re
 from torch import Tensor
 from torch.utils.data import DataLoader
 
-from loguru import logger as logging
+
+def all_ckpt_paths(ckpts_dir_path: str | Path) -> list[Path]:
+    """
+    Returns the sorted (by epoch) list of all checkpoint file paths in a given
+    directory. `ckpts_dir_path` probably looks like
+    `.../tb_logs/my_model/version_N/checkpoints`. The checkpoint files are
+    assumed to be named as `epoch=XX-step=YY.ckpt` where of course `XX` is the
+    epoch number and `YY` is the step number.
+
+    Args:
+        ckpts_dir_path (str | Path):
+    """
+    r, d = re.compile(r"/epoch=(\d+)-step=\d+\.ckpt$"), {}
+    for p in glob(str(Path(ckpts_dir_path) / "*.ckpt")):
+        if m := re.search(r, p):
+            epoch = int(m.group(1))
+            d[epoch] = Path(p)
+    return [d[i] for i in sorted(list(d.keys()))]
 
 
 def best_device() -> str:
