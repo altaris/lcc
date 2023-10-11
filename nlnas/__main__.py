@@ -2,8 +2,8 @@
 
 
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import click
 from loguru import logger as logging
@@ -78,12 +78,15 @@ def main(
 ):
     """Entrypoint"""
 
-    from .nlnas import train_and_analyse_all
+    import pytorch_lightning as pl
+
     from .classifier import TorchvisionClassifier
+    from .nlnas import train_and_analyse_all
     from .tv_dataset import TorchvisionDataset
     from .utils import targets
 
     _setup_logging(logging_level)
+    pl.seed_everything(0)
 
     output_dir = Path("out") / model_name / dataset_name
     ds = TorchvisionDataset(dataset_name)

@@ -10,8 +10,8 @@ from typing import Callable, Tuple
 import numpy as np
 from joblib import Parallel, delayed
 from loguru import logger as logging
-from scipy.spatial.distance import cdist
 from safetensors import numpy as st
+from scipy.spatial.distance import cdist
 
 
 def _guarded_cdist(

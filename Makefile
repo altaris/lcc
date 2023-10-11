@@ -19,6 +19,7 @@ docs-browser:
 
 .PHONY: format
 format:
+	# isort .
 	black --line-length 79 --target-version py310 $(SRC_PATH)
 
 .PHONY: lint

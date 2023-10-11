@@ -4,9 +4,9 @@ import os
 from glob import glob
 from pathlib import Path
 
+import regex as re
 import torch
 from loguru import logger as logging
-import regex as re
 from torch import Tensor
 from torch.utils.data import DataLoader
 

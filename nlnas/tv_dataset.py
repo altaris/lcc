@@ -154,7 +154,7 @@ class TorchvisionDataset(pl.LightningDataModule):
         self.dataset = factory(
             root=self.download_path, transform=self.transform, **kwargs
         )
-        assert self.dataset is not None
+        assert self.dataset is not None  # For typechecking
         if stage == "fit":
             self.train_dataset, self.val_dataset = random_split(
                 self.dataset, [self.train_val_split, 1 - self.train_val_split]

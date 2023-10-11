@@ -1,8 +1,6 @@
 """Plotting utilities"""
-
-
-import bokeh.plotting as bk
 import bokeh.palettes as plt
+import bokeh.plotting as bk
 import numpy as np
 from scipy.stats import multivariate_normal
 from sklearn.mixture import GaussianMixture
