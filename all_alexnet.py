@@ -36,9 +36,9 @@ def main():
         # "model"
     ]
     dataset_names = [
-        "mnist",
+        # "mnist",
         # "kmnist",
-        "fashionmnist",
+        # "fashionmnist",
         "cifar10",
         # "cifar100",
     ]

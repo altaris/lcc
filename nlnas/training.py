@@ -2,7 +2,6 @@
 
 import os
 import re
-from contextlib import contextmanager
 from glob import glob
 from pathlib import Path
 from typing import Any, Callable
@@ -13,7 +12,6 @@ import torch
 from loguru import logger as logging
 from pytorch_lightning.strategies.strategy import Strategy
 from safetensors import numpy as nst
-from torch.utils.data import DataLoader
 
 
 class NoCheckpointFound(Exception):
@@ -265,8 +263,7 @@ def train_model(
 
     trainer.fit(model, datamodule)
 
-    assert trainer.checkpoint_callback is not None  # For typechecking
-    ckpt = Path(trainer.checkpoint_callback.best_model_path)
+    ckpt = Path(trainer.checkpoint_callback.best_model_path)  # type: ignore
     logging.debug("Loading best checkpoint '{}'", ckpt)
     return type(model).load_from_checkpoint(str(ckpt))  # type: ignore
 

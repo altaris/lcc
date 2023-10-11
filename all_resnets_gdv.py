@@ -29,9 +29,9 @@ def main():
         # "model.0.layer2",
         # "model.0.layer3.0"
         # "model.0.layer3.1"
-        "model.0.layer3",
+        # "model.0.layer3",
         # "model.0.layer4.0"
-        # "model.0.layer4.1"
+        "model.0.layer4.1"
         # "model.0.layer4",
         # "model.0.fc",
         # "model.1",
@@ -55,7 +55,7 @@ def main():
             vh_submodules=submodule_names,
             add_final_fc=True,
             input_shape=image_shape,
-            horizontal_lr=1e-2,
+            horizontal_lr=5e-3,
         )
         # train_model_guarded(
         train_model(
@@ -64,7 +64,7 @@ def main():
             output_dir / "model",
             name=model_name,
             max_epochs=512,
-            strategy="ddp",
+            strategy="ddp_find_unused_parameters_true",
         )
         # train_and_analyse_all(
         #     model=model,

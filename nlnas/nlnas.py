@@ -2,7 +2,6 @@
 
 import random
 import shutil
-from glob import glob
 from pathlib import Path
 
 import bokeh.plotting as bk

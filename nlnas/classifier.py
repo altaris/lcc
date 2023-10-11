@@ -1,7 +1,7 @@
 """A torchvision image classifier wrapped inside a `LightningModule`"""
 
 from itertools import chain
-from typing import Any, Iterable, Tuple
+from typing import Any, Iterable
 
 import pytorch_lightning as pl
 import torch
@@ -154,8 +154,7 @@ class TorchvisionClassifier(Classifier):
 class VHTorchvisionClassifier(TorchvisionClassifier):
     """Torchvision classifier with a horizontal training hook"""
 
-    vh_submodules: list[str]
-
+    # pylint: disable=unused-argument
     def __init__(
         self,
         model_name: str,
@@ -164,6 +163,7 @@ class VHTorchvisionClassifier(TorchvisionClassifier):
         input_shape: Iterable[int] | None = None,
         model_config: dict[str, Any] | None = None,
         add_final_fc: bool = False,
+        vertical_lr: float = 1e-3,
         horizontal_lr: float = 1e-3,
         **kwargs,
     ) -> None:
@@ -190,16 +190,48 @@ class VHTorchvisionClassifier(TorchvisionClassifier):
         )
         self.save_hyperparameters()
         self.vh_submodules = vh_submodules
-        self.horizontal_opt = torch.optim.Adam(
+        self.automatic_optimization = False
+
+    def _evaluate_horizontal(self, batch, stage: str | None = None) -> Tensor:
+        x, y = batch
+        output_dict: dict[str, Tensor] = {}
+        self.forward_intermediate(
+            x, self.vh_submodules, output_dict, keep_gradients=True
+        )
+        loss = torch.mean(
+            torch.stack([gdv(v, y) for v in output_dict.values()])
+            # torch.stack(
+            #     [
+            #         label_variation(
+            #             v,
+            #             y.to(v),
+            #             k=10,
+            #             n_classes=self.n_classes,
+            #         )
+            #         for v in output_dict.values()
+            #     ]
+            # )
+        )
+        if stage:
+            self.log("train/gdv", loss, sync_dist=True)
+            # self.log(f"{stage}/lv", loss, sync_dist=True)
+        return loss
+
+    def configure_optimizers(self):
+        v_opt = torch.optim.Adam(
+            self.parameters(),
+            lr=self.hparams["vertical_lr"],
+        )
+        h_opt = torch.optim.Adam(
             chain(
                 *[
                     self.get_submodule(s).parameters()
-                    for s in self.vh_submodules
+                    for s in self.hparams["vh_submodules"]
                 ]
             ),
-            lr=horizontal_lr,
+            lr=self.hparams["horizontal_lr"],
         )
-        # self.automatic_optimization = False
+        return [v_opt, h_opt]
 
     def on_train_epoch_end(self) -> None:
         dl = self.trainer.train_dataloader
@@ -208,31 +240,25 @@ class VHTorchvisionClassifier(TorchvisionClassifier):
                 "Model's trainer does not have a training dataloader. "
                 "This should really not happen =("
             )
+        opts = self.optimizers()
+        assert isinstance(opts, list)
+        opt = opts[1]
         progress = tqdm(iter(dl), desc="Horizontal fit", leave=False)
         for batch in progress:
-            self.horizontal_opt.zero_grad()
-            x, y = batch
-            output_dict: dict[str, Tensor] = {}
-            self.forward_intermediate(
-                x, self.vh_submodules, output_dict, keep_gradients=True
-            )
-            loss = torch.mean(
-                torch.stack([gdv(v, y) for v in output_dict.values()])
-                # torch.stack(
-                #     [
-                #         label_variation(
-                #             v,
-                #             y.to(v),
-                #             k=10,
-                #             n_classes=self.n_classes,
-                #         )
-                #         for v in output_dict.values()
-                #     ]
-                # )
-            )
-            loss.backward()
-            self.horizontal_opt.step()
-            # progress.set_postfix({"train/lv": float(loss)})
-            progress.set_postfix({"train/gdv": float(loss)})
-            # self.log("train/lv", loss, sync_dist=True)
-            self.log("train/gdv", loss, sync_dist=True)
+            opt.zero_grad()  # type: ignore
+            loss = self._evaluate_horizontal(batch, "train")
+            self.manual_backward(loss)
+            opt.step()
+            progress.set_postfix({"train/lv": float(loss)})
+            # progress.set_postfix({"train/gdv": float(loss)})
+
+    # pylint: disable=arguments-differ
+    def training_step(self, batch: Any, *_: Any, **__: Any) -> Tensor:
+        opts = self.optimizers()
+        assert isinstance(opts, list)
+        opt = opts[0]
+        opt.zero_grad()  # type: ignore
+        loss = self._evaluate(batch, "train")
+        self.manual_backward(loss)
+        opt.step()
+        return loss
