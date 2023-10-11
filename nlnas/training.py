@@ -10,10 +10,10 @@ from typing import Any, Callable
 import numpy as np
 import pytorch_lightning as pl
 import torch
-from torch.utils.data import DataLoader
 from loguru import logger as logging
-from safetensors import numpy as nst
 from pytorch_lightning.strategies.strategy import Strategy
+from safetensors import numpy as nst
+from torch.utils.data import DataLoader
 
 
 class NoCheckpointFound(Exception):
@@ -45,7 +45,7 @@ def pl_module_loader(
     Loader for pytorch lightning modules, to be used with
     `nlnas.utils.produces_artifact`.
     """
-    assert issubclass(cls, pl.LightningModule)
+    assert issubclass(cls, pl.LightningModule)  # For typechecking
     if not isinstance(root_dir, Path):
         root_dir = Path(root_dir)
     ckpt = last_checkpoint_path(
@@ -251,7 +251,8 @@ def train_model(
                 mode="min",
                 every_n_epochs=1,
             ),
-            pl.callbacks.RichProgressBar(),
+            pl.callbacks.TQDMProgressBar(),
+            # pl.callbacks.RichProgressBar(),
             # pl.callbacks.BatchSizeFinder(),
             *additional_callbacks,
         ],
@@ -264,7 +265,7 @@ def train_model(
 
     trainer.fit(model, datamodule)
 
-    assert trainer.checkpoint_callback is not None
+    assert trainer.checkpoint_callback is not None  # For typechecking
     ckpt = Path(trainer.checkpoint_callback.best_model_path)
     logging.debug("Loading best checkpoint '{}'", ckpt)
     return type(model).load_from_checkpoint(str(ckpt))  # type: ignore

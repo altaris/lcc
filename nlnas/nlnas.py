@@ -1,6 +1,7 @@
 """Main module"""
 
 import random
+import shutil
 from glob import glob
 from pathlib import Path
 
@@ -13,16 +14,17 @@ import seaborn as sns
 import turbo_broccoli as tb
 from bokeh.io import export_png
 from loguru import logger as logging
+from phate import PHATE
 from sklearn.manifold import TSNE
 from torch import Tensor
 
-from .separability import pairwise_svc_scores
-from .classifier import TorchvisionClassifier
+from .classifier import TorchvisionClassifier, VHTorchvisionClassifier
 from .pdist import pdist
 from .plotting import class_scatter
+from .separability import pairwise_svc_scores
 from .training import train_model_guarded
 from .tv_dataset import TorchvisionDataset
-from .utils import get_first_n
+from .utils import all_ckpt_paths, get_first_n
 
 
 def analysis(
@@ -53,14 +55,16 @@ def analysis(
     # LOAD MODEL IF NEEDED
     if not isinstance(model, TorchvisionClassifier):
         logging.info("Analysing checkpoint {}", str(model))
+        # model = VHTorchvisionClassifier.load_from_checkpoint(model)
         model = TorchvisionClassifier.load_from_checkpoint(model)
-    assert isinstance(model, TorchvisionClassifier)
+    assert isinstance(model, TorchvisionClassifier)  # For typechecking
     model.eval()
 
     # LOAD DATASET IF NEEDED
     if not isinstance(dataset, pl.LightningDataModule):
         dataset = TorchvisionDataset(dataset)
     dataset.setup("fit")
+    x_train, y_train = get_first_n(dataset.train_dataloader(), n_samples)
 
     # EVALUATION
     h = tb.GuardedBlockHandler(output_dir / "eval" / "eval.json")
@@ -69,7 +73,7 @@ def analysis(
         h.result = {}
         model.eval()
         model.forward_intermediate(
-            get_first_n(dataset.train_dataloader(), n_samples)[0],
+            x_train,
             submodule_names,
             h.result,
         )
@@ -92,7 +96,7 @@ def analysis(
     if chunk_path.is_dir():
         logging.debug("Removing pdist chuncks directory '{}'", chunk_path)
         try:
-            chunk_path.rmdir()
+            shutil.rmtree(chunk_path)
         except OSError as err:
             logging.error(
                 "Could not remove chunks directory '{}': {}", chunk_path, err
@@ -117,24 +121,23 @@ def analysis(
             e = np.array(t.embedding_)
             e = (e - e.min(axis=0)) / (e.max(axis=0) - e.min(axis=0))
             h.result[k] = e
-    embeddings: dict[str, np.ndarray] = h.result
+    tsne_embeddings: dict[str, np.ndarray] = h.result
 
     # TSNE PLOTTING
-    y = get_first_n(dataset.train_dataloader(), n_samples)[1].numpy()
     h = tb.GuardedBlockHandler(output_dir / "tsne" / "plots.json")
     for _ in h.guard():
         h.result = {}
-        for k, e in embeddings.items():
+        for k, e in tsne_embeddings.items():
             logging.debug(
                 "Plotting TSNE embedding for outputs of submodule '{}'", k
             )
             figure = bk.figure(title=k, toolbar_location=None)
-            class_scatter(figure, e, y, "viridis")
+            class_scatter(figure, e, y_train.numpy(), "viridis")
             h.result[k] = figure
             export_png(figure, filename=h.output_path.parent / (k + ".png"))
 
     # SEPARABILITY SCORE AND PLOTTING
-    n_classes = len(np.unique(y))
+    n_classes = len(np.unique(y_train))
     class_idx_pairs = [
         (i, j) for i in range(n_classes) for j in range(i + 1, n_classes)
     ]
@@ -146,13 +149,13 @@ def analysis(
     for _ in h.guard():
         h.result = {}
         # PAIRWISE RBF
-        for k, e in embeddings.items():
+        for k, e in tsne_embeddings.items():
             logging.debug("Fitting SVC for outputs of submodule '{}'", k)
             h.result[k] = pairwise_svc_scores(
-                e, y, max_class_pairs, kernel="rbf"
+                e, y_train, max_class_pairs, kernel="rbf"
             )
             h.result[k] = pairwise_svc_scores(
-                e, y, max_class_pairs, kernel="linear"
+                e, y_train, max_class_pairs, kernel="linear"
             )
 
         # FULL LINEAR
@@ -179,6 +182,32 @@ def analysis(
         )
         figure.get_figure().savefig(h.output_path.parent / "separability.png")
         plt.clf()
+
+    # # PHATE EMBEDDING
+    # h = tb.GuardedBlockHandler(output_dir / "phate" / "phate.json")
+    # for _ in h.guard():
+    #     h.result = {}
+    #     for k, z in outputs.items():
+    #         logging.debug(
+    #             "Computing PHATE embedding for outputs of submodule '{}'", k
+    #         )
+    #         e = PHATE(verbose=False).fit_transform(z.flatten(1))
+    #         e = (e - e.min(axis=0)) / (e.max(axis=0) - e.min(axis=0))
+    #         h.result[k] = e
+    # phate_embeddings: dict[str, np.ndarray] = h.result
+
+    # # PHATE PLOTTING
+    # h = tb.GuardedBlockHandler(output_dir / "phate" / "plots.json")
+    # for _ in h.guard():
+    #     h.result = {}
+    #     for k, e in phate_embeddings.items():
+    #         logging.debug(
+    #             "Plotting PHATE embedding for outputs of submodule '{}'", k
+    #         )
+    #         figure = bk.figure(title=k, toolbar_location=None)
+    #         class_scatter(figure, e, y_train.numpy(), "viridis")
+    #         h.result[k] = figure
+    #         export_png(figure, filename=h.output_path.parent / (k + ".png"))
 
 
 def train_and_analyse_all(
