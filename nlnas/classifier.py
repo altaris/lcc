@@ -1,6 +1,7 @@
 """A torchvision image classifier wrapped inside a `LightningModule`"""
 
-from typing import Any, Iterable
+from itertools import chain
+from typing import Any, Iterable, Tuple
 
 import pytorch_lightning as pl
 import torch
@@ -8,7 +9,9 @@ import torchmetrics
 from torch import Tensor, nn
 from torch.utils.hooks import RemovableHandle
 from torchvision.models import get_model
+from tqdm import tqdm
 
+from .separability import gdv, label_variation
 from .utils import best_device
 
 
@@ -56,7 +59,8 @@ class Classifier(pl.LightningModule):
         x: Tensor,
         submodules: list[str],
         output_dict: dict,
-    ) -> None:
+        keep_gradients: bool = False,
+    ) -> Tensor:
         """
         Runs the model and collects the output of specified submodules. The
         intermediate outputs are stored in `output_dict` under the
@@ -67,11 +71,16 @@ class Classifier(pl.LightningModule):
             x (Tensor):
             submodules (list[str]):
             output_dict (dict):
+            keep_gradients (bool): If `True`, the tensors in `output_dict` keep
+                their gradients (if they had some on the first place). If
+                `False`, they are detached and moved to the CPU.
         """
 
         def create_hook(key: str):
             def hook(_model: nn.Module, _args: Any, output: Tensor) -> None:
-                output_dict[key] = output.detach().cpu()
+                output_dict[key] = (
+                    output if keep_gradients else output.detach().cpu()
+                )
 
             return hook
 
@@ -79,19 +88,17 @@ class Classifier(pl.LightningModule):
         for name in submodules:
             submodule = self.get_submodule(name)
             handles.append(submodule.register_forward_hook(create_hook(name)))
-        self(x)
+        y = self(x)
         for h in handles:
             h.remove()
+        return y
 
     def test_step(self, batch, *_, **__):
         return self._evaluate(batch, "test")
 
     # pylint: disable=arguments-differ
     def training_step(self, batch, *_, **__) -> Any:
-        x, y = batch
-        loss = nn.functional.cross_entropy(self(x), y.long())
-        self.log("train/loss", loss, sync_dist=True)
-        return loss
+        return self._evaluate(batch, "train")
 
     def validation_step(self, batch, *_, **__):
         return self._evaluate(batch, "val")
@@ -142,3 +149,90 @@ class TorchvisionClassifier(Classifier):
     # pylint: disable=arguments-differ
     def forward(self, x: Tensor, *_, **__) -> Tensor:
         return self.model(x.to(self.device))  # type: ignore
+
+
+class VHTorchvisionClassifier(TorchvisionClassifier):
+    """Torchvision classifier with a horizontal training hook"""
+
+    vh_submodules: list[str]
+
+    def __init__(
+        self,
+        model_name: str,
+        n_classes: int,
+        vh_submodules: list[str],
+        input_shape: Iterable[int] | None = None,
+        model_config: dict[str, Any] | None = None,
+        add_final_fc: bool = False,
+        horizontal_lr: float = 1e-3,
+        **kwargs,
+    ) -> None:
+        """
+        Args:
+            model_name (str): See `nlnas.classifier.TorchvisionClassifier`
+            n_classes (int): See `nlnas.classifier.TorchvisionClassifier`
+            vh_submodules (list[str]): Names of the submodules that are to be
+                trained horizontally (as well as vertically)
+            input_shape (Iterable[int] | None, optional): See
+                `nlnas.classifier.TorchvisionClassifier`
+            model_config (dict[str, Any] | None, optional): See
+                `nlnas.classifier.TorchvisionClassifier`
+            add_final_fc (bool, optional): See
+                `nlnas.classifier.TorchvisionClassifier`
+        """
+        super().__init__(
+            model_name,
+            n_classes,
+            input_shape,
+            model_config,
+            add_final_fc,
+            **kwargs,
+        )
+        self.save_hyperparameters()
+        self.vh_submodules = vh_submodules
+        self.horizontal_opt = torch.optim.Adam(
+            chain(
+                *[
+                    self.get_submodule(s).parameters()
+                    for s in self.vh_submodules
+                ]
+            ),
+            lr=horizontal_lr,
+        )
+        # self.automatic_optimization = False
+
+    def on_train_epoch_end(self) -> None:
+        dl = self.trainer.train_dataloader
+        if dl is None:
+            raise RuntimeError(
+                "Model's trainer does not have a training dataloader. "
+                "This should really not happen =("
+            )
+        progress = tqdm(iter(dl), desc="Horizontal fit", leave=False)
+        for batch in progress:
+            self.horizontal_opt.zero_grad()
+            x, y = batch
+            output_dict: dict[str, Tensor] = {}
+            self.forward_intermediate(
+                x, self.vh_submodules, output_dict, keep_gradients=True
+            )
+            loss = torch.mean(
+                torch.stack([gdv(v, y) for v in output_dict.values()])
+                # torch.stack(
+                #     [
+                #         label_variation(
+                #             v,
+                #             y.to(v),
+                #             k=10,
+                #             n_classes=self.n_classes,
+                #         )
+                #         for v in output_dict.values()
+                #     ]
+                # )
+            )
+            loss.backward()
+            self.horizontal_opt.step()
+            # progress.set_postfix({"train/lv": float(loss)})
+            progress.set_postfix({"train/gdv": float(loss)})
+            # self.log("train/lv", loss, sync_dist=True)
+            self.log("train/gdv", loss, sync_dist=True)
