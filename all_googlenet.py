@@ -1,13 +1,11 @@
 from itertools import product
 from pathlib import Path
 
+import pytorch_lightning as pl
 from loguru import logger as logging
 
-from nlnas import (
-    TorchvisionClassifier,
-    TorchvisionDataset,
-    train_and_analyse_all,
-)
+from nlnas import (TorchvisionClassifier, TorchvisionDataset,
+                   train_and_analyse_all)
 from nlnas.utils import targets
 
 
@@ -17,6 +15,7 @@ def extract_logits(_module, _inputs, outputs) -> Tensor | None:
 
 
 def main():
+    pl.seed_everything(0)
     model_names = [
         "googlenet",
     ]

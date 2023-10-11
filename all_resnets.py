@@ -1,6 +1,7 @@
 from itertools import product
 from pathlib import Path
 
+import pytorch_lightning as pl
 from loguru import logger as logging
 
 from nlnas import (
@@ -12,6 +13,7 @@ from nlnas.utils import targets
 
 
 def main():
+    pl.seed_everything(0)
     model_names = [
         "resnet18",
         # "resnet34",
@@ -20,7 +22,7 @@ def main():
         # "resnet152",
     ]
     submodule_names = [
-        "model.0.maxpool",
+        # "model.0.maxpool",
         "model.0.layer1",
         "model.0.layer2",
         "model.0.layer3",
@@ -29,9 +31,9 @@ def main():
         "model.1",
     ]
     dataset_names = [
-        # "mnist",
-        "kmnist",
-        # "fashionmnist",
+        "mnist",
+        # "kmnist",
+        "fashionmnist",
         "cifar10",
         # "cifar100",
     ]

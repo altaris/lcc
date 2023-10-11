@@ -1,19 +1,18 @@
 from itertools import product
 from pathlib import Path
 
+import pytorch_lightning as pl
+import torchvision
 from loguru import logger as logging
 
-from nlnas import (
-    TorchvisionClassifier,
-    TorchvisionDataset,
-    train_and_analyse_all,
-)
-from nlnas.utils import targets
+from nlnas import (TorchvisionClassifier, TorchvisionDataset,
+                   train_and_analyse_all)
 from nlnas.transforms import EnsuresRGB
-import torchvision
+from nlnas.utils import targets
 
 
 def main():
+    pl.seed_everything(0)
     model_names = [
         "vit_b_16",
     ]

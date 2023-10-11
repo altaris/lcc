@@ -1,7 +1,10 @@
 from itertools import product
 from pathlib import Path
 
+import pytorch_lightning as pl
+import torch
 import torchvision
+import torchvision.transforms as tvtr
 from loguru import logger as logging
 
 from nlnas import (
@@ -9,37 +12,46 @@ from nlnas import (
     TorchvisionDataset,
     train_and_analyse_all,
 )
-from nlnas import transforms
 from nlnas.transforms import EnsuresRGB
 from nlnas.utils import targets
 
 
 def main():
+    pl.seed_everything(0)
     model_names = [
         "alexnet",
     ]
     submodule_names = [
-        "model.0.features.2",
-        # "model.0.features.5",
-        "model.0.features.7",
-        # "model.0.features.9",
-        "model.0.avgpool",
-        "model.0.classifier.2",
-        # "model.0.classifier.5",
+        # "model.0.features.0",
+        "model.0.features.3",
+        # "model.0.features.6",
+        "model.0.features.8",
+        # "model.0.features.10",
+        # "model.0.features",
+        "model.0.classifier.1",
+        # "model.0.classifier.4",
         "model.0.classifier.6",
+        # "model.0.classifier",
         "model.1",
+        # "model"
     ]
     dataset_names = [
-        # "mnist",
-        "kmnist",
-        # "fashionmnist",
+        "mnist",
+        # "kmnist",
+        "fashionmnist",
         "cifar10",
         # "cifar100",
     ]
-    transform = torchvision.transforms.Compose(
+    transform = tvtr.Compose(
         [
-            torchvision.transforms.ToTensor(),
-            torchvision.transforms.Resize([64, 64], antialias=True),
+            # tvtr.RandomCrop(32, padding=4),
+            # tvtr.RandomHorizontalFlip(),
+            tvtr.ToTensor(),
+            # tvtr.Normalize(  # Taken from pl_bolts cifar10_normalization
+            #     mean=[x / 255.0 for x in [125.3, 123.0, 113.9]],
+            #     std=[x / 255.0 for x in [63.0, 62.1, 66.7]],
+            # ),
+            tvtr.Resize([64, 64], antialias=True),
             EnsuresRGB(),
         ]
     )
