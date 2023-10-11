@@ -8,6 +8,104 @@ import numpy as np
 import torch
 from sklearn.svm import SVC
 from torch import Tensor
+from torch.nn.functional import one_hot
+
+
+def _var(x: Tensor) -> Tensor:
+    """Variance along dimension 0"""
+    return torch.mean(x**2, dim=0) - torch.mean(x, dim=0) ** 2
+
+
+def gdv(x: Tensor, y: Tensor) -> Tensor:
+    """
+    Gaussian approximation of the Generalized Discrimination Value of
+
+        Achim Schilling, Andreas Maier, Richard Gerum, Claus Metzner, Patrick
+        Krauss, Quantifying the separability of data classes in neural
+        networks, Neural Networks, Volume 139, 2021, Pages 278-293, ISSN
+        0893-6080, https://doi.org/10.1016/j.neunet.2021.03.035.
+        (https://www.sciencedirect.com/science/article/pii/S0893608021001234)
+
+    This method is differentiable. The complexity is quadratic in the number of
+    classes.
+
+    Args:
+        x (Tensor): A `(N, ...)` tensor, where `N` is the number of samples. It
+            will automatically be flattened to a 2 dimensional tensor.
+        y (Tensor): A `(N,)` tensor.
+    """
+    a, b, n_classes = [], [], len(y.unique())
+    s = x.flatten(1)
+    s = 0.5 * (s - s.mean(dim=0)) / (_var(s).sqrt() + 1e-5)
+    for i in range(n_classes):
+        u = s[y == i] / 2
+        a.append(2 * _var(u).sum())
+    for i in range(n_classes):
+        for j in range(i + 1, n_classes):
+            u, v = s[y == i] / 2, s[y == j] / 2
+            d = (
+                torch.linalg.norm(u.mean(dim=0) - v.mean(dim=0))
+                + _var(u).sum()
+                + _var(v).sum()
+            )
+            b.append(d)
+    return (
+        sqrt(n_classes)
+        * (torch.stack(a).mean() - 2 * torch.stack(b).mean())
+        / s.shape[0]
+    )
+
+
+def label_variation(
+    x: Tensor,
+    y: Tensor,
+    k: int,
+    n_classes: int = -1,
+    sigma: float = 1.0,
+) -> Tensor:
+    """
+    Label variation metric of
+
+        Lassance, C.; Gripon, V.; Ortega, A. Representing Deep Neural Networks
+        Latent Space Geometries with Graphs. Algorithms 2021, 14, 39.
+        https://doi.org/10.3390/a14020039
+
+    with a few tweaks.
+
+    TODO: list the tweaks =]
+
+    This method is differentiable, but a call to
+    [`torch.cdist`](https://pytorch.org/docs/stable/generated/torch.cdist.html)
+    is needed which makes its cost quadratic in `N`, where `N` is the the
+    number of samples, aka the length of `x`.
+
+    Args:
+        x (Tensor): Sample tensor with shape `(N, d)`, where `d` the latent
+            dimension
+        y (Tensor): Label vector with shape `(N,)`
+        k (int): Number of nearest neighbors to consider when thresholding the
+            distance matrix of `x`
+        n_classes (int): Leave it to `-1` to automatically infer the number of
+            classes
+        sigma (float, optional): RBF parameter
+
+    Returns:
+        A scalar tensor
+    """
+    # p = torch.exp(pdist(x) / (2 * sigma**2))
+    # c = torch.tensor(list(combinations(range(len(x)), 2)))
+    # dm = torch.sparse_coo_tensor(c.T, p, size=(len(x), len(x))).to_dense()
+    # dm = dm + dm.T
+    s = x.flatten(1)
+    s = (s - s.mean(dim=0)) / (_var(s).sqrt() + 1e-5)
+    dm = torch.cdist(s, s) / sqrt(s.shape[-1])
+    dm = torch.exp(-dm / (2 * sigma**2))
+    t0 = dm.topk(k + 1, dim=0, largest=False).values[-1]
+    t1 = dm.topk(k + 1, dim=1, largest=False).values[:, [-1]]
+    m0, m1 = dm * (dm <= t0), dm * (dm <= t1)
+    a = torch.maximum(m0, m1)
+    y_oh = one_hot(y.long(), n_classes).float()
+    return torch.trace(y_oh.T @ a @ y_oh) / (y_oh.shape[0] * y_oh.shape[-1])
 
 
 def pairwise_gdv(
@@ -101,46 +199,3 @@ def pairwise_svc_scores(
         svc = SVC(**kwargs).fit(a, b)
         results.append({"idx": (i, j), "score": svc.score(a, b)})
     return results
-
-
-def gdv(x: Tensor, y: Tensor) -> Tensor:
-    """
-    Gaussian approximation of the Generalized Discrimination Value of
-
-        Achim Schilling, Andreas Maier, Richard Gerum, Claus Metzner, Patrick
-        Krauss, Quantifying the separability of data classes in neural
-        networks, Neural Networks, Volume 139, 2021, Pages 278-293, ISSN
-        0893-6080, https://doi.org/10.1016/j.neunet.2021.03.035.
-        (https://www.sciencedirect.com/science/article/pii/S0893608021001234)
-
-    This method is differentiable. The complexity is quadratic in the number of
-    classes.
-
-    Args:
-        x (Tensor): A `(N, ...)` tensor, where `N` is the number of samples. It
-            will automatically be flattened to a 2 dimensional tensor.
-        y (Tensor): A `(N,)` tensor.
-    """
-
-    def _var(c: Tensor) -> Tensor:
-        """Variance along dimension 0"""
-        return torch.mean(c**2, dim=0) - torch.mean(c, dim=0) ** 2
-
-    a, b, n_classes = [], [], len(y.unique())
-    s = x.flatten(1)
-    s = 0.5 * (s - s.mean(dim=0)) / (_var(s).sqrt() + 1e-5)
-    for i in range(n_classes):
-        u = s[y == i] / 2
-        a.append(2 * _var(u).sum())
-    for i in range(n_classes):
-        for j in range(i + 1, n_classes):
-            u, v = s[y == i] / 2, s[y == j] / 2
-            d = (
-                torch.linalg.norm(u.mean(dim=0) - v.mean(dim=0))
-                + _var(u).sum()
-                + _var(v).sum()
-            )
-            b.append(d)
-    return sqrt(n_classes) * (
-        torch.stack(a).mean() - 2 * torch.stack(b).mean()
-    )
