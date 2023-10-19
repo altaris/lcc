@@ -305,17 +305,17 @@ class VHTorchvisionClassifier(TorchvisionClassifier):
 
     # pylint: disable=arguments-differ
     def training_step(self, batch: Any, *_: Any, **__: Any) -> Tensor:
-        v_opt, h_opt = self.optimizers()  # type: ignore
+        v_opt, h_opt = self.optimizers()  # type: ignore  # pylint: disable=unpacking-non-sequence
         assert isinstance(v_opt, Optimizer)
         assert isinstance(h_opt, Optimizer)
-        v_opt.zero_grad()
-        h_opt.zero_grad()
         v_loss, h_loss = self._evaluate_vh(batch, "train")
-        loss = v_loss + h_loss
-        self.manual_backward(loss)
+        v_opt.zero_grad()
+        self.manual_backward(v_loss)
         v_opt.step()
+        h_opt.zero_grad()
+        self.manual_backward(h_loss)
         h_opt.step()
-        return loss
+        return v_loss + h_loss
 
     # def on_train_epoch_end(self) -> None:
     #     dl = self.trainer.train_dataloader
