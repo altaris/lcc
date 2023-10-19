@@ -1,17 +1,17 @@
 """A torchvision image classifier wrapped inside a `LightningModule`"""
 
 from itertools import chain
-from typing import Any, Iterable
+from typing import Any, Iterable, Tuple
 
 import pytorch_lightning as pl
 import torch
 import torchmetrics
 from torch import Tensor, nn
+from torch.optim import Optimizer
 from torch.utils.hooks import RemovableHandle
 from torchvision.models import get_model
-from tqdm import tqdm
 
-from .separability import gdv, label_variation
+from .separability import label_variation
 from .utils import best_device
 
 
@@ -149,6 +149,51 @@ class TorchvisionClassifier(Classifier):
     # pylint: disable=arguments-differ
     def forward(self, x: Tensor, *_, **__) -> Tensor:
         return self.model(x.to(self.device))  # type: ignore
+
+
+class TruncatedClassifier(Classifier):
+    """
+    Given a `Classifier` and the name of one of its submodule, wrapping it in a
+    `TruncatedClassifier` produces a "truncated model" that does the following:
+    * evaluate an input x on the base classifier,
+    * take the latent representation outputed by the specified submodule,
+    * flatten it and pass it through a final (trainable) head.
+    """
+
+    model: nn.Module
+    fc: nn.Module
+    handle: RemovableHandle
+    _out: Tensor
+
+    def __init__(
+        self,
+        model: nn.Module,
+        truncate_after: str,
+        n_classes: int,
+        input_shape: Iterable[int] | None = None,
+        freeze_base_model: bool = True,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(n_classes, **kwargs)
+        # self.save_hyperparameters()
+        self.model, self.fc = model, nn.LazyLinear(n_classes)
+        model.requires_grad_(not freeze_base_model)
+
+        def _hook(_model: nn.Module, _args: Any, output: Tensor) -> None:
+            self._out = output
+
+        submodule = model.get_submodule(truncate_after)
+        self.handle = submodule.register_forward_hook(_hook)
+
+        if input_shape is not None:
+            self.example_input_array = torch.zeros([1] + list(input_shape))
+            self.model.eval()
+            self.forward(self.example_input_array)
+
+    # pylint: disable=arguments-differ
+    def forward(self, x: Tensor, *_, **__) -> Tensor:
+        self.model(x.to(self.device))  #  type: ignore
+        return self.fc(self._out.flatten(1))
 
 
 class VHTorchvisionClassifier(TorchvisionClassifier):
