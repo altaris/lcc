@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytorch_lightning as pl
 import torchvision
+import torchvision.transforms as tvtr
 from loguru import logger as logging
 
 from nlnas import (
@@ -23,7 +24,7 @@ def main():
     submodule_names = [
         # "model.0.layer1.0"
         # "model.0.layer1.1"
-        # "model.0.layer1",
+        "model.0.layer1",
         # "model.0.layer2.0"
         # "model.0.layer2.1"
         # "model.0.layer2",
@@ -31,7 +32,7 @@ def main():
         # "model.0.layer3.1"
         # "model.0.layer3",
         # "model.0.layer4.0"
-        "model.0.layer4.1"
+        # "model.0.layer4.1"
         # "model.0.layer4",
         # "model.0.fc",
         # "model.1",
@@ -43,9 +44,21 @@ def main():
         "cifar10",
         # "cifar100",
     ]
+    transform = tvtr.Compose(
+        [
+            tvtr.RandomCrop(32, padding=4),
+            tvtr.RandomHorizontalFlip(),
+            tvtr.ToTensor(),
+            tvtr.Normalize(  # Taken from pl_bolts cifar10_normalization
+                mean=[x / 255.0 for x in [125.3, 123.0, 113.9]],
+                std=[x / 255.0 for x in [63.0, 62.1, 66.7]],
+            ),
+            tvtr.Resize([64, 64], antialias=True),
+        ]
+    )
     for model_name, dataset_name in product(model_names, dataset_names):
         output_dir = Path("out") / (model_name + "_gdv") / dataset_name
-        dataset = TorchvisionDataset(dataset_name)
+        dataset = TorchvisionDataset(dataset_name, transform=transform)
         dataset.setup("fit")
         n_classes = len(targets(dataset.val_dataloader()))
         image_shape = list(next(iter(dataset.val_dataloader()))[0].shape)[1:]
@@ -55,7 +68,7 @@ def main():
             vh_submodules=submodule_names,
             add_final_fc=True,
             input_shape=image_shape,
-            horizontal_lr=5e-3,
+            horizontal_lr=1e-3,
         )
         # train_model_guarded(
         train_model(
@@ -64,7 +77,7 @@ def main():
             output_dir / "model",
             name=model_name,
             max_epochs=512,
-            strategy="ddp_find_unused_parameters_true",
+            # strategy="ddp_find_unused_parameters_true",
         )
         # train_and_analyse_all(
         #     model=model,

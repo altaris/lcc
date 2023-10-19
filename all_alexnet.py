@@ -12,6 +12,7 @@ from nlnas import (
     TorchvisionDataset,
     train_and_analyse_all,
 )
+from nlnas.training import train_model, train_model_guarded
 from nlnas.transforms import EnsuresRGB
 from nlnas.utils import targets
 
@@ -44,15 +45,15 @@ def main():
     ]
     transform = tvtr.Compose(
         [
-            # tvtr.RandomCrop(32, padding=4),
-            # tvtr.RandomHorizontalFlip(),
+            tvtr.RandomCrop(32, padding=4),
+            tvtr.RandomHorizontalFlip(),
             tvtr.ToTensor(),
-            # tvtr.Normalize(  # Taken from pl_bolts cifar10_normalization
-            #     mean=[x / 255.0 for x in [125.3, 123.0, 113.9]],
-            #     std=[x / 255.0 for x in [63.0, 62.1, 66.7]],
-            # ),
+            tvtr.Normalize(  # Taken from pl_bolts cifar10_normalization
+                mean=[x / 255.0 for x in [125.3, 123.0, 113.9]],
+                std=[x / 255.0 for x in [63.0, 62.1, 66.7]],
+            ),
             tvtr.Resize([64, 64], antialias=True),
-            EnsuresRGB(),
+            # EnsuresRGB(),
         ]
     )
     for m, d in product(model_names, dataset_names):
@@ -67,13 +68,21 @@ def main():
             add_final_fc=True,
             input_shape=image_shape,
         )
-        train_and_analyse_all(
-            model=model,
-            submodule_names=submodule_names,
-            dataset=ds,
-            output_dir=output_dir,
-            model_name=m,
+        train_model(
+            model,
+            ds,
+            output_dir / "model",
+            name=m,
+            max_epochs=512,
+            # strategy="ddp_find_unused_parameters_true",
         )
+        # train_and_analyse_all(
+        #     model=model,
+        #     submodule_names=submodule_names,
+        #     dataset=ds,
+        #     output_dir=output_dir,
+        #     model_name=m,
+        # )
 
 
 if __name__ == "__main__":

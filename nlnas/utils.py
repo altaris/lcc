@@ -4,6 +4,7 @@ import os
 from glob import glob
 from pathlib import Path
 
+import pandas as pd
 import regex as re
 import torch
 from loguru import logger as logging
@@ -44,6 +45,15 @@ def best_device() -> str:
             else "cpu"
         )
     return accelerator
+
+
+def best_epoch(path: str | Path) -> int:
+    """Given the `metrics.csv` path, returns the best epoch index"""
+    metrics = pd.read_csv(path)
+    metrics.drop(columns=["train/loss"], inplace=True)
+    metrics = metrics.groupby("epoch").tail(1)
+    metrics.reset_index(inplace=True, drop=True)
+    return metrics["val/acc"].argmax()
 
 
 def get_first_n(dl: DataLoader, n: int) -> list[Tensor]:

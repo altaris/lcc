@@ -237,30 +237,55 @@ class VHTorchvisionClassifier(TorchvisionClassifier):
         self.vh_submodules = vh_submodules
         self.automatic_optimization = False
 
-    def _evaluate_horizontal(self, batch, stage: str | None = None) -> Tensor:
+    def _evaluate_vh(
+        self, batch, stage: str | None = None
+    ) -> Tuple[Tensor, Tensor]:
+        """Self-explanatory"""
         x, y = batch
+        y = y.to(self.device)
         output_dict: dict[str, Tensor] = {}
-        self.forward_intermediate(
+        logits = self.forward_intermediate(
             x, self.vh_submodules, output_dict, keep_gradients=True
         )
-        loss = torch.mean(
-            torch.stack([gdv(v, y) for v in output_dict.values()])
-            # torch.stack(
-            #     [
-            #         label_variation(
-            #             v,
-            #             y.to(v),
-            #             k=10,
-            #             n_classes=self.n_classes,
-            #         )
-            #         for v in output_dict.values()
-            #     ]
-            # )
+        v_loss = nn.functional.cross_entropy(logits, y.long())
+        h_loss = torch.mean(
+            # torch.stack([gdv(v, y) for v in output_dict.values()])
+            torch.stack(
+                [
+                    label_variation(
+                        v,
+                        y.to(v),
+                        k=10,
+                        n_classes=self.n_classes,
+                    )
+                    for v in output_dict.values()
+                ]
+            )
         )
         if stage:
-            self.log("train/gdv", loss, sync_dist=True)
-            # self.log(f"{stage}/lv", loss, sync_dist=True)
-        return loss
+            self.log(f"{stage}/loss", v_loss, prog_bar=True, sync_dist=True)
+        if stage == "train":
+            # self.log(f"{stage}/gdv", h_loss, prog_bar=True, sync_dist=True)
+            self.log(f"{stage}/lv", h_loss, prog_bar=True, sync_dist=True)
+        if stage and best_device() != "mps":
+            # NotImplementedError: The operator 'aten::_unique2' is not
+            # currently implemented for the MPS device. If you want this op to
+            # be added in priority during the prototype phase of this feature,
+            # please comment on
+            # https://github.com/pytorch/pytorch/issues/77764. As a temporary
+            # fix, you can set the environment variable
+            # `PYTORCH_ENABLE_MPS_FALLBACK=1` to use the CPU as a fallback for
+            # this op. WARNING: this will be slower than running natively on
+            # MPS.
+            acc = torchmetrics.functional.accuracy(
+                torch.argmax(logits, dim=1),
+                y,
+                "multiclass",
+                num_classes=self.n_classes,
+                top_k=1,
+            )
+            self.log(f"{stage}/acc", acc, prog_bar=True, sync_dist=True)
+        return v_loss, h_loss
 
     def configure_optimizers(self):
         v_opt = torch.optim.Adam(
@@ -278,32 +303,32 @@ class VHTorchvisionClassifier(TorchvisionClassifier):
         )
         return [v_opt, h_opt]
 
-    def on_train_epoch_end(self) -> None:
-        dl = self.trainer.train_dataloader
-        if dl is None:
-            raise RuntimeError(
-                "Model's trainer does not have a training dataloader. "
-                "This should really not happen =("
-            )
-        opts = self.optimizers()
-        assert isinstance(opts, list)
-        opt = opts[1]
-        progress = tqdm(iter(dl), desc="Horizontal fit", leave=False)
-        for batch in progress:
-            opt.zero_grad()  # type: ignore
-            loss = self._evaluate_horizontal(batch, "train")
-            self.manual_backward(loss)
-            opt.step()
-            progress.set_postfix({"train/lv": float(loss)})
-            # progress.set_postfix({"train/gdv": float(loss)})
-
     # pylint: disable=arguments-differ
     def training_step(self, batch: Any, *_: Any, **__: Any) -> Tensor:
-        opts = self.optimizers()
-        assert isinstance(opts, list)
-        opt = opts[0]
-        opt.zero_grad()  # type: ignore
-        loss = self._evaluate(batch, "train")
+        v_opt, h_opt = self.optimizers()  # type: ignore
+        assert isinstance(v_opt, Optimizer)
+        assert isinstance(h_opt, Optimizer)
+        v_opt.zero_grad()
+        h_opt.zero_grad()
+        v_loss, h_loss = self._evaluate_vh(batch, "train")
+        loss = v_loss + h_loss
         self.manual_backward(loss)
-        opt.step()
+        v_opt.step()
+        h_opt.step()
         return loss
+
+    # def on_train_epoch_end(self) -> None:
+    #     dl = self.trainer.train_dataloader
+    #     if dl is None:
+    #         raise RuntimeError(
+    #             "Model's trainer does not have a training dataloader. "
+    #             "This should really not happen =("
+    #         )
+    #     _, h_opt = self.optimizers()  # type: ignore
+    #     assert isinstance(h_opt, Optimizer)
+    #     progress = tqdm(iter(dl), desc="Horizontal fit", leave=False)
+    #     for batch in progress:
+    #         h_opt.zero_grad()  # type: ignore
+    #         _, h_loss = self._evaluate(batch, "train")
+    #         self.manual_backward(h_loss)
+    #         h_opt.step()

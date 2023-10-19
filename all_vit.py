@@ -3,10 +3,14 @@ from pathlib import Path
 
 import pytorch_lightning as pl
 import torchvision
+import torchvision.transforms as tvtr
 from loguru import logger as logging
 
-from nlnas import (TorchvisionClassifier, TorchvisionDataset,
-                   train_and_analyse_all)
+from nlnas import (
+    TorchvisionClassifier,
+    TorchvisionDataset,
+    train_and_analyse_all,
+)
 from nlnas.transforms import EnsuresRGB
 from nlnas.utils import targets
 
@@ -33,17 +37,23 @@ def main():
         "model.1",
     ]
     dataset_names = [
-        "mnist",
+        # "mnist",
         # "kmnist",
         # "fashionmnist",
         "cifar10",
         # "cifar100",
     ]
-    transform = torchvision.transforms.Compose(
+    transform = tvtr.Compose(
         [
-            torchvision.transforms.ToTensor(),
-            torchvision.transforms.Resize([224, 224], antialias=True),
-            EnsuresRGB(),
+            tvtr.RandomCrop(32, padding=4),
+            tvtr.RandomHorizontalFlip(),
+            tvtr.ToTensor(),
+            tvtr.Normalize(  # Taken from pl_bolts cifar10_normalization
+                mean=[x / 255.0 for x in [125.3, 123.0, 113.9]],
+                std=[x / 255.0 for x in [63.0, 62.1, 66.7]],
+            ),
+            tvtr.Resize([224, 224], antialias=True),
+            # EnsuresRGB(),
         ]
     )
     for m, d in product(model_names, dataset_names):

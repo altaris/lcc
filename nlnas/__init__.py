@@ -8,7 +8,7 @@ from .classifier import (
     TorchvisionClassifier,
     VHTorchvisionClassifier,
 )
-from .nlnas import analysis, train_and_analyse_all
+from .nlnas import analyse_ckpt, train_and_analyse_all
 from .pdist import pdist
 from .separability import gdv, pairwise_svc_scores
 from .training import train_model, train_model_guarded

@@ -4,18 +4,33 @@ import os
 import re
 from glob import glob
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Tuple
 
-import numpy as np
 import pytorch_lightning as pl
 import torch
 from loguru import logger as logging
 from pytorch_lightning.strategies.strategy import Strategy
-from safetensors import numpy as nst
 
 
 class NoCheckpointFound(Exception):
     """Raised by `nlnas.utils.last_checkpoint_path` if no checkpoint is found"""
+
+
+def checkpoint_ves(path: str | Path) -> Tuple[int, int, int]:
+    """
+    Given a checkpoint path that looks like e.g.
+
+        out/resnet18/cifar10/model/tb_logs/resnet18/version_2/checkpoints/epoch=32-step=5181.ckpt
+
+    returns the version number (2), the number of epochs (32), and the number
+    of steps (5181)
+    """
+    m = re.match(
+        r".*version_(\d+)/checkpoints/epoch=(\d+)-step=(\d+)\.ckpt", str(path)
+    )
+    if m is None:
+        raise ValueError("Path '{}' is not a valid checkpoint path", path)
+    return int(m.group(1)), int(m.group(2)), int(m.group(3))
 
 
 def last_checkpoint_path(checkpoints_dir_path: Path) -> Path:
@@ -24,11 +39,12 @@ def last_checkpoint_path(checkpoints_dir_path: Path) -> Path:
     (`ckpt` file) in a given directory. The step count is considered, rather
     than the epoch count.
     """
-    d, r = {}, r".*step=(\d+)\.ckpt"
+    d = {}
     for c in glob(str(checkpoints_dir_path / "*step=*.ckpt")):
-        m = re.match(r, c)
-        if m:
-            d[int(m.group(1))] = c
+        try:
+            d[checkpoint_ves(c)[2]] = c
+        except ValueError:
+            pass
     ss = list(d.keys())
     if not ss:
         raise NoCheckpointFound
@@ -116,39 +132,6 @@ def produces_artifact(
     return _decorator
 
 
-def produces_numpy_array(path: str | Path):
-    """
-    Convenience function to use instead of `nlnas.utils.produces_artifact` when
-    the artifact is a *single* numpy array. Here's an example of how to guard a
-    function `f` that returns a numpy array:
-
-    ```py
-    _f = produces_numpy_array(output_dir / "data.nst")(f)
-    arr = _f(*args, **kwargs)
-    ```
-
-    Under the hood, the returned array `arr` is wrapped in the document
-    `{"data": arr}` and saved using the numpy API of
-    [`safetensors`](https://huggingface.co/docs/safetensors/api/numpy).
-
-    """
-
-    def _load(p: Path):
-        return nst.load_file(p)["data"]
-
-    def _save(arr: np.ndarray, p: Path):
-        nst.save_file({"data": arr}, p)
-
-    if not isinstance(path, Path):
-        path = Path(path)
-    return produces_artifact(
-        loader=_load,
-        loader_args=[path],
-        saver=_save,
-        saver_args=[path],
-    )
-
-
 def train_model(
     model: pl.LightningModule,
     datamodule: pl.LightningDataModule,
@@ -158,8 +141,9 @@ def train_model(
     additional_callbacks: list[pl.Callback] | None = None,
     early_stopping_kwargs: dict | None = None,
     strategy: str | Strategy = "ddp",
+    reload: bool = True,
     **kwargs,
-) -> pl.LightningModule:
+) -> Tuple[pl.LightningModule, Path]:
     """
     Convenience function to invoke Pytorch Lightning's trainer fit. Returns the
     best checkpoint. The accelerator is set to `auto` unless otherwise directed
@@ -199,6 +183,8 @@ def train_model(
             ```
         strategy (Union[str, Strategy]): Strategy to use (duh). Defaults to
             `ddp`, but if running in a notebook, use `dp` or `ddp_notebook`.
+        reload (bool, optional): Wether to reload the best checkpoint after
+            training
         **kwargs: Forwarded to the [`pl.Trainer`
             constructor](https://pytorch-lightning.readthedocs.io/en/latest/common/trainer.html#init).
     """
@@ -222,9 +208,9 @@ def train_model(
         additional_callbacks = []
     if not early_stopping_kwargs:
         early_stopping_kwargs = {
-            "monitor": "val/loss",
-            "patience": 10,
-            "mode": "min",
+            "monitor": "val/acc",
+            "patience": 20,
+            "mode": "max",
         }
 
     tb_logger = pl.loggers.TensorBoardLogger(
@@ -242,16 +228,10 @@ def train_model(
         max_epochs=max_epochs,
         callbacks=[
             pl.callbacks.EarlyStopping(**early_stopping_kwargs),
-            # pl.callbacks.LearningRateMonitor("epoch"),
             pl.callbacks.ModelCheckpoint(
-                save_top_k=-1,
-                monitor="val/loss",
-                mode="min",
-                every_n_epochs=1,
+                save_top_k=-1, monitor="val/acc", mode="max", every_n_epochs=1
             ),
             pl.callbacks.TQDMProgressBar(),
-            # pl.callbacks.RichProgressBar(),
-            # pl.callbacks.BatchSizeFinder(),
             *additional_callbacks,
         ],
         default_root_dir=str(root_dir),
@@ -264,8 +244,14 @@ def train_model(
     trainer.fit(model, datamodule)
 
     ckpt = Path(trainer.checkpoint_callback.best_model_path)  # type: ignore
-    logging.debug("Loading best checkpoint '{}'", ckpt)
-    return type(model).load_from_checkpoint(str(ckpt))  # type: ignore
+    v, e, s = checkpoint_ves(ckpt)
+    logging.info(
+        "Training completed: version={}, best_epoch={}, n_steps={}", v, e, s
+    )
+    if reload:
+        logging.debug("Reloading best checkpoint '{}'", ckpt)
+        model = type(model).load_from_checkpoint(str(ckpt))  # type: ignore
+    return model, ckpt
 
 
 def train_model_guarded(
@@ -275,7 +261,7 @@ def train_model_guarded(
     name: str,
     *args,
     **kwargs,
-) -> pl.LightningModule:
+) -> Tuple[pl.LightningModule, Path]:
     """
     Guarded version of `nlnas.utils.train_model`, i.e. if a checkpoint already
     exists for the model, it is loaded and returned instead of training the

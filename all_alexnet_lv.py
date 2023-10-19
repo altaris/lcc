@@ -10,11 +10,12 @@ from loguru import logger as logging
 from nlnas import (
     TorchvisionClassifier,
     TorchvisionDataset,
-    VHTorchvisionClassifier,
     train_and_analyse_all,
 )
+from nlnas.classifier import VHTorchvisionClassifier
 from nlnas.training import train_model, train_model_guarded
 from nlnas.transforms import EnsuresRGB
+from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS
 from nlnas.utils import targets
 
 
@@ -30,11 +31,11 @@ def main():
         # "model.0.features.8",
         # "model.0.features.10",
         # "model.0.features",
-        # "model.0.classifier.1",
+        "model.0.classifier.1",
         # "model.0.classifier.4",
         # "model.0.classifier.6",
-        "model.0.classifier",
-        "model.1",
+        # "model.0.classifier",
+        # "model.1",
         # "model"
     ]
     dataset_names = [
@@ -58,8 +59,12 @@ def main():
         ]
     )
     for model_name, dataset_name in product(model_names, dataset_names):
-        output_dir = Path("out") / (model_name + "_vh") / dataset_name
-        dataset = TorchvisionDataset(dataset_name, transform=transform)
+        output_dir = Path("out") / (model_name + "_lv") / dataset_name
+        dataset = TorchvisionDataset(
+            dataset_name,
+            transform=transform,
+            dataloader_kwargs={"drop_last": True, **DEFAULT_DATALOADER_KWARGS},
+        )
         dataset.setup("fit")
         n_classes = len(targets(dataset.val_dataloader()))
         image_shape = list(next(iter(dataset.val_dataloader()))[0].shape)[1:]
@@ -69,24 +74,16 @@ def main():
             vh_submodules=submodule_names,
             add_final_fc=True,
             input_shape=image_shape,
-            horizontal_lr=1e-2,
+            horizontal_lr=1e-5,
         )
-        # train_model_guarded(
         train_model(
             model,
             dataset,
             output_dir / "model",
             name=model_name,
             max_epochs=512,
-            strategy="ddp",
+            strategy="ddp_find_unused_parameters_true",
         )
-        # train_and_analyse_all(
-        #     model=model,
-        #     submodule_names=submodule_names,
-        #     dataset=ds,
-        #     output_dir=output_dir,
-        #     model_name=m + "_vh",
-        # )
 
 
 if __name__ == "__main__":

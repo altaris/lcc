@@ -105,7 +105,9 @@ def label_variation(
     m0, m1 = dm * (dm <= t0), dm * (dm <= t1)
     a = torch.maximum(m0, m1)
     y_oh = one_hot(y.long(), n_classes).float()
-    return torch.trace(y_oh.T @ a @ y_oh) / (y_oh.shape[0] * y_oh.shape[-1])
+    return torch.trace(y_oh.T @ a @ y_oh) / (
+        y_oh.shape[0] * y_oh.shape[-1]  # * k
+    )
 
 
 def pairwise_gdv(
