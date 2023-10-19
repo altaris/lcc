@@ -83,7 +83,7 @@ def last_checkpoint_path(checkpoints_dir_path: Path) -> Path:
 
 def pl_module_loader(
     cls: type, root_dir: str | Path, name: str, version: int = 0
-) -> pl.LightningModule:
+) -> Tuple[pl.LightningModule, Path]:
     """
     Loader for pytorch lightning modules, to be used with
     `nlnas.utils.produces_artifact`.
@@ -96,7 +96,7 @@ def pl_module_loader(
     )
     logging.debug("Loading checkpoint '{}'", ckpt)
     module: pl.LightningModule = cls.load_from_checkpoint(str(ckpt))  # type: ignore
-    return module
+    return module, ckpt
 
 
 def produces_artifact(
