@@ -23,14 +23,14 @@ def main():
         "alexnet",
     ]
     submodule_names = [
-        # "model.0.features.0",
+        "model.0.features.0",
         "model.0.features.3",
-        # "model.0.features.6",
+        "model.0.features.6",
         "model.0.features.8",
-        # "model.0.features.10",
+        "model.0.features.10",
         # "model.0.features",
         "model.0.classifier.1",
-        # "model.0.classifier.4",
+        "model.0.classifier.4",
         "model.0.classifier.6",
         # "model.0.classifier",
         "model.1",
@@ -68,21 +68,21 @@ def main():
             add_final_fc=True,
             input_shape=image_shape,
         )
-        train_model(
-            model,
-            ds,
-            output_dir / "model",
-            name=m,
-            max_epochs=512,
-            # strategy="ddp_find_unused_parameters_true",
-        )
-        # train_and_analyse_all(
-        #     model=model,
-        #     submodule_names=submodule_names,
-        #     dataset=ds,
-        #     output_dir=output_dir,
-        #     model_name=m,
+        # train_model(
+        #     model,
+        #     ds,
+        #     output_dir / "model",
+        #     name=m,
+        #     max_epochs=512,
+        #     # strategy="ddp_find_unused_parameters_true",
         # )
+        train_and_analyse_all(
+            model=model,
+            submodule_names=submodule_names,
+            dataset=ds,
+            output_dir=output_dir,
+            model_name=m,
+        )
 
 
 if __name__ == "__main__":

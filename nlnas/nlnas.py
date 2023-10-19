@@ -243,7 +243,7 @@ def analyse_ckpt(
 
 
 def analyse_training(
-    output_path: str | Path,
+    output_dir: str | Path,
     dataset: pl.LightningDataModule | str,
     n_samples: int,
     lv_k: int = 10,
@@ -255,18 +255,18 @@ def analyse_training(
     For now only plot LV scores per epoch and per submodule
 
     Args:
-        output_path (str | Path): e.g. `./out/resnet18/cifar10`
+        output_path (str | Path): e.g. `./out/resnet18/cifar10/version_1/`
         dataset (pl.LightningDataModule | str):
         n_samples (int): Sorry it's not inferred ¯\\_(ツ)_/¯
         lv_k (int, optional):
         last_epoch (int, optional): If specified, only plot LV curves up to
             that epoch
     """
-    output_path = (
-        output_path if isinstance(output_path, Path) else Path(output_path)
+    output_dir = (
+        output_dir if isinstance(output_dir, Path) else Path(output_dir)
     )
     ckpt_analysis_dirs = list(
-        filter(_is_ckpt_analysis_dir, glob(str(output_path / "*")))
+        filter(_is_ckpt_analysis_dir, glob(str(output_dir / "*")))
     )
     last_epoch = last_epoch or len(ckpt_analysis_dirs) - 1
 
@@ -286,7 +286,7 @@ def analyse_training(
             v = label_variation(z, y_train, k=lv_k)
             data.append([epoch, sm, float(v)])
     lvs = pd.DataFrame(data, columns=["epoch", "submodule", "lv"])
-    lvs.to_csv(output_path / "lv.csv")
+    lvs.to_csv(output_dir / "lv.csv")
 
     e = np.linspace(0, last_epoch, num=5, dtype=int)
     figure = sns.lineplot(
@@ -303,7 +303,7 @@ def analyse_training(
         rotation_mode="anchor",
         ha="right",
     )
-    figure.get_figure().savefig(output_path / "lv_epoch.png")
+    figure.get_figure().savefig(output_dir / "lv_epoch.png")
 
     # dfs = []
     # for epoch, p in enumerate(ckpt_analysis_dirs):
@@ -438,7 +438,7 @@ def train_and_analyse_all(
                 phate=False,
             )
         analyse_training(
-            output_dir,
+            output_dir / f"version_{version}",
             dataset,
             n_samples=n_samples,
             last_epoch=best_epoch,

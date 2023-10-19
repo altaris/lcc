@@ -170,7 +170,7 @@ def train_model(
     additional_callbacks: list[pl.Callback] | None = None,
     early_stopping_kwargs: dict | None = None,
     strategy: str | Strategy = "ddp",
-    reload: bool = True,
+    reload: bool = False,
     **kwargs,
 ) -> Tuple[pl.LightningModule, Path]:
     """

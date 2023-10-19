@@ -78,9 +78,8 @@ class Classifier(pl.LightningModule):
 
         def create_hook(key: str):
             def hook(_model: nn.Module, _args: Any, output: Tensor) -> None:
-                output_dict[key] = (
-                    output if keep_gradients else output.detach().cpu()
-                )
+                x = output if keep_gradients else output.detach().cpu()
+                output_dict[key] = x
 
             return hook
 
