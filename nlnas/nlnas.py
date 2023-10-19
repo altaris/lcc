@@ -25,9 +25,9 @@ from .classifier import TorchvisionClassifier
 from .pdist import pdist
 from .plotting import class_scatter
 from .separability import label_variation, pairwise_svc_scores
-from .training import checkpoint_ves, train_model_guarded
+from .training import all_ckpt_paths, checkpoint_ves, train_model_guarded
 from .tv_dataset import TorchvisionDataset
-from .utils import all_ckpt_paths, get_first_n
+from .utils import get_first_n
 
 
 def _is_ckpt_analysis_dir(p: Path | str) -> bool:
@@ -95,32 +95,35 @@ def analyse_ckpt(
         h.result = {k: v.contiguous() for k, v in out.items()}  # hotfix
     outputs: dict[str, Tensor] = h.result
 
-    # COMPUTE DISTANCE MATRICES
-    h = tb.GuardedBlockHandler(output_dir / "pdist" / "pdist.json")
-    chunk_path = h.output_path.parent / "chunks"
-    for _ in h.guard():
-        h.result = {}
-        for k, z in outputs.items():
-            logging.debug(
-                "Computing distance matrix for outputs of submodule '{}'", k
-            )
-            h.result[k] = pdist(
-                z.flatten(1).numpy(),
-                chunk_size=int(n_samples / 10),
-                chunk_path=chunk_path / k,
-            )
-    if chunk_path.is_dir():
-        logging.debug("Removing pdist chuncks directory '{}'", chunk_path)
-        try:
-            shutil.rmtree(chunk_path)
-        except OSError as err:
-            logging.error(
-                "Could not remove chunks directory '{}': {}", chunk_path, err
-            )
-    distance_matrices: dict[str, np.ndarray] = h.result
-
     # TSNE
     if tsne or tsne_svc_separability:
+        # COMPUTE DISTANCE MATRICES
+        h = tb.GuardedBlockHandler(output_dir / "pdist" / "pdist.json")
+        chunk_path = h.output_path.parent / "chunks"
+        for _ in h.guard():
+            h.result = {}
+            for k, z in outputs.items():
+                logging.debug(
+                    "Computing distance matrix for outputs of submodule '{}'",
+                    k,
+                )
+                h.result[k] = pdist(
+                    z.flatten(1).numpy(),
+                    chunk_size=int(n_samples / 10),
+                    chunk_path=chunk_path / k,
+                )
+        if chunk_path.is_dir():
+            logging.debug("Removing pdist chuncks directory '{}'", chunk_path)
+            try:
+                shutil.rmtree(chunk_path)
+            except OSError as err:
+                logging.error(
+                    "Could not remove chunks directory '{}': {}",
+                    chunk_path,
+                    err,
+                )
+        distance_matrices: dict[str, np.ndarray] = h.result
+
         # EMBEDDING
         h = tb.GuardedBlockHandler(output_dir / "tsne" / "tsne.json")
         for _ in h.guard():

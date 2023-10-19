@@ -93,6 +93,7 @@ class Classifier(pl.LightningModule):
             h.remove()
         return y
 
+    # pylint: disable=arguments-differ
     def test_step(self, batch, *_, **__):
         return self._evaluate(batch, "test")
 
@@ -197,7 +198,10 @@ class TruncatedClassifier(Classifier):
 
 
 class VHTorchvisionClassifier(TorchvisionClassifier):
-    """Torchvision classifier with a horizontal training hook"""
+    """
+    Torchvision classifier with a horizontal loss optimization in addition
+    to the usual cross-entropy optimization
+    """
 
     # pylint: disable=unused-argument
     def __init__(

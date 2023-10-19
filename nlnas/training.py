@@ -1,12 +1,13 @@
 """General utilities"""
 
 import os
-import re
 from glob import glob
 from pathlib import Path
 from typing import Any, Callable, Tuple
 
+import pandas as pd
 import pytorch_lightning as pl
+import regex as re
 import torch
 from loguru import logger as logging
 from pytorch_lightning.strategies.strategy import Strategy
@@ -14,6 +15,34 @@ from pytorch_lightning.strategies.strategy import Strategy
 
 class NoCheckpointFound(Exception):
     """Raised by `nlnas.utils.last_checkpoint_path` if no checkpoint is found"""
+
+
+def all_ckpt_paths(ckpts_dir_path: str | Path) -> list[Path]:
+    """
+    Returns the sorted (by epoch) list of all checkpoint file paths in a given
+    directory. `ckpts_dir_path` probably looks like
+    `.../tb_logs/my_model/version_N/checkpoints`. The checkpoint files are
+    assumed to be named as `epoch=XX-step=YY.ckpt` where of course `XX` is the
+    epoch number and `YY` is the step number.
+
+    Args:
+        ckpts_dir_path (str | Path):
+    """
+    r, d = re.compile(r"/epoch=(\d+)-step=\d+\.ckpt$"), {}
+    for p in glob(str(Path(ckpts_dir_path) / "*.ckpt")):
+        if m := re.search(r, p):
+            epoch = int(m.group(1))
+            d[epoch] = Path(p)
+    return [d[i] for i in sorted(list(d.keys()))]
+
+
+def best_epoch(path: str | Path) -> int:
+    """Given the `metrics.csv` path, returns the best epoch index"""
+    metrics = pd.read_csv(path)
+    metrics.drop(columns=["train/loss"], inplace=True)
+    metrics = metrics.groupby("epoch").tail(1)
+    metrics.reset_index(inplace=True, drop=True)
+    return metrics["val/acc"].argmax()
 
 
 def checkpoint_ves(path: str | Path) -> Tuple[int, int, int]:
@@ -29,7 +58,7 @@ def checkpoint_ves(path: str | Path) -> Tuple[int, int, int]:
         r".*version_(\d+)/checkpoints/epoch=(\d+)-step=(\d+)\.ckpt", str(path)
     )
     if m is None:
-        raise ValueError("Path '{}' is not a valid checkpoint path", path)
+        raise ValueError(f"Path '{path}' is not a valid checkpoint path")
     return int(m.group(1)), int(m.group(2)), int(m.group(3))
 
 
@@ -153,7 +182,7 @@ def train_model(
 
     Args:
         model (pl.LightningModule): The model to train. In its
-            `validation_step`, the model must log the `val/loss` metric.
+            `validation_step`, the model must log the `val/acc` metric.
         train_dl (DataLoader): The train dataloader.
         val_dl (DataLoader): The validation dataloader.
         root_dir (str | Path): The root dir of the trainer. The
@@ -162,22 +191,22 @@ def train_model(
         name (str, optional): The name of the model. The
             tensorboard logs will be stored under `root_dir/tb_logs/name`.
         max_epochs (int): The maximum number of epochs. Note that an early
-            stopping callbacks with a patience of 10 monitors the `val/loss`
+            stopping callbacks with a patience of 10 monitors the `val/acc`
             metric by default.
         additional_callbacks (list[pl.Callback], optional): Additional
             trainer callbacks. Note that the following callbacks are
             automatically set:
             ```py
-            pl.callbacks.EarlyStopping(monitor="val/loss", patience=10),
+            pl.callbacks.EarlyStopping(monitor="val/acc", patience=10),
             pl.callbacks.LearningRateMonitor("epoch"),
             pl.callbacks.ModelCheckpoint(save_weights_only=True),
-            pl.callbacks.RichProgressBar(),
+            pl.callbacks.TQDMProgressBar(),
             ```
         early_stopping_kwargs (dict, optional): kwargs for the [`pl.callbacks.EarlyStopping`](https://pytorch-lightning.readthedocs.io/en/latest/api/lightning.pytorch.callbacks.EarlyStopping.html)
             callback. By default, it is
             ```py
             {
-                monitor="val/loss",
+                monitor="val/acc",
                 patience=10,
             }
             ```
@@ -204,14 +233,12 @@ def train_model(
     # https://github.com/pytorch/pytorch/issues/11201
     torch.multiprocessing.set_sharing_strategy("file_system")
 
-    if not additional_callbacks:
-        additional_callbacks = []
-    if not early_stopping_kwargs:
-        early_stopping_kwargs = {
-            "monitor": "val/acc",
-            "patience": 20,
-            "mode": "max",
-        }
+    additional_callbacks = additional_callbacks or []
+    early_stopping_kwargs = early_stopping_kwargs or {
+        "monitor": "val/acc",
+        "patience": 10,
+        "mode": "max",
+    }
 
     tb_logger = pl.loggers.TensorBoardLogger(
         str(root_dir / "tb_logs"),
@@ -254,6 +281,7 @@ def train_model(
     return model, ckpt
 
 
+# TODO: make it so that the best checkpoint is returned
 def train_model_guarded(
     model: pl.LightningModule,
     datamodule: pl.LightningDataModule,
@@ -265,10 +293,8 @@ def train_model_guarded(
     """
     Guarded version of `nlnas.utils.train_model`, i.e. if a checkpoint already
     exists for the model, it is loaded and returned instead of training the
-    model.
-
-    See also:
-        `nlnas.utils.produces_artifact`, `nlnas.utils.pl_module_loader`
+    model. **WARNING** if checkpoints exist, only the most recent one is
+    returned, which is not necessarily the best one.
     """
     _train = produces_artifact(
         pl_module_loader,
