@@ -21,7 +21,7 @@ from sklearn.manifold import TSNE
 from torch import Tensor
 from tqdm import tqdm
 
-from .classifier import TorchvisionClassifier
+from .classifier import Classifier
 from .pdist import pdist
 from .plotting import class_scatter
 from .separability import label_variation, pairwise_svc_scores
@@ -35,13 +35,13 @@ def _is_ckpt_analysis_dir(p: Path | str) -> bool:
 
 
 def analyse_ckpt(
-    model: TorchvisionClassifier | str | Path,
+    model: Classifier | str | Path,
     submodule_names: list[str],
     dataset: pl.LightningDataModule | str,
     output_dir: str | Path,
     n_samples: int = 5000,
     max_class_pairs: int = 200,
-    model_cls: Type[TorchvisionClassifier] | None = None,
+    model_cls: Type[Classifier] | None = None,
     tsne: bool = True,
     tsne_svc_separability: bool = True,
     phate: bool = False,
@@ -68,11 +68,11 @@ def analyse_ckpt(
     output_dir = Path(output_dir)
 
     # LOAD MODEL IF NEEDED
-    if not isinstance(model, TorchvisionClassifier):
+    if not isinstance(model, Classifier):
         logging.info("Analysing checkpoint {}", str(model))
-        model_cls = model_cls or TorchvisionClassifier
+        model_cls = model_cls or Classifier
         model = model_cls.load_from_checkpoint(model)
-    assert isinstance(model, TorchvisionClassifier)  # For typechecking
+    assert isinstance(model, Classifier)  # For typechecking
     model.eval()
 
     # LOAD DATASET IF NEEDED
@@ -370,7 +370,7 @@ def analyse_training(
 
 
 def train_and_analyse_all(
-    model: TorchvisionClassifier,
+    model: Classifier,
     submodule_names: list[str],
     dataset: pl.LightningDataModule | str,
     output_dir: str | Path,
@@ -428,6 +428,7 @@ def train_and_analyse_all(
         for i, ckpt in enumerate(all_ckpt_paths(p)):
             analyse_ckpt(
                 model=ckpt,
+                model_cls=type(model),
                 submodule_names=submodule_names,
                 dataset=dataset,
                 output_dir=output_dir / f"version_{version}" / str(i),

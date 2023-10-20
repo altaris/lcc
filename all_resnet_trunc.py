@@ -44,15 +44,17 @@ def main():
 
     # CIFAR10
     model_name, dataset_name = "resnet18_layer3", "cifar10"
-    resnet18 = TorchvisionClassifier.load_from_checkpoint(
-        "out/resnet18/cifar10/model/tb_logs/resnet18/version_2/checkpoints/epoch=32-step=5181.ckpt"
-    )
-    model = TruncatedClassifier(
-        model=resnet18,
+    truncated_model = TruncatedClassifier(
+        model="out/resnet18/cifar10/model/tb_logs/resnet18/version_2/checkpoints/epoch=32-step=5181.ckpt",
         truncate_after="model.0.layer4",
-        n_classes=resnet18.hparams["n_classes"],
-        input_shape=resnet18.hparams["input_shape"],
     )
+    submodule_names = [
+        "model.model.0.layer1",
+        "model.model.0.layer2",
+        "model.model.0.layer3",
+        "model.model.0.layer4",
+        "fc",
+    ]
 
     transform = tvtr.Compose(
         [
@@ -69,22 +71,22 @@ def main():
     ds = TorchvisionDataset(dataset_name, transform=transform)
 
     output_dir = Path("out") / model_name / dataset_name
-    train_model(
-        model,
-        ds,
-        output_dir / "model",
-        name=model_name,
-        max_epochs=512,
-        # strategy="ddp_find_unused_parameters_true",  # if unfrozen
-        reload=False,
-    )
-    # train_and_analyse_all(
-    #     model=model,
-    #     submodule_names=submodule_names,
-    #     dataset=ds,
-    #     output_dir=output_dir,
-    #     model_name=model_name,
+    # train_model(
+    #     truncated_model,
+    #     ds,
+    #     output_dir / "model",
+    #     name=model_name,
+    #     max_epochs=512,
+    #     # strategy="ddp_find_unused_parameters_true",  # if unfrozen
+    #     reload=False,
     # )
+    train_and_analyse_all(
+        model=truncated_model,
+        submodule_names=submodule_names,
+        dataset=ds,
+        output_dir=output_dir,
+        model_name=model_name,
+    )
 
 
 if __name__ == "__main__":

@@ -21,6 +21,7 @@ docs-browser:
 format:
 	# isort .
 	black --line-length 79 --target-version py310 $(SRC_PATH)
+	black --line-length 79 --target-version py310 *.py
 
 .PHONY: lint
 lint:
@@ -29,3 +30,4 @@ lint:
 .PHONY: typecheck
 typecheck:
 	mypy -p $(SRC_PATH)
+	mypy *.py

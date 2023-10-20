@@ -3,9 +3,13 @@ from pathlib import Path
 
 import pytorch_lightning as pl
 from loguru import logger as logging
+from torch import Tensor
 
-from nlnas import (TorchvisionClassifier, TorchvisionDataset,
-                   train_and_analyse_all)
+from nlnas import (
+    TorchvisionClassifier,
+    TorchvisionDataset,
+    train_and_analyse_all,
+)
 from nlnas.utils import targets
 
 

@@ -1,6 +1,7 @@
 """A torchvision image classifier wrapped inside a `LightningModule`"""
 
 from itertools import chain
+from pathlib import Path
 from typing import Any, Iterable, Tuple
 
 import pytorch_lightning as pl
@@ -160,35 +161,48 @@ class TruncatedClassifier(Classifier):
     * flatten it and pass it through a final (trainable) head.
     """
 
-    model: nn.Module
+    model: TorchvisionClassifier
     fc: nn.Module
     handle: RemovableHandle
     _out: Tensor
 
     def __init__(
         self,
-        model: nn.Module,
+        model: TorchvisionClassifier | str | Path,
         truncate_after: str,
-        n_classes: int,
-        input_shape: Iterable[int] | None = None,
         freeze_base_model: bool = True,
         **kwargs: Any,
     ) -> None:
-        super().__init__(n_classes, **kwargs)
-        # self.save_hyperparameters()
-        self.model, self.fc = model, nn.LazyLinear(n_classes)
-        model.requires_grad_(not freeze_base_model)
+        """
+        Args:
+            model (TorchvisionClassifier | str | Path):
+            truncate_after (str): e.g. `model.0.classifier.4`
+            freeze_base_model (bool, optional):
+        """
+        _model = (
+            model
+            if isinstance(model, nn.Module)
+            else TorchvisionClassifier.load_from_checkpoint(str(model))
+        )  # Need to make sure the model is loaded to get hparams first
+        n_classes = _model.hparams["n_classes"]
+        input_shape = _model.hparams["input_shape"]
+
+        super().__init__(n_classes=n_classes, **kwargs)
+        self.save_hyperparameters()
+
+        self.model = _model
+        self.fc = nn.LazyLinear(n_classes).to(self.model.device)
+        self.model.requires_grad_(not freeze_base_model)
 
         def _hook(_model: nn.Module, _args: Any, output: Tensor) -> None:
             self._out = output
 
-        submodule = model.get_submodule(truncate_after)
+        submodule = self.model.get_submodule(truncate_after)
         self.handle = submodule.register_forward_hook(_hook)
 
-        if input_shape is not None:
-            self.example_input_array = torch.zeros([1] + list(input_shape))
-            self.model.eval()
-            self.forward(self.example_input_array)
+        self.example_input_array = torch.zeros([1] + list(input_shape))
+        self.model.eval()
+        self.forward(self.example_input_array)
 
     # pylint: disable=arguments-differ
     def forward(self, x: Tensor, *_, **__) -> Tensor:
