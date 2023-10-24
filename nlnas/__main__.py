@@ -83,7 +83,7 @@ def main(
     from .classifier import TorchvisionClassifier
     from .nlnas import train_and_analyse_all
     from .tv_dataset import TorchvisionDataset
-    from .utils import targets
+    from .utils import dataset_n_targets
 
     _setup_logging(logging_level)
     pl.seed_everything(0)
@@ -94,7 +94,7 @@ def main(
     train_and_analyse_all(
         model=TorchvisionClassifier(
             model_name,
-            n_classes=len(targets(ds.train_dataloader())),
+            n_classes=len(dataset_n_targets(ds.train_dataloader())),
         ),
         submodule_names=submodule_names.split(","),
         dataset=ds,

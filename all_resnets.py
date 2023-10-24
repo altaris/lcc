@@ -11,7 +11,7 @@ from nlnas import (
     train_and_analyse_all,
 )
 from nlnas.training import train_model, train_model_guarded
-from nlnas.utils import targets
+from nlnas.utils import dataset_n_targets
 
 
 def main():
@@ -55,7 +55,7 @@ def main():
         output_dir = Path("out") / m / d
         ds = TorchvisionDataset(d, transform=transform)
         ds.setup("fit")
-        n_classes = len(targets(ds.val_dataloader()))
+        n_classes = len(dataset_n_targets(ds.val_dataloader()))
         image_shape = list(next(iter(ds.val_dataloader()))[0].shape)[1:]
         model = TorchvisionClassifier(
             model_name=m,

@@ -13,7 +13,7 @@ from nlnas import (
     train_and_analyse_all,
 )
 from nlnas.training import train_model, train_model_guarded
-from nlnas.utils import targets
+from nlnas.utils import dataset_n_targets
 
 
 def main():
@@ -60,7 +60,7 @@ def main():
         output_dir = Path("out") / (model_name + "_gdv") / dataset_name
         dataset = TorchvisionDataset(dataset_name, transform=transform)
         dataset.setup("fit")
-        n_classes = len(targets(dataset.val_dataloader()))
+        n_classes = len(dataset_n_targets(dataset.val_dataloader()))
         image_shape = list(next(iter(dataset.val_dataloader()))[0].shape)[1:]
         model = VHTorchvisionClassifier(
             model_name=model_name,

@@ -12,7 +12,7 @@ from nlnas import (
 )
 from nlnas.classifier import TorchvisionClassifier, TruncatedClassifier
 from nlnas.training import train_model, train_model_guarded
-from nlnas.utils import targets
+from nlnas.utils import dataset_n_targets
 
 
 def main():

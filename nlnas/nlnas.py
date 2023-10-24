@@ -25,9 +25,19 @@ from .classifier import Classifier
 from .pdist import pdist
 from .plotting import class_scatter
 from .separability import label_variation, pairwise_svc_scores
-from .training import all_ckpt_paths, checkpoint_ves, train_model_guarded
+from .training import all_checkpoint_paths, checkpoint_ves, train_model_guarded
 from .tv_dataset import TorchvisionDataset
 from .utils import get_first_n
+
+MAX_CLASS_PAIRS = 200
+"""
+In `analyse_ckpt`, if `tsne_svc_separability` is `True`, a SVC-based
+separability scoring is computed. Specifically, for each pair of classes, we
+compute how well separated they are by fitting a SVC and computing the score.
+If there are many classes, the number of pairs can be very large. If this
+number is greater than `MAX_CLASS_PAIRS`, then only `MAX_CLASS_PAIRS` pairs are
+chosen at random (among all possible pairs) for the separability scoring.
+"""
 
 
 def _is_ckpt_analysis_dir(p: Path | str) -> bool:
@@ -40,7 +50,6 @@ def analyse_ckpt(
     dataset: pl.LightningDataModule | str,
     output_dir: str | Path,
     n_samples: int = 5000,
-    max_class_pairs: int = 200,
     model_cls: Type[Classifier] | None = None,
     tsne: bool = True,
     tsne_svc_separability: bool = True,
@@ -59,7 +68,6 @@ def analyse_ckpt(
             name of a torchvision dataset
         output_dir (str | Path):
         n_samples (int, optional):
-        max_class_pairs (int, optional):
         tsne (bool, optional): Wether to compute TSNE embeddings and plots
         tsne_svc_separability (bool, optional): Wether to compute the TSNE-SVC
             separability scores and plots. If set to `True`, overrides `tsne`.
@@ -92,7 +100,10 @@ def analyse_ckpt(
             submodule_names,
             out,
         )
-        h.result = {k: v.contiguous() for k, v in out.items()}  # hotfix
+        # Hotfix. Sometimes, the model doesn't produce contiguous tensors (like
+        # ViTs) which prevents dumping. Later version of TurboBroccoli should
+        # contiguous-ize tensors for us
+        h.result = {k: v.contiguous() for k, v in out.items()}
     outputs: dict[str, Tensor] = h.result
 
     # TSNE
@@ -165,8 +176,8 @@ def analyse_ckpt(
         class_idx_pairs = [
             (i, j) for i in range(n_classes) for j in range(i + 1, n_classes)
         ]
-        if (n_classes * (n_classes - 1) / 2) > max_class_pairs:
-            class_idx_pairs = random.sample(class_idx_pairs, max_class_pairs)
+        if (n_classes * (n_classes - 1) / 2) > MAX_CLASS_PAIRS:
+            class_idx_pairs = random.sample(class_idx_pairs, MAX_CLASS_PAIRS)
         h = tb.GuardedBlockHandler(output_dir / "svc" / "pairwise_rbf.json")
         # h = tb.GuardedBlockHandler(output_dir / "svc" / "pairwise_linear.json")
         # h = tb.GuardedBlockHandler(output_dir / "svc" / "full_linear.json")
@@ -176,10 +187,10 @@ def analyse_ckpt(
             for k, e in tsne_embeddings.items():
                 logging.debug("Fitting SVC for outputs of submodule '{}'", k)
                 h.result[k] = pairwise_svc_scores(
-                    e, y_train, max_class_pairs, kernel="rbf"
+                    e, y_train, MAX_CLASS_PAIRS, kernel="rbf"
                 )
                 h.result[k] = pairwise_svc_scores(
-                    e, y_train, max_class_pairs, kernel="linear"
+                    e, y_train, MAX_CLASS_PAIRS, kernel="linear"
                 )
 
             # FULL LINEAR
@@ -258,7 +269,7 @@ def analyse_training(
         output_path (str | Path): e.g. `./out/resnet18/cifar10/version_1/`
         dataset (pl.LightningDataModule | str):
         n_samples (int): Sorry it's not inferred ¯\\_(ツ)_/¯
-        lv_k (int, optional):
+        lv_k (int, optional): $k$ hyperparameter to compute LV
         last_epoch (int, optional): If specified, only plot LV curves up to
             that epoch
     """
@@ -276,10 +287,8 @@ def analyse_training(
     _, y_train = get_first_n(dataset.train_dataloader(), n_samples)
 
     data = []
-    progress = tqdm(
-        enumerate(ckpt_analysis_dirs), desc="Computing LVs", leave=False
-    )
-    for epoch, p in progress:
+    progress = tqdm(ckpt_analysis_dirs, desc="Computing LVs", leave=False)
+    for epoch, p in enumerate(progress):
         evaluations = tb.load_json(Path(p) / "eval" / "eval.json")
         for sm, z in evaluations.items():
             progress.set_postfix({"epoch": epoch, "submodule": sm})
@@ -376,7 +385,7 @@ def train_and_analyse_all(
     output_dir: str | Path,
     model_name: str | None = None,
     n_samples: int = 5000,
-    # max_class_pairs: int = 200,
+    strategy: str = "ddp",
 ):
     """
     Trains a model and performs a separability analysis (see
@@ -394,12 +403,6 @@ def train_and_analyse_all(
             directories and for logging). If left to `None`, is set to the
             lower case class name, i.e. `model.__class__.__name__.lower()`.
         n_samples (int, optional): Defaults to 5000.
-        max_class_pairs (int, optional): The last stage of this suite compute
-            pairwise separability scores. That means that for each pair of
-            distinct classes, a SVC is fitted and a score is computed. If there
-            are many classes, the number of pairs can be very large. If this
-            number is greater than `n_class_pairs`, then `n_class_pairs` pairs
-            are chosen at random for the separability scoring.
     """
     # tb.set_max_nbytes(1000)  # Ensure artefacts
     model_name = model_name or model.__class__.__name__.lower()
@@ -407,40 +410,40 @@ def train_and_analyse_all(
         output_dir = Path(output_dir)
     if isinstance(dataset, str):
         dataset = TorchvisionDataset(dataset)
-    _, ckpt = train_model_guarded(
+    _, best_ckpt = train_model_guarded(
         model,
         dataset,
         output_dir / "model",
         name=model_name,
         max_epochs=512,
-        strategy="ddp",
+        strategy=strategy,
     )
-    if model.global_rank == 0:
-        version, best_epoch, _ = checkpoint_ves(ckpt)
-        p = (
-            output_dir
-            / "model"
-            / "tb_logs"
-            / model_name
-            / f"version_{version}"
-            / "checkpoints"
-        )
-        for i, ckpt in enumerate(all_ckpt_paths(p)):
-            analyse_ckpt(
-                model=ckpt,
-                model_cls=type(model),
-                submodule_names=submodule_names,
-                dataset=dataset,
-                output_dir=output_dir / f"version_{version}" / str(i),
-                n_samples=n_samples,
-                tsne=False,
-                tsne_svc_separability=False,
-                # max_class_pairs=max_class_pairs,
-                phate=False,
-            )
-        analyse_training(
-            output_dir / f"version_{version}",
-            dataset,
+    if model.global_rank != 0:
+        return
+    version, best_epoch, _ = checkpoint_ves(best_ckpt)
+    p = (
+        output_dir
+        / "model"
+        / "tb_logs"
+        / model_name
+        / f"version_{version}"
+        / "checkpoints"
+    )
+    for i, ckpt in enumerate(all_checkpoint_paths(p)):
+        analyse_ckpt(
+            model=ckpt,
+            model_cls=type(model),
+            submodule_names=submodule_names,
+            dataset=dataset,
+            output_dir=output_dir / f"version_{version}" / str(i),
             n_samples=n_samples,
-            last_epoch=best_epoch,
+            tsne=False,
+            tsne_svc_separability=False,
+            phate=False,
         )
+    analyse_training(
+        output_dir / f"version_{version}",
+        dataset,
+        n_samples=n_samples,
+        last_epoch=best_epoch,
+    )

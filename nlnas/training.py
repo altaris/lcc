@@ -3,7 +3,7 @@
 import os
 from glob import glob
 from pathlib import Path
-from typing import Any, Callable, Tuple
+from typing import Any, Callable, Literal, Tuple
 
 import pandas as pd
 import pytorch_lightning as pl
@@ -17,7 +17,7 @@ class NoCheckpointFound(Exception):
     """Raised by `nlnas.utils.last_checkpoint_path` if no checkpoint is found"""
 
 
-def all_ckpt_paths(ckpts_dir_path: str | Path) -> list[Path]:
+def all_checkpoint_paths(ckpts_dir_path: str | Path) -> list[Path]:
     """
     Returns the sorted (by epoch) list of all checkpoint file paths in a given
     directory. `ckpts_dir_path` probably looks like
@@ -36,13 +36,29 @@ def all_ckpt_paths(ckpts_dir_path: str | Path) -> list[Path]:
     return [d[i] for i in sorted(list(d.keys()))]
 
 
-def best_epoch(path: str | Path) -> int:
+def best_checkpoint_path(
+    ckpts_dir_path: str | Path,
+    metrics_csv_path: str | Path,
+    metric: str = "val/acc",
+    mode: Literal["min", "max"] = "max",
+) -> Tuple[Path, int]:
+    """Returns the path to the best checkpoint"""
+    ckpts = all_checkpoint_paths(ckpts_dir_path)
+    epoch = best_epoch(metrics_csv_path, metric, mode)
+    return ckpts[epoch], epoch
+
+
+def best_epoch(
+    metrics_csv_path: str | Path,
+    metric: str = "val/acc",
+    mode: Literal["min", "max"] = "max",
+) -> int:
     """Given the `metrics.csv` path, returns the best epoch index"""
-    metrics = pd.read_csv(path)
-    metrics.drop(columns=["train/loss"], inplace=True)
-    metrics = metrics.groupby("epoch").tail(1)
-    metrics.reset_index(inplace=True, drop=True)
-    return metrics["val/acc"].argmax()
+    df = pd.read_csv(metrics_csv_path)
+    df.drop(columns=["train/loss"], inplace=True)
+    df = df.groupby("epoch").tail(1)
+    df.reset_index(inplace=True, drop=True)
+    return int(df[metric].argmax() if mode == "max" else df[metric].argmin())
 
 
 def checkpoint_ves(path: str | Path) -> Tuple[int, int, int]:
@@ -91,8 +107,9 @@ def pl_module_loader(
     assert issubclass(cls, pl.LightningModule)  # For typechecking
     if not isinstance(root_dir, Path):
         root_dir = Path(root_dir)
-    ckpt = last_checkpoint_path(
-        root_dir / "tb_logs" / name / f"version_{version}" / "checkpoints"
+    ckpt, _ = best_checkpoint_path(
+        root_dir / "tb_logs" / name / f"version_{version}" / "checkpoints",
+        root_dir / "csv_logs" / name / f"version_{version}" / "metrics.csv",
     )
     logging.debug("Loading checkpoint '{}'", ckpt)
     module: pl.LightningModule = cls.load_from_checkpoint(str(ckpt))  # type: ignore
@@ -281,7 +298,6 @@ def train_model(
     return model, ckpt
 
 
-# TODO: make it so that the best checkpoint is returned
 def train_model_guarded(
     model: pl.LightningModule,
     datamodule: pl.LightningDataModule,

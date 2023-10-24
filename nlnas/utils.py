@@ -47,7 +47,7 @@ def get_first_n(dl: DataLoader, n: int) -> list[Tensor]:
     return list(map(lambda l: torch.concat(l)[:n], zip(*batches)))
 
 
-def targets(dl: DataLoader) -> set:
+def dataset_n_targets(dl: DataLoader) -> set:
     """
     Returns (distinct) targets of the dataset underlying this dataloader. Has
     to iterate through the whole dataset, so it can be horribly inefficient =(

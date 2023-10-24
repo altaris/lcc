@@ -14,7 +14,7 @@ from nlnas import (
 )
 from nlnas.training import train_model, train_model_guarded
 from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS
-from nlnas.utils import targets
+from nlnas.utils import dataset_n_targets
 
 
 def main():
@@ -66,7 +66,7 @@ def main():
             dataloader_kwargs={"drop_last": True, **DEFAULT_DATALOADER_KWARGS},
         )
         dataset.setup("fit")
-        n_classes = len(targets(dataset.val_dataloader()))
+        n_classes = len(dataset_n_targets(dataset.val_dataloader()))
         image_shape = list(next(iter(dataset.val_dataloader()))[0].shape)[1:]
         model = VHTorchvisionClassifier(
             model_name=model_name,

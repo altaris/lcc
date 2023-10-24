@@ -2,6 +2,7 @@ from itertools import product
 from pathlib import Path
 
 import pytorch_lightning as pl
+import torchvision.transforms as tvtr
 from loguru import logger as logging
 from torch import Tensor
 
@@ -10,7 +11,7 @@ from nlnas import (
     TorchvisionDataset,
     train_and_analyse_all,
 )
-from nlnas.utils import targets
+from nlnas.utils import dataset_n_targets
 
 
 def extract_logits(_module, _inputs, outputs) -> Tensor | None:
@@ -24,32 +25,43 @@ def main():
         "googlenet",
     ]
     submodule_names = [
-        "model.0.maxpool1",
-        # "model.0.maxpool2",
+        "model.0.conv1",
+        "model.0.conv2",
+        "model.0.conv3",
         "model.0.inception3a",
-        "model.0.maxpool3",
-        # "model.0.inception4a",
-        # "model.0.inception4b",
-        # "model.0.inception4c",
+        "model.0.inception4a",
+        "model.0.inception4b",
+        "model.0.inception4c",
         "model.0.inception4d",
-        "model.0.maxpool4",
-        # "model.0.inception5a",
+        "model.0.inception5a",
         "model.0.inception5b",
         "model.0.fc",
         "model.1",
     ]
     dataset_names = [
-        "mnist",
+        # "mnist",
         # "kmnist",
-        "fashionmnist",
-        "cifar10",
+        # "fashionmnist",
+        # "cifar10",
         # "cifar100",
     ]
+    transform = tvtr.Compose(
+        [
+            tvtr.RandomCrop(32, padding=4),
+            tvtr.RandomHorizontalFlip(),
+            tvtr.ToTensor(),
+            tvtr.Normalize(  # Taken from pl_bolts cifar10_normalization
+                mean=[x / 255.0 for x in [125.3, 123.0, 113.9]],
+                std=[x / 255.0 for x in [63.0, 62.1, 66.7]],
+            ),
+            tvtr.Resize([64, 64], antialias=True),
+        ]
+    )
     for m, d in product(model_names, dataset_names):
         output_dir = Path("out") / m / d
-        ds = TorchvisionDataset(d)
+        ds = TorchvisionDataset(d, transform=transform)
         ds.setup("fit")
-        n_classes = len(targets(ds.val_dataloader()))
+        n_classes = len(dataset_n_targets(ds.val_dataloader()))
         image_shape = list(next(iter(ds.val_dataloader()))[0].shape)[1:]
         model = TorchvisionClassifier(
             model_name=m,
@@ -64,6 +76,7 @@ def main():
             dataset=ds,
             output_dir=output_dir,
             model_name=m,
+            strategy="ddp_find_unused_parameters_true",
         )
 
 
