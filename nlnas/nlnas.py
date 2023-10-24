@@ -3,6 +3,7 @@
 import random
 import shutil
 from glob import glob
+from itertools import combinations
 from pathlib import Path
 from typing import Type
 
@@ -16,6 +17,7 @@ import seaborn as sns
 import turbo_broccoli as tb
 from bokeh.io import export_png
 from loguru import logger as logging
+from matplotlib import pyplot as plt
 from phate import PHATE
 from sklearn.manifold import TSNE
 from torch import Tensor
@@ -24,7 +26,7 @@ from tqdm import tqdm
 from .classifier import Classifier
 from .pdist import pdist
 from .plotting import class_scatter
-from .separability import label_variation, pairwise_svc_scores
+from .separability import label_variation, pairwise_gdv, pairwise_svc_scores
 from .training import all_checkpoint_paths, checkpoint_ves, train_model_guarded
 from .tv_dataset import TorchvisionDataset
 from .utils import get_first_n
@@ -77,7 +79,6 @@ def analyse_ckpt(
 
     # LOAD MODEL IF NEEDED
     if not isinstance(model, Classifier):
-        logging.info("Analysing checkpoint {}", str(model))
         model_cls = model_cls or Classifier
         model = model_cls.load_from_checkpoint(model)
     assert isinstance(model, Classifier)  # For typechecking
@@ -173,9 +174,7 @@ def analyse_ckpt(
     # SEPARABILITY SCORE AND PLOTTING
     if tsne_svc_separability:
         n_classes = len(np.unique(y_train))
-        class_idx_pairs = [
-            (i, j) for i in range(n_classes) for j in range(i + 1, n_classes)
-        ]
+        class_idx_pairs = list(combinations(range(n_classes), 2))
         if (n_classes * (n_classes - 1) / 2) > MAX_CLASS_PAIRS:
             class_idx_pairs = random.sample(class_idx_pairs, MAX_CLASS_PAIRS)
         h = tb.GuardedBlockHandler(output_dir / "svc" / "pairwise_rbf.json")
@@ -286,17 +285,19 @@ def analyse_training(
     dataset.setup("fit")
     _, y_train = get_first_n(dataset.train_dataloader(), n_samples)
 
+    # LV COMPUTATION
     data = []
     progress = tqdm(ckpt_analysis_dirs, desc="Computing LVs", leave=False)
     for epoch, p in enumerate(progress):
         evaluations = tb.load_json(Path(p) / "eval" / "eval.json")
         for sm, z in evaluations.items():
             progress.set_postfix({"epoch": epoch, "submodule": sm})
-            v = label_variation(z, y_train, k=lv_k)
-            data.append([epoch, sm, float(v)])
+            v = float(label_variation(z, y_train, k=lv_k))
+            data.append([epoch, sm, v])
     lvs = pd.DataFrame(data, columns=["epoch", "submodule", "lv"])
     lvs.to_csv(output_dir / "lv.csv")
 
+    # LV PLOTTING
     e = np.linspace(0, last_epoch, num=5, dtype=int)
     figure = sns.lineplot(
         lvs[lvs["epoch"].isin(e)],
@@ -313,6 +314,40 @@ def analyse_training(
         ha="right",
     )
     figure.get_figure().savefig(output_dir / "lv_epoch.png")
+    plt.clf()
+
+    # GDV COMPUTATION
+    data = []
+    progress = tqdm(
+        ckpt_analysis_dirs, desc="Computing mean pairwise GDVs", leave=False
+    )
+    for epoch, p in enumerate(progress):
+        evaluations = tb.load_json(Path(p) / "eval" / "eval.json")
+        for sm, z in evaluations.items():
+            progress.set_postfix({"epoch": epoch, "submodule": sm})
+            _, v = pairwise_gdv(z, y_train)
+            data.append([epoch, sm, v])
+    gdvs = pd.DataFrame(data, columns=["epoch", "submodule", "gdv"])
+    gdvs.to_csv(output_dir / "gdv.csv")
+
+    # GDV PLOTTING
+    e = np.linspace(0, last_epoch, num=5, dtype=int)
+    figure = sns.lineplot(
+        gdvs[gdvs["epoch"].isin(e)],
+        x="submodule",
+        y="gdv",
+        hue="epoch",
+        size="epoch",
+    )
+    figure.set(title="GDV by epoch")
+    figure.set_xticklabels(
+        figure.get_xticklabels(),
+        rotation=45,
+        rotation_mode="anchor",
+        ha="right",
+    )
+    figure.get_figure().savefig(output_dir / "gdv_epoch.png")
+    plt.clf()
 
     # dfs = []
     # for epoch, p in enumerate(ckpt_analysis_dirs):
@@ -429,7 +464,10 @@ def train_and_analyse_all(
         / f"version_{version}"
         / "checkpoints"
     )
-    for i, ckpt in enumerate(all_checkpoint_paths(p)):
+    progress = tqdm(
+        all_checkpoint_paths(p), desc="Analyzing epochs", leave=False
+    )
+    for i, ckpt in enumerate(progress):
         analyse_ckpt(
             model=ckpt,
             model_cls=type(model),
@@ -441,6 +479,7 @@ def train_and_analyse_all(
             tsne_svc_separability=False,
             phate=False,
         )
+    logging.info("Analyzing training")
     analyse_training(
         output_dir / f"version_{version}",
         dataset,

@@ -1,14 +1,17 @@
 """Everything related to separability of point clouds"""
 
 
+from itertools import combinations
 import random
 from math import sqrt
+from typing import Tuple
 
 import numpy as np
 import torch
 from sklearn.svm import SVC
 from torch import Tensor
-from torch.nn.functional import one_hot
+from torch.nn.functional import one_hot, pdist
+from tqdm import tqdm
 
 
 def _var(x: Tensor) -> Tensor:
@@ -38,22 +41,31 @@ def gdv(x: Tensor, y: Tensor) -> Tensor:
     s = x.flatten(1)
     s = 0.5 * (s - s.mean(dim=0)) / (_var(s).sqrt() + 1e-5)
     for i in range(n_classes):
-        u = s[y == i] / 2
-        a.append(2 * _var(u).sum())
-    for i in range(n_classes):
-        for j in range(i + 1, n_classes):
-            u, v = s[y == i] / 2, s[y == j] / 2
-            d = (
-                torch.linalg.norm(u.mean(dim=0) - v.mean(dim=0))
-                + _var(u).sum()
-                + _var(v).sum()
-            )
-            b.append(d)
-    return (
-        sqrt(n_classes)
-        * (torch.stack(a).mean() - 2 * torch.stack(b).mean())
-        / s.shape[0]
+        u = s[y == i]
+        a.append(pdist(u).mean())
+    for i, j in combinations(range(n_classes), 2):
+        u, v = s[y == i], s[y == j]
+        b.append(torch.cdist(u, v).mean())
+    return sqrt(s.shape[-1]) * (
+        torch.stack(a).mean() - 2 * torch.stack(b).mean()
     )
+    # GAUSSIAN APPROXIMATION
+    # for i in range(n_classes):
+    #     u = s[y == i] / 2
+    #     a.append(2 * _var(u).sum())
+    # for i, j in combinations(range(n_classes), 2):
+    #     u, v = s[y == i] / 2, s[y == j] / 2
+    #     d = (
+    #         torch.linalg.norm(u.mean(dim=0) - v.mean(dim=0))
+    #         + _var(u).sum()
+    #         + _var(v).sum()
+    #     )
+    #     b.append(d)
+    # return (
+    #     sqrt(n_classes)
+    #     * (torch.stack(a).mean() - 2 * torch.stack(b).mean())
+    #     / s.shape[0]
+    # )
 
 
 def label_variation(
@@ -114,7 +126,7 @@ def pairwise_gdv(
     x: np.ndarray | Tensor,
     y: np.ndarray | Tensor,
     max_class_pairs: int = 100,
-) -> list[dict]:
+) -> Tuple[list[dict], float]:
     """
     Pairwise GDVs, see `nlnas.separability.gdv`.
 
@@ -139,21 +151,23 @@ def pairwise_gdv(
                 },
                 ...
             ]
+
+        and a float which is the mean of all `value`'s
     """
     x = Tensor(x) if isinstance(x, np.ndarray) else x
     y = Tensor(y) if isinstance(y, np.ndarray) else y
     n_classes = len(np.unique(y))
-    class_idx_pairs = [
-        (i, j) for i in range(n_classes) for j in range(i + 1, n_classes)
-    ]
+    class_idx_pairs = list(combinations(range(n_classes), 2))
     if (n_classes * (n_classes - 1) / 2) > max_class_pairs:
         class_idx_pairs = random.sample(class_idx_pairs, max_class_pairs)
     results = []
-    for i, j in class_idx_pairs:
+    progress = tqdm(class_idx_pairs, desc="Computing GDVs", leave=False)
+    for i, j in progress:
+        progress.set_postfix({"i": i, "j": j})
         yij = (y == i) + (y == j)
         a, b = x[yij], y[yij] == i
         results.append({"idx": (i, j), "value": float(gdv(a, b))})
-    return results
+    return results, np.mean([d["value"] for d in results])
 
 
 def pairwise_svc_scores(
@@ -189,9 +203,7 @@ def pairwise_svc_scores(
     y = y.numpy() if isinstance(y, Tensor) else y
     x = x.reshape(len(x), -1)
     n_classes = len(np.unique(y))
-    class_idx_pairs = [
-        (i, j) for i in range(n_classes) for j in range(i + 1, n_classes)
-    ]
+    class_idx_pairs = list(combinations(range(n_classes), 2))
     if (n_classes * (n_classes - 1) / 2) > max_class_pairs:
         class_idx_pairs = random.sample(class_idx_pairs, max_class_pairs)
     results = []
