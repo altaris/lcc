@@ -199,7 +199,7 @@ def train_model(
 
     Args:
         model (pl.LightningModule): The model to train. In its
-            `validation_step`, the model must log the `val/acc` metric.
+            `validation_step`, the model must log the `val/loss` metric.
         train_dl (DataLoader): The train dataloader.
         val_dl (DataLoader): The validation dataloader.
         root_dir (str | Path): The root dir of the trainer. The
@@ -208,13 +208,13 @@ def train_model(
         name (str, optional): The name of the model. The
             tensorboard logs will be stored under `root_dir/tb_logs/name`.
         max_epochs (int): The maximum number of epochs. Note that an early
-            stopping callbacks with a patience of 10 monitors the `val/acc`
+            stopping callbacks with a patience of 10 monitors the `val/loss`
             metric by default.
         additional_callbacks (list[pl.Callback], optional): Additional
             trainer callbacks. Note that the following callbacks are
             automatically set:
             ```py
-            pl.callbacks.EarlyStopping(monitor="val/acc", patience=10),
+            pl.callbacks.EarlyStopping(monitor="val/loss", patience=10),
             pl.callbacks.LearningRateMonitor("epoch"),
             pl.callbacks.ModelCheckpoint(save_weights_only=True),
             pl.callbacks.TQDMProgressBar(),
@@ -223,7 +223,7 @@ def train_model(
             callback. By default, it is
             ```py
             {
-                monitor="val/acc",
+                monitor="val/loss",
                 patience=10,
             }
             ```
@@ -252,9 +252,9 @@ def train_model(
 
     additional_callbacks = additional_callbacks or []
     early_stopping_kwargs = early_stopping_kwargs or {
-        "monitor": "val/acc",
+        "monitor": "val/loss",
         "patience": 10,
-        "mode": "max",
+        "mode": "min",
     }
 
     tb_logger = pl.loggers.TensorBoardLogger(
