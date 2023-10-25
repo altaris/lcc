@@ -26,7 +26,7 @@ from tqdm import tqdm
 from .classifier import Classifier
 from .pdist import pdist
 from .plotting import class_scatter
-from .separability import label_variation, pairwise_gdv, pairwise_svc_scores
+from .separability import label_variation, gdv, pairwise_svc_scores
 from .training import all_checkpoint_paths, checkpoint_ves, train_model_guarded
 from .tv_dataset import TorchvisionDataset
 from .utils import get_first_n
@@ -318,14 +318,12 @@ def analyse_training(
 
     # GDV COMPUTATION
     data = []
-    progress = tqdm(
-        ckpt_analysis_dirs, desc="Computing mean pairwise GDVs", leave=False
-    )
+    progress = tqdm(ckpt_analysis_dirs, desc="Computing GDVs", leave=False)
     for epoch, p in enumerate(progress):
         evaluations = tb.load_json(Path(p) / "eval" / "eval.json")
         for sm, z in evaluations.items():
             progress.set_postfix({"epoch": epoch, "submodule": sm})
-            _, v = pairwise_gdv(z, y_train)
+            v = float(gdv(z, y_train))
             data.append([epoch, sm, v])
     gdvs = pd.DataFrame(data, columns=["epoch", "submodule", "gdv"])
     gdvs.to_csv(output_dir / "gdv.csv")

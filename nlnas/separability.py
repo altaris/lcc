@@ -21,7 +21,7 @@ def _var(x: Tensor) -> Tensor:
 
 def gdv(x: Tensor, y: Tensor) -> Tensor:
     """
-    Gaussian approximation of the Generalized Discrimination Value of
+    Generalized Discrimination Value of
 
         Achim Schilling, Andreas Maier, Richard Gerum, Claus Metzner, Patrick
         Krauss, Quantifying the separability of data classes in neural
@@ -30,25 +30,26 @@ def gdv(x: Tensor, y: Tensor) -> Tensor:
         (https://www.sciencedirect.com/science/article/pii/S0893608021001234)
 
     This method is differentiable. The complexity is quadratic in the number of
-    classes.
+    classes and samples.
 
     Args:
         x (Tensor): A `(N, ...)` tensor, where `N` is the number of samples. It
             will automatically be flattened to a 2 dimensional tensor.
         y (Tensor): A `(N,)` tensor.
+
+    Returns:
+        A scalar tensor
     """
-    a, b, n_classes = [], [], len(y.unique())
     s = x.flatten(1)
     s = 0.5 * (s - s.mean(dim=0)) / (_var(s).sqrt() + 1e-5)
-    for i in range(n_classes):
-        u = s[y == i]
-        a.append(pdist(u).mean())
-    for i, j in combinations(range(n_classes), 2):
-        u, v = s[y == i], s[y == j]
-        b.append(torch.cdist(u, v).mean())
-    return sqrt(s.shape[-1]) * (
-        torch.stack(a).mean() - 2 * torch.stack(b).mean()
-    )
+    n_classes = len(y.unique())
+    a = [pdist(s[y == i]).mean() for i in range(n_classes)]
+    b = [
+        torch.cdist(s[y == i], s[y == j]).mean()
+        for i, j in combinations(range(n_classes), 2)
+    ]
+    d = sqrt(s.shape[-1])
+    return (torch.stack(a).mean() - 2 * torch.stack(b).mean()) / d
     # GAUSSIAN APPROXIMATION
     # for i in range(n_classes):
     #     u = s[y == i] / 2
@@ -62,9 +63,8 @@ def gdv(x: Tensor, y: Tensor) -> Tensor:
     #     )
     #     b.append(d)
     # return (
-    #     sqrt(n_classes)
-    #     * (torch.stack(a).mean() - 2 * torch.stack(b).mean())
-    #     / s.shape[0]
+    #     (torch.stack(a).mean() - 2 * torch.stack(b).mean())
+    #     / sqrt(n_classes)
     # )
 
 
