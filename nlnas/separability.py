@@ -43,11 +43,15 @@ def gdv(x: Tensor, y: Tensor) -> Tensor:
     s = x.flatten(1)
     s = 0.5 * (s - s.mean(dim=0)) / (_var(s).sqrt() + 1e-5)
     n_classes = len(y.unique())
-    a = [pdist(s[y == i]).mean() for i in range(n_classes)]
-    b = [
-        torch.cdist(s[y == i], s[y == j]).mean()
-        for i, j in combinations(range(n_classes), 2)
-    ]
+    a, b = [], []
+    for i in range(n_classes):
+        u = s[y == i]
+        if len(u) >= 2:
+            a.append(pdist(u).mean())
+    for i, j in combinations(range(n_classes), 2):
+        u, v = s[y == i], s[y == j]
+        if len(u) >= 1 and len(v) >= 1:
+            b.append(torch.cdist(u, v).mean())
     d = sqrt(s.shape[-1])
     return (torch.stack(a).mean() - 2 * torch.stack(b).mean()) / d
     # GAUSSIAN APPROXIMATION
@@ -160,14 +164,14 @@ def pairwise_gdv(
     class_idx_pairs = list(combinations(range(n_classes), 2))
     if (n_classes * (n_classes - 1) / 2) > max_class_pairs:
         class_idx_pairs = random.sample(class_idx_pairs, max_class_pairs)
-    results = []
+    result = []
     progress = tqdm(class_idx_pairs, desc="Computing GDVs", leave=False)
     for i, j in progress:
         progress.set_postfix({"i": i, "j": j})
         yij = (y == i) + (y == j)
         a, b = x[yij], y[yij] == i
-        results.append({"idx": (i, j), "value": float(gdv(a, b))})
-    return results, np.mean([d["value"] for d in results])
+        result.append({"idx": (i, j), "value": float(gdv(a, b))})
+    return result, float(np.mean([d["value"] for d in result]))  # type: ignore
 
 
 def pairwise_svc_scores(
