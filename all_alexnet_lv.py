@@ -71,7 +71,7 @@ def main():
         model = VHTorchvisionClassifier(
             model_name=model_name,
             n_classes=n_classes,
-            vh_submodules=submodule_names,
+            submodules=submodule_names,
             add_final_fc=True,
             input_shape=image_shape,
             horizontal_lr=1e-5,

@@ -43,10 +43,10 @@ def main():
     # )
 
     # CIFAR10
-    model_name, dataset_name = "alexnet_cl4", "cifar10"
+    model_name, dataset_name = "alexnet_f10", "cifar10"
     truncated_model = TruncatedClassifier(
         model="out/alexnet/cifar10/model/tb_logs/alexnet/version_0/checkpoints/epoch=71-step=5688.ckpt",
-        truncate_after="model.0.classifier.4",
+        truncate_after="model.0.features.10",
     )
     submodule_names = [
         "model.model.0.features.0",
@@ -54,8 +54,8 @@ def main():
         "model.model.0.features.6",
         "model.model.0.features.8",
         "model.model.0.features.10",
-        "model.model.0.classifier.1",
-        "model.model.0.classifier.4",
+        # "model.model.0.classifier.1",
+        # "model.model.0.classifier.4",
         "fc",
     ]
 

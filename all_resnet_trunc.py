@@ -11,12 +11,21 @@ from nlnas import (
     train_and_analyse_all,
 )
 from nlnas.classifier import TorchvisionClassifier, TruncatedClassifier
-from nlnas.training import train_model, train_model_guarded
+from nlnas.training import (
+    best_checkpoint_path,
+    train_model,
+    train_model_guarded,
+)
 from nlnas.utils import dataset_n_targets
 
 
 def main():
     pl.seed_everything(0)
+
+    ckpt, _ = best_checkpoint_path(
+        "out/resnet18/cifar10/model/tb_logs/resnet18/version_0/checkpoints",
+        "out/resnet18/cifar10/model/csv_logs/resnet18/version_0/metrics.csv",
+    )
 
     # MNIST
     # model_name, dataset_name = "resnet18_layer3", "mnist"
@@ -43,9 +52,13 @@ def main():
     # )
 
     # CIFAR10
-    model_name, dataset_name = "resnet18_layer3", "cifar10"
+    model_name, dataset_name = "resnet18_layer4", "cifar10"
+    ckpt, _ = best_checkpoint_path(
+        "out/resnet18/cifar10/model/tb_logs/resnet18/version_0/checkpoints",
+        "out/resnet18/cifar10/model/csv_logs/resnet18/version_0/metrics.csv",
+    )
     truncated_model = TruncatedClassifier(
-        model="out/resnet18/cifar10/model/tb_logs/resnet18/version_2/checkpoints/epoch=32-step=5181.ckpt",
+        model=ckpt,
         truncate_after="model.0.layer4",
     )
     submodule_names = [

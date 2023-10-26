@@ -18,8 +18,8 @@ def main():
     pl.seed_everything(0)
     model_names = [
         "resnet18",
-        "resnet34",
-        "resnet50",
+        # "resnet34",
+        # "resnet50",
         # "resnet101",
         # "resnet152",
     ]

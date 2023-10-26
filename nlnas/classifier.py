@@ -2,7 +2,7 @@
 
 from itertools import chain
 from pathlib import Path
-from typing import Any, Iterable, Tuple
+from typing import Any, Iterable, Literal, Tuple
 
 import pytorch_lightning as pl
 import torch
@@ -11,8 +11,9 @@ from torch import Tensor, nn
 from torch.optim import Optimizer
 from torch.utils.hooks import RemovableHandle
 from torchvision.models import get_model
+from tqdm import tqdm
 
-from .separability import label_variation
+from .separability import gdv, label_variation
 from .utils import best_device
 
 
@@ -221,19 +222,19 @@ class VHTorchvisionClassifier(TorchvisionClassifier):
         self,
         model_name: str,
         n_classes: int,
-        vh_submodules: list[str],
+        submodules: list[str],
         input_shape: Iterable[int] | None = None,
         model_config: dict[str, Any] | None = None,
         add_final_fc: bool = False,
-        vertical_lr: float = 1e-3,
-        horizontal_lr: float = 1e-3,
+        separation_score: Literal["gdv", "lv"] | None = None,
+        separation_weight: float = 1e-1,
         **kwargs,
     ) -> None:
         """
         Args:
             model_name (str): See `nlnas.classifier.TorchvisionClassifier`
             n_classes (int): See `nlnas.classifier.TorchvisionClassifier`
-            vh_submodules (list[str]): Names of the submodules that are to be
+            submodules (list[str]): Names of the submodules that are to be
                 trained horizontally (as well as vertically)
             input_shape (Iterable[int] | None, optional): See
                 `nlnas.classifier.TorchvisionClassifier`
@@ -241,6 +242,8 @@ class VHTorchvisionClassifier(TorchvisionClassifier):
                 `nlnas.classifier.TorchvisionClassifier`
             add_final_fc (bool, optional): See
                 `nlnas.classifier.TorchvisionClassifier`
+            separation_score (either `"gdv"`, `"lv"`, or `None`):
+            separation_weight (float, optional):
         """
         super().__init__(
             model_name,
@@ -251,39 +254,40 @@ class VHTorchvisionClassifier(TorchvisionClassifier):
             **kwargs,
         )
         self.save_hyperparameters()
-        self.vh_submodules = vh_submodules
-        self.automatic_optimization = False
+        # self.automatic_optimization = False
 
-    def _evaluate_vh(
-        self, batch, stage: str | None = None
-    ) -> Tuple[Tensor, Tensor]:
+    def _evaluate(self, batch, stage: str | None = None) -> Tensor:
         """Self-explanatory"""
         x, y = batch
         y = y.to(self.device)
         output_dict: dict[str, Tensor] = {}
         logits = self.forward_intermediate(
-            x, self.vh_submodules, output_dict, keep_gradients=True
+            x, self.hparams["submodules"], output_dict, keep_gradients=True
         )
         v_loss = nn.functional.cross_entropy(logits, y.long())
-        h_loss = torch.mean(
-            # torch.stack([gdv(v, y) for v in output_dict.values()])
-            torch.stack(
+        separation_score: str | None = self.hparams["separation_score"]
+        if separation_score == "gdv":
+            h_loss = torch.stack(
+                [gdv(v, y) for v in output_dict.values()]
+            ).mean()
+        elif separation_score == "lv":
+            h_loss = torch.stack(
                 [
-                    label_variation(
-                        v,
-                        y.to(v),
-                        k=10,
-                        n_classes=self.n_classes,
-                    )
+                    label_variation(v, y.to(v), k=10, n_classes=self.n_classes)
                     for v in output_dict.values()
                 ]
-            )
-        )
+            ).mean()
+        else:
+            h_loss = torch.tensor(0.0)
         if stage:
             self.log(f"{stage}/loss", v_loss, prog_bar=True, sync_dist=True)
-        if stage == "train":
-            # self.log(f"{stage}/gdv", h_loss, prog_bar=True, sync_dist=True)
-            self.log(f"{stage}/lv", h_loss, prog_bar=True, sync_dist=True)
+        if stage == "train" and separation_score is not None:
+            self.log(
+                f"{stage}/{separation_score}",
+                h_loss,
+                prog_bar=True,
+                sync_dist=True,
+            )
         if stage and best_device() != "mps":
             # NotImplementedError: The operator 'aten::_unique2' is not
             # currently implemented for the MPS device. If you want this op to
@@ -302,37 +306,34 @@ class VHTorchvisionClassifier(TorchvisionClassifier):
                 top_k=1,
             )
             self.log(f"{stage}/acc", acc, prog_bar=True, sync_dist=True)
-        return v_loss, h_loss
+        return v_loss + self.hparams["separation_weight"] * h_loss
 
-    def configure_optimizers(self):
-        v_opt = torch.optim.Adam(
-            self.parameters(),
-            lr=self.hparams["vertical_lr"],
-        )
-        h_opt = torch.optim.Adam(
-            chain(
-                *[
-                    self.get_submodule(s).parameters()
-                    for s in self.hparams["vh_submodules"]
-                ]
-            ),
-            lr=self.hparams["horizontal_lr"],
-        )
-        return [v_opt, h_opt]
+    # def configure_optimizers(self):
+    #     v_opt = torch.optim.Adam(self.parameters(), lr=1e-3)
+    #     h_opt = torch.optim.Adam(
+    #         chain(
+    #             *[
+    #                 self.get_submodule(s).parameters()
+    #                 for s in self.hparams["submodules"]
+    #             ]
+    #         ),
+    #         lr=1e-3,
+    #     )
+    #     return [v_opt, h_opt]
 
     # pylint: disable=arguments-differ
-    def training_step(self, batch: Any, *_: Any, **__: Any) -> Tensor:
-        v_opt, h_opt = self.optimizers()  # type: ignore  # pylint: disable=unpacking-non-sequence
-        assert isinstance(v_opt, Optimizer)
-        assert isinstance(h_opt, Optimizer)
-        v_loss, h_loss = self._evaluate_vh(batch, "train")
-        v_opt.zero_grad()
-        self.manual_backward(v_loss)
-        v_opt.step()
-        h_opt.zero_grad()
-        self.manual_backward(h_loss)
-        h_opt.step()
-        return v_loss + h_loss
+    # def training_step(self, batch: Any, *_: Any, **__: Any) -> Tensor:
+    #     v_opt, _ = self.optimizers()  # type: ignore  # pylint: disable=unpacking-non-sequence
+    #     assert isinstance(v_opt, Optimizer)
+    #     # assert isinstance(h_opt, Optimizer)
+    #     v_loss, _ = self._evaluate_vh(batch, "train")
+    #     v_opt.zero_grad()
+    #     self.manual_backward(v_loss)
+    #     v_opt.step()
+    #     # h_opt.zero_grad()
+    #     # self.manual_backward(h_loss)
+    #     # h_opt.step()
+    #     return v_loss
 
     # def on_train_epoch_end(self) -> None:
     #     dl = self.trainer.train_dataloader
