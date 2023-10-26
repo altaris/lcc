@@ -17,7 +17,6 @@ import seaborn as sns
 import turbo_broccoli as tb
 from bokeh.io import export_png
 from loguru import logger as logging
-from matplotlib import pyplot as plt
 from phate import PHATE
 from sklearn.manifold import TSNE
 from torch import Tensor
@@ -26,7 +25,7 @@ from tqdm import tqdm
 from .classifier import Classifier
 from .pdist import pdist
 from .plotting import class_scatter
-from .separability import label_variation, gdv, pairwise_svc_scores
+from .separability import gdv, label_variation, pairwise_svc_scores
 from .training import all_checkpoint_paths, checkpoint_ves, train_model_guarded
 from .tv_dataset import TorchvisionDataset
 from .utils import get_first_n
@@ -104,8 +103,12 @@ def analyse_ckpt(
         # Hotfix. Sometimes, the model doesn't produce contiguous tensors (like
         # ViTs) which prevents dumping. Later version of TurboBroccoli should
         # contiguous-ize tensors for us
-        h.result = {k: v.contiguous() for k, v in out.items()}
-    outputs: dict[str, Tensor] = h.result
+        h.result = {
+            "x": x_train,
+            "y": y_train,
+            "z": {k: v.contiguous() for k, v in out.items()},
+        }
+    outputs: dict = h.result
 
     # TSNE
     if tsne or tsne_svc_separability:
@@ -114,11 +117,13 @@ def analyse_ckpt(
         chunk_path = h.output_path.parent / "chunks"
         for _ in h.guard():
             h.result = {}
-            for k, z in outputs.items():
-                logging.debug(
-                    "Computing distance matrix for outputs of submodule '{}'",
-                    k,
-                )
+            progress = tqdm(
+                outputs["z"].items(),
+                desc="Computing distance matrix",
+                leave=False,
+            )
+            for k, z in progress:
+                progress.set_postfix({"submodule": k})
                 h.result[k] = pdist(
                     z.flatten(1).numpy(),
                     chunk_size=int(n_samples / 10),
@@ -140,10 +145,13 @@ def analyse_ckpt(
         h = tb.GuardedBlockHandler(output_dir / "tsne" / "tsne.json")
         for _ in h.guard():
             h.result = {}
-            for k, m in distance_matrices.items():
-                logging.debug(
-                    "Computing TSNE embedding for outputs of submodule '{}'", k
-                )
+            progress = tqdm(
+                distance_matrices.items(),
+                desc="Computing TSNE embed.",
+                leave=False,
+            )
+            for k, m in progress:
+                progress.set_postfix({"submodule": k})
                 t = TSNE(
                     n_components=2,
                     metric="precomputed",
@@ -160,10 +168,13 @@ def analyse_ckpt(
         h = tb.GuardedBlockHandler(output_dir / "tsne" / "plots.json")
         for _ in h.guard():
             h.result = {}
-            for k, e in tsne_embeddings.items():
-                logging.debug(
-                    "Plotting TSNE embedding for outputs of submodule '{}'", k
-                )
+            progress = tqdm(
+                tsne_embeddings.items(),
+                desc="Plotting TSNE embed.",
+                leave=False,
+            )
+            for k, e in progress:
+                progress.set_postfix({"submodule": k})
                 figure = bk.figure(title=k, toolbar_location=None)
                 class_scatter(figure, e, y_train.numpy(), "viridis")
                 h.result[k] = figure
@@ -183,8 +194,13 @@ def analyse_ckpt(
         for _ in h.guard():
             h.result = {}
             # PAIRWISE RBF
-            for k, e in tsne_embeddings.items():
-                logging.debug("Fitting SVC for outputs of submodule '{}'", k)
+            progress = tqdm(
+                tsne_embeddings.items(),
+                desc="Fitting SVC",
+                leave=False,
+            )
+            for k, e in progress:
+                progress.set_postfix({"submodule": k})
                 h.result[k] = pairwise_svc_scores(
                     e, y_train, MAX_CLASS_PAIRS, kernel="rbf"
                 )
@@ -226,11 +242,13 @@ def analyse_ckpt(
         h = tb.GuardedBlockHandler(output_dir / "phate" / "phate.json")
         for _ in h.guard():
             h.result = {}
-            for k, z in outputs.items():
-                logging.debug(
-                    "Computing PHATE embedding for outputs of submodule '{}'",
-                    k,
-                )
+            progress = tqdm(
+                outputs["z"].items(),
+                desc="Computing PHATE embed.",
+                leave=False,
+            )
+            for k, z in progress:
+                progress.set_postfix({"submodule": k})
                 e = PHATE(verbose=False).fit_transform(z.flatten(1))
                 e = (e - e.min(axis=0)) / (e.max(axis=0) - e.min(axis=0))
                 h.result[k] = e
@@ -240,10 +258,13 @@ def analyse_ckpt(
         h = tb.GuardedBlockHandler(output_dir / "phate" / "plots.json")
         for _ in h.guard():
             h.result = {}
-            for k, e in phate_embeddings.items():
-                logging.debug(
-                    "Plotting PHATE embedding for outputs of submodule '{}'", k
-                )
+            progress = tqdm(
+                phate_embeddings.items(),
+                desc="Plotting PHATE embed.",
+                leave=False,
+            )
+            for k, e in progress:
+                progress.set_postfix({"submodule": k})
                 figure = bk.figure(title=k, toolbar_location=None)
                 class_scatter(figure, e, y_train.numpy(), "viridis")
                 h.result[k] = figure
