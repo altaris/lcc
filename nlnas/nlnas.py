@@ -92,7 +92,6 @@ def analyse_ckpt(
     # EVALUATION
     h = tb.GuardedBlockHandler(output_dir / "eval" / "eval.json")
     for _ in h.guard():
-        logging.debug("Evaluating model")
         out: dict[str, Tensor] = {}
         model.eval()
         model.forward_intermediate(
@@ -311,7 +310,7 @@ def analyse_training(
     progress = tqdm(ckpt_analysis_dirs, desc="Computing LVs", leave=False)
     for epoch, p in enumerate(progress):
         evaluations = tb.load_json(Path(p) / "eval" / "eval.json")
-        for sm, z in evaluations.items():
+        for sm, z in evaluations["z"].items():
             progress.set_postfix({"epoch": epoch, "submodule": sm})
             v = float(label_variation(z, y_train, k=lv_k))
             data.append([epoch, sm, v])
@@ -342,7 +341,7 @@ def analyse_training(
     progress = tqdm(ckpt_analysis_dirs, desc="Computing GDVs", leave=False)
     for epoch, p in enumerate(progress):
         evaluations = tb.load_json(Path(p) / "eval" / "eval.json")
-        for sm, z in evaluations.items():
+        for sm, z in evaluations["z"].items():
             progress.set_postfix({"epoch": epoch, "submodule": sm})
             v = float(gdv(z, y_train))
             data.append([epoch, sm, v])
