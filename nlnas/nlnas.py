@@ -83,15 +83,15 @@ def analyse_ckpt(
     assert isinstance(model, Classifier)  # For typechecking
     model.eval()
 
-    # LOAD DATASET IF NEEDED
-    if not isinstance(dataset, pl.LightningDataModule):
-        dataset = TorchvisionDataset(dataset)
-    dataset.setup("fit")
-    x_train, y_train = get_first_n(dataset.train_dataloader(), n_samples)
-
     # EVALUATION
     h = tb.GuardedBlockHandler(output_dir / "eval" / "eval.json")
     for _ in h.guard():
+        # LOAD DATASET IF NEEDED
+        if not isinstance(dataset, pl.LightningDataModule):
+            dataset = TorchvisionDataset(dataset)
+        dataset.setup("fit")
+        x_train, y_train = get_first_n(dataset.train_dataloader(), n_samples)
+
         out: dict[str, Tensor] = {}
         model.eval()
         model.forward_intermediate(
@@ -108,6 +108,7 @@ def analyse_ckpt(
             "z": {k: v.contiguous() for k, v in out.items()},
         }
     outputs: dict = h.result
+    x_train, y_train = outputs["x"], outputs["y"]
 
     # TSNE
     if tsne or tsne_svc_separability:
@@ -274,8 +275,6 @@ def analyse_ckpt(
 
 def analyse_training(
     output_dir: str | Path,
-    dataset: pl.LightningDataModule | str,
-    n_samples: int,
     lv_k: int = 10,
     last_epoch: int | None = None,
     # tsne: bool = True,
@@ -286,7 +285,6 @@ def analyse_training(
 
     Args:
         output_path (str | Path): e.g. `./out/resnet18/cifar10/version_1/`
-        dataset (pl.LightningDataModule | str):
         n_samples (int): Sorry it's not inferred ¯\\_(ツ)_/¯
         lv_k (int, optional): $k$ hyperparameter to compute LV
         last_epoch (int, optional): If specified, only plot LV curves up to
@@ -300,11 +298,6 @@ def analyse_training(
     )
     last_epoch = last_epoch or len(ckpt_analysis_dirs) - 1
 
-    if not isinstance(dataset, pl.LightningDataModule):
-        dataset = TorchvisionDataset(dataset)
-    dataset.setup("fit")
-    _, y_train = get_first_n(dataset.train_dataloader(), n_samples)
-
     # LV COMPUTATION
     data = []
     progress = tqdm(ckpt_analysis_dirs, desc="Computing LVs", leave=False)
@@ -312,7 +305,7 @@ def analyse_training(
         evaluations = tb.load_json(Path(p) / "eval" / "eval.json")
         for sm, z in evaluations["z"].items():
             progress.set_postfix({"epoch": epoch, "submodule": sm})
-            v = float(label_variation(z, y_train, k=lv_k))
+            v = float(label_variation(z, evaluations["y"], k=lv_k))
             data.append([epoch, sm, v])
     lvs = pd.DataFrame(data, columns=["epoch", "submodule", "lv"])
     lvs.to_csv(output_dir / "lv.csv")
@@ -343,7 +336,7 @@ def analyse_training(
         evaluations = tb.load_json(Path(p) / "eval" / "eval.json")
         for sm, z in evaluations["z"].items():
             progress.set_postfix({"epoch": epoch, "submodule": sm})
-            v = float(gdv(z, y_train))
+            v = float(gdv(z, evaluations["y"]))
             data.append([epoch, sm, v])
     gdvs = pd.DataFrame(data, columns=["epoch", "submodule", "gdv"])
     gdvs.to_csv(output_dir / "gdv.csv")
@@ -498,9 +491,4 @@ def train_and_analyse_all(
             phate=False,
         )
     logging.info("Analyzing training")
-    analyse_training(
-        output_dir / f"version_{version}",
-        dataset,
-        n_samples=n_samples,
-        last_epoch=best_epoch,
-    )
+    analyse_training(output_dir / f"version_{version}", last_epoch=best_epoch)
