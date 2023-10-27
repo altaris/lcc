@@ -289,11 +289,16 @@ def train_model(
 
     ckpt = Path(trainer.checkpoint_callback.best_model_path)  # type: ignore
     v, e, s = checkpoint_ves(ckpt)
-    logging.info(
-        "Training completed: version={}, best_epoch={}, n_steps={}", v, e, s
-    )
+    if model.global_rank == 0:
+        logging.info(
+            "Training completed: version={}, best_epoch={}, n_steps={}",
+            v,
+            e,
+            s,
+        )
     if reload:
-        logging.debug("Reloading best checkpoint '{}'", ckpt)
+        if model.global_rank == 0:
+            logging.debug("Reloading best checkpoint '{}'", ckpt)
         model = type(model).load_from_checkpoint(str(ckpt))  # type: ignore
     return model, ckpt
 

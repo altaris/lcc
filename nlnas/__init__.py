@@ -11,6 +11,7 @@ from .classifier import (
 )
 from .nlnas import analyse_ckpt, analyse_training, train_and_analyse_all
 from .pdist import pdist
+from .plotting import class_scatter, gaussian_mixture_plot
 from .separability import gdv, label_variation, pairwise_svc_scores
 from .training import (
     all_checkpoint_paths,
@@ -19,4 +20,4 @@ from .training import (
     train_model_guarded,
 )
 from .tv_dataset import TorchvisionDataset
-from .utils import best_device, get_first_n, dataset_n_targets
+from .utils import best_device, dataset_n_targets, get_first_n

@@ -117,11 +117,8 @@ def analyse_ckpt(
         chunk_path = h.output_path.parent / "chunks"
         for _ in h.guard():
             h.result = {}
-            progress = tqdm(
-                outputs["z"].items(),
-                desc="Computing distance matrix",
-                leave=False,
-            )
+            logging.info("Computing distance matrix")
+            progress = tqdm(outputs["z"].items(), leave=False)
             for k, z in progress:
                 progress.set_postfix({"submodule": k})
                 h.result[k] = pdist(
@@ -145,11 +142,8 @@ def analyse_ckpt(
         h = tb.GuardedBlockHandler(output_dir / "tsne" / "tsne.json")
         for _ in h.guard():
             h.result = {}
-            progress = tqdm(
-                distance_matrices.items(),
-                desc="Computing TSNE embed.",
-                leave=False,
-            )
+            logging.info("Computing TSNE embeddings")
+            progress = tqdm(distance_matrices.items(), leave=False)
             for k, m in progress:
                 progress.set_postfix({"submodule": k})
                 t = TSNE(
@@ -168,11 +162,8 @@ def analyse_ckpt(
         h = tb.GuardedBlockHandler(output_dir / "tsne" / "plots.json")
         for _ in h.guard():
             h.result = {}
-            progress = tqdm(
-                tsne_embeddings.items(),
-                desc="Plotting TSNE embed.",
-                leave=False,
-            )
+            logging.info("Plotting TSNE embeddings")
+            progress = tqdm(tsne_embeddings.items(), leave=False)
             for k, e in progress:
                 progress.set_postfix({"submodule": k})
                 figure = bk.figure(title=k, toolbar_location=None)
@@ -194,11 +185,8 @@ def analyse_ckpt(
         for _ in h.guard():
             h.result = {}
             # PAIRWISE RBF
-            progress = tqdm(
-                tsne_embeddings.items(),
-                desc="Fitting SVC",
-                leave=False,
-            )
+            logging.info("Fitting SVCs")
+            progress = tqdm(tsne_embeddings.items(), leave=False)
             for k, e in progress:
                 progress.set_postfix({"submodule": k})
                 h.result[k] = pairwise_svc_scores(
@@ -216,7 +204,7 @@ def analyse_ckpt(
             #     h.result[k] = {"svc": svc, "score": svc.score(a, y)}
 
             # Plotting is done here to be in the guarded block
-            logging.debug("Plotting separability scores")
+            logging.info("Plotting separability scores")
             scores = [
                 [k, np.mean([d["score"] for d in v])]
                 for k, v in h.result.items()
@@ -242,11 +230,8 @@ def analyse_ckpt(
         h = tb.GuardedBlockHandler(output_dir / "phate" / "phate.json")
         for _ in h.guard():
             h.result = {}
-            progress = tqdm(
-                outputs["z"].items(),
-                desc="Computing PHATE embed.",
-                leave=False,
-            )
+            logging.info("Computing PHATE embeddings")
+            progress = tqdm(outputs["z"].items(), leave=False)
             for k, z in progress:
                 progress.set_postfix({"submodule": k})
                 e = PHATE(verbose=False).fit_transform(z.flatten(1))
@@ -258,11 +243,8 @@ def analyse_ckpt(
         h = tb.GuardedBlockHandler(output_dir / "phate" / "plots.json")
         for _ in h.guard():
             h.result = {}
-            progress = tqdm(
-                phate_embeddings.items(),
-                desc="Plotting PHATE embed.",
-                leave=False,
-            )
+            logging.info("Plotting PHATE embeddings")
+            progress = tqdm(phate_embeddings.items(), leave=False)
             for k, e in progress:
                 progress.set_postfix({"submodule": k})
                 figure = bk.figure(title=k, toolbar_location=None)
@@ -277,7 +259,8 @@ def analyse_training(
     output_dir: str | Path,
     lv_k: int = 10,
     last_epoch: int | None = None,
-    # tsne: bool = True,
+    tsne: bool = False,
+    phate: bool = False,
     # tsne_svc_separability: bool = True,
 ):
     """
@@ -300,9 +283,10 @@ def analyse_training(
 
     # LV COMPUTATION
     data = []
-    progress = tqdm(ckpt_analysis_dirs, desc="Computing LVs", leave=False)
-    for epoch, p in enumerate(progress):
-        evaluations = tb.load_json(Path(p) / "eval" / "eval.json")
+    logging.info("Computing LVs")
+    progress = tqdm(ckpt_analysis_dirs, leave=False)
+    for epoch, path in enumerate(progress):
+        evaluations = tb.load_json(Path(path) / "eval" / "eval.json")
         for sm, z in evaluations["z"].items():
             progress.set_postfix({"epoch": epoch, "submodule": sm})
             v = float(label_variation(z, evaluations["y"], k=lv_k))
@@ -331,9 +315,10 @@ def analyse_training(
 
     # GDV COMPUTATION
     data = []
-    progress = tqdm(ckpt_analysis_dirs, desc="Computing GDVs", leave=False)
-    for epoch, p in enumerate(progress):
-        evaluations = tb.load_json(Path(p) / "eval" / "eval.json")
+    logging.info("Computing GDVs")
+    progress = tqdm(ckpt_analysis_dirs, leave=False)
+    for epoch, path in enumerate(progress):
+        evaluations = tb.load_json(Path(path) / "eval" / "eval.json")
         for sm, z in evaluations["z"].items():
             progress.set_postfix({"epoch": epoch, "submodule": sm})
             v = float(gdv(z, evaluations["y"]))
@@ -359,6 +344,38 @@ def analyse_training(
     )
     figure.get_figure().savefig(output_dir / "gdv_epoch.png")
     plt.clf()
+
+    if tsne:
+        rows, epochs = [], np.linspace(0, last_epoch, num=10, dtype=int)
+        logging.info("Consolidating TSNE plots")
+        progress = tqdm(ckpt_analysis_dirs, leave=False)
+        for epoch, path in enumerate(progress):
+            if not epoch in epochs:
+                continue
+            progress.set_postfix({"epoch": epoch})
+            document = tb.load_json(Path(path) / "tsne" / "plots.json")
+            for figure in document.values():
+                figure.height, figure.width = 200, 200
+                figure.grid.visible, figure.axis.visible = False, False
+            rows.append(list(document.keys()))
+        figure = bk.gridplot(rows)
+        export_png(figure, filename=output_dir / "tsne_all.png")
+
+    if phate:
+        rows, epochs = [], np.linspace(0, last_epoch, num=10, dtype=int)
+        logging.info("Consolidating PHATE plots")
+        progress = tqdm(ckpt_analysis_dirs, leave=False)
+        for epoch, path in enumerate(progress):
+            if not epoch in epochs:
+                continue
+            progress.set_postfix({"epoch": epoch})
+            document = tb.load_json(Path(path) / "phate" / "plots.json")
+            for figure in document.values():
+                figure.height, figure.width = 200, 200
+                figure.grid.visible, figure.axis.visible = False, False
+            rows.append(list(document.keys()))
+        figure = bk.gridplot(rows)
+        export_png(figure, filename=output_dir / "phate_all.png")
 
     # dfs = []
     # for epoch, p in enumerate(ckpt_analysis_dirs):
@@ -432,6 +449,8 @@ def train_and_analyse_all(
     model_name: str | None = None,
     n_samples: int = 5000,
     strategy: str = "ddp",
+    tsne: bool = False,
+    phate: bool = False,
 ):
     """
     Trains a model and performs a separability analysis (see
@@ -449,6 +468,9 @@ def train_and_analyse_all(
             directories and for logging). If left to `None`, is set to the
             lower case class name, i.e. `model.__class__.__name__.lower()`.
         n_samples (int, optional): Defaults to 5000.
+        strategy (str, optional): Training strategy to use.
+        tsne (bool, optional): Wether to compute and plot TSNE embeddings.
+        phate (bool, optional): Wether to compute and plot PHATE embeddings.
     """
     # tb.set_max_nbytes(1000)  # Ensure artefacts
     model_name = model_name or model.__class__.__name__.lower()
@@ -475,9 +497,8 @@ def train_and_analyse_all(
         / f"version_{version}"
         / "checkpoints"
     )
-    progress = tqdm(
-        all_checkpoint_paths(p), desc="Analyzing epochs", leave=False
-    )
+    logging.info("Analyzing epochs")
+    progress = tqdm(all_checkpoint_paths(p), leave=False)
     for i, ckpt in enumerate(progress):
         analyse_ckpt(
             model=ckpt,
@@ -486,9 +507,14 @@ def train_and_analyse_all(
             dataset=dataset,
             output_dir=output_dir / f"version_{version}" / str(i),
             n_samples=n_samples,
-            tsne=False,
+            tsne=tsne,
+            phate=phate,
             tsne_svc_separability=False,
-            phate=False,
         )
     logging.info("Analyzing training")
-    analyse_training(output_dir / f"version_{version}", last_epoch=best_epoch)
+    analyse_training(
+        output_dir / f"version_{version}",
+        last_epoch=best_epoch,
+        tsne=tsne,
+        phate=phate,
+    )

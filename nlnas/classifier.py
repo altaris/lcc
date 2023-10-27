@@ -54,7 +54,13 @@ class Classifier(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters())
+        # return torch.optim.Adam(self.parameters())
+        return torch.optim.SGD(
+            self.parameters(),
+            lr=5e-2,
+            momentum=0.9,
+            weight_decay=5e-4,
+        )
 
     def forward_intermediate(
         self,
