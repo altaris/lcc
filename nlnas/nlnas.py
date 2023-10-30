@@ -118,7 +118,7 @@ def analyse_ckpt(
         chunk_path = h.output_path.parent / "chunks"
         for _ in h.guard():
             h.result = {}
-            logging.info("Computing distance matrix")
+            logging.debug("Computing distance matrix")
             progress = tqdm(outputs["z"].items(), leave=False)
             for k, z in progress:
                 progress.set_postfix({"submodule": k})
@@ -143,7 +143,7 @@ def analyse_ckpt(
         h = tb.GuardedBlockHandler(output_dir / "tsne" / "tsne.json")
         for _ in h.guard():
             h.result = {}
-            logging.info("Computing TSNE embeddings")
+            logging.debug("Computing TSNE embeddings")
             progress = tqdm(distance_matrices.items(), leave=False)
             for k, m in progress:
                 progress.set_postfix({"submodule": k})
@@ -163,7 +163,7 @@ def analyse_ckpt(
         h = tb.GuardedBlockHandler(output_dir / "tsne" / "plots.json")
         for _ in h.guard():
             h.result = {}
-            logging.info("Plotting TSNE embeddings")
+            logging.debug("Plotting TSNE embeddings")
             progress = tqdm(tsne_embeddings.items(), leave=False)
             for k, e in progress:
                 progress.set_postfix({"submodule": k})
@@ -186,7 +186,7 @@ def analyse_ckpt(
         for _ in h.guard():
             h.result = {}
             # PAIRWISE RBF
-            logging.info("Fitting SVCs")
+            logging.debug("Fitting SVCs")
             progress = tqdm(tsne_embeddings.items(), leave=False)
             for k, e in progress:
                 progress.set_postfix({"submodule": k})
@@ -205,7 +205,7 @@ def analyse_ckpt(
             #     h.result[k] = {"svc": svc, "score": svc.score(a, y)}
 
             # Plotting is done here to be in the guarded block
-            logging.info("Plotting separability scores")
+            logging.debug("Plotting separability scores")
             scores = [
                 [k, np.mean([d["score"] for d in v])]
                 for k, v in h.result.items()
@@ -231,7 +231,7 @@ def analyse_ckpt(
         h = tb.GuardedBlockHandler(output_dir / "phate" / "phate.json")
         for _ in h.guard():
             h.result = {}
-            logging.info("Computing PHATE embeddings")
+            logging.debug("Computing PHATE embeddings")
             progress = tqdm(outputs["z"].items(), leave=False)
             for k, z in progress:
                 progress.set_postfix({"submodule": k})
@@ -244,7 +244,7 @@ def analyse_ckpt(
         h = tb.GuardedBlockHandler(output_dir / "phate" / "plots.json")
         for _ in h.guard():
             h.result = {}
-            logging.info("Plotting PHATE embeddings")
+            logging.debug("Plotting PHATE embeddings")
             progress = tqdm(phate_embeddings.items(), leave=False)
             for k, e in progress:
                 progress.set_postfix({"submodule": k})
