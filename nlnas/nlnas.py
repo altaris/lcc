@@ -5,6 +5,7 @@ import shutil
 from glob import glob
 from itertools import combinations
 from pathlib import Path
+from time import sleep
 from typing import Type
 
 import bokeh.plotting as bk
@@ -282,70 +283,74 @@ def analyse_training(
     last_epoch = last_epoch or len(ckpt_analysis_dirs) - 1
 
     # LV COMPUTATION
-    data = []
-    logging.info("Computing LVs")
-    progress = tqdm(ckpt_analysis_dirs, leave=False)
-    for epoch, path in enumerate(progress):
-        evaluations = tb.load_json(Path(path) / "eval" / "eval.json")
-        for sm, z in evaluations["z"].items():
-            progress.set_postfix({"epoch": epoch, "submodule": sm})
-            v = float(label_variation(z, evaluations["y"], k=lv_k))
-            data.append([epoch, sm, v])
-    lvs = pd.DataFrame(data, columns=["epoch", "submodule", "lv"])
-    lvs.to_csv(output_dir / "lv.csv")
+    lv_csv_path = output_dir / "lv.csv"
+    if not lv_csv_path.exists():
+        data = []
+        logging.info("Computing LVs")
+        progress = tqdm(ckpt_analysis_dirs, leave=False)
+        for epoch, path in enumerate(progress):
+            evaluations = tb.load_json(Path(path) / "eval" / "eval.json")
+            for sm, z in evaluations["z"].items():
+                progress.set_postfix({"epoch": epoch, "submodule": sm})
+                v = float(label_variation(z, evaluations["y"], k=lv_k))
+                data.append([epoch, sm, v])
+        lvs = pd.DataFrame(data, columns=["epoch", "submodule", "lv"])
+        lvs.to_csv(lv_csv_path)
 
-    # LV PLOTTING
-    e = np.linspace(0, last_epoch, num=5, dtype=int)
-    figure = sns.lineplot(
-        lvs[lvs["epoch"].isin(e)],
-        x="submodule",
-        y="lv",
-        hue="epoch",
-        size="epoch",
-    )
-    figure.set(title="Label variation by epoch")
-    figure.set_xticklabels(
-        figure.get_xticklabels(),
-        rotation=45,
-        rotation_mode="anchor",
-        ha="right",
-    )
-    figure.get_figure().savefig(output_dir / "lv_epoch.png")
-    plt.clf()
+        # LV PLOTTING
+        e = np.linspace(0, last_epoch, num=5, dtype=int)
+        figure = sns.lineplot(
+            lvs[lvs["epoch"].isin(e)],
+            x="submodule",
+            y="lv",
+            hue="epoch",
+            size="epoch",
+        )
+        figure.set(title="Label variation by epoch")
+        figure.set_xticklabels(
+            figure.get_xticklabels(),
+            rotation=45,
+            rotation_mode="anchor",
+            ha="right",
+        )
+        figure.get_figure().savefig(output_dir / "lv_epoch.png")
+        plt.clf()
 
-    # GDV COMPUTATION
-    data = []
-    logging.info("Computing GDVs")
-    progress = tqdm(ckpt_analysis_dirs, leave=False)
-    for epoch, path in enumerate(progress):
-        evaluations = tb.load_json(Path(path) / "eval" / "eval.json")
-        for sm, z in evaluations["z"].items():
-            progress.set_postfix({"epoch": epoch, "submodule": sm})
-            v = float(gdv(z, evaluations["y"]))
-            data.append([epoch, sm, v])
-    gdvs = pd.DataFrame(data, columns=["epoch", "submodule", "gdv"])
-    gdvs.to_csv(output_dir / "gdv.csv")
+    gdv_csv_path = output_dir / "gdv.csv"
+    if not gdv_csv_path.exists():
+        # GDV COMPUTATION
+        data = []
+        logging.info("Computing GDVs")
+        progress = tqdm(ckpt_analysis_dirs, leave=False)
+        for epoch, path in enumerate(progress):
+            evaluations = tb.load_json(Path(path) / "eval" / "eval.json")
+            for sm, z in evaluations["z"].items():
+                progress.set_postfix({"epoch": epoch, "submodule": sm})
+                v = float(gdv(z, evaluations["y"]))
+                data.append([epoch, sm, v])
+        gdvs = pd.DataFrame(data, columns=["epoch", "submodule", "gdv"])
+        gdvs.to_csv(gdv_csv_path)
+        # GDV PLOTTING
+        e = np.linspace(0, last_epoch, num=5, dtype=int)
+        figure = sns.lineplot(
+            gdvs[gdvs["epoch"].isin(e)],
+            x="submodule",
+            y="gdv",
+            hue="epoch",
+            size="epoch",
+        )
+        figure.set(title="GDV by epoch")
+        figure.set_xticklabels(
+            figure.get_xticklabels(),
+            rotation=45,
+            rotation_mode="anchor",
+            ha="right",
+        )
+        figure.get_figure().savefig(output_dir / "gdv_epoch.png")
+        plt.clf()
 
-    # GDV PLOTTING
-    e = np.linspace(0, last_epoch, num=5, dtype=int)
-    figure = sns.lineplot(
-        gdvs[gdvs["epoch"].isin(e)],
-        x="submodule",
-        y="gdv",
-        hue="epoch",
-        size="epoch",
-    )
-    figure.set(title="GDV by epoch")
-    figure.set_xticklabels(
-        figure.get_xticklabels(),
-        rotation=45,
-        rotation_mode="anchor",
-        ha="right",
-    )
-    figure.get_figure().savefig(output_dir / "gdv_epoch.png")
-    plt.clf()
-
-    if tsne:
+    tsne_all_path = output_dir / "tsne_all.png"
+    if tsne and not tsne_all_path.exists():
         rows, epochs = [], np.linspace(0, last_epoch, num=10, dtype=int)
         logging.info("Consolidating TSNE plots")
         progress = tqdm(ckpt_analysis_dirs, leave=False)
@@ -357,11 +362,14 @@ def analyse_training(
             for figure in document.values():
                 figure.height, figure.width = 200, 200
                 figure.grid.visible, figure.axis.visible = False, False
-            rows.append(list(document.keys()))
+            rows.append(list(document.values()))
         figure = bk.gridplot(rows)
-        export_png(figure, filename=output_dir / "tsne_all.png")
+        logging.debug("Sleeping for 5s before rendering to file")
+        sleep(5)
+        export_png(figure, filename=tsne_all_path)
 
-    if phate:
+    phate_all_path = output_dir / "phate_all.png"
+    if phate and not phate_all_path.exists():
         rows, epochs = [], np.linspace(0, last_epoch, num=10, dtype=int)
         logging.info("Consolidating PHATE plots")
         progress = tqdm(ckpt_analysis_dirs, leave=False)
@@ -373,9 +381,11 @@ def analyse_training(
             for figure in document.values():
                 figure.height, figure.width = 200, 200
                 figure.grid.visible, figure.axis.visible = False, False
-            rows.append(list(document.keys()))
+            rows.append(list(document.values()))
         figure = bk.gridplot(rows)
-        export_png(figure, filename=output_dir / "phate_all.png")
+        logging.debug("Sleeping for 5s before rendering to file")
+        sleep(5)
+        export_png(figure, filename=phate_all_path)
 
     # dfs = []
     # for epoch, p in enumerate(ckpt_analysis_dirs):
