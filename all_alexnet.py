@@ -12,6 +12,7 @@ from nlnas import (
     TorchvisionDataset,
     train_and_analyse_all,
 )
+from nlnas.logging import setup_logging
 from nlnas.training import train_model, train_model_guarded
 from nlnas.transforms import EnsuresRGB
 from nlnas.utils import dataset_n_targets
@@ -86,6 +87,7 @@ def main():
 
 
 if __name__ == "__main__":
+    setup_logging()
     try:
         main()
     except KeyboardInterrupt:

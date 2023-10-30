@@ -11,6 +11,7 @@ from nlnas import (
     train_and_analyse_all,
 )
 from nlnas.classifier import TorchvisionClassifier, TruncatedClassifier
+from nlnas.logging import setup_logging
 from nlnas.training import (
     best_checkpoint_path,
     train_model,
@@ -103,6 +104,7 @@ def main():
 
 
 if __name__ == "__main__":
+    setup_logging()
     try:
         main()
     except KeyboardInterrupt:

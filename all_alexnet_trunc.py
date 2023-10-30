@@ -11,6 +11,7 @@ from nlnas import (
     train_and_analyse_all,
 )
 from nlnas.classifier import TorchvisionClassifier, TruncatedClassifier
+from nlnas.logging import setup_logging
 from nlnas.training import train_model, train_model_guarded
 from nlnas.utils import best_device, dataset_n_targets
 
@@ -93,6 +94,7 @@ def main():
 
 
 if __name__ == "__main__":
+    setup_logging()
     try:
         main()
     except KeyboardInterrupt:

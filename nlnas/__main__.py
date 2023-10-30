@@ -2,40 +2,12 @@
 # pylint: disable=import-outside-toplevel
 
 import os
-import sys
 from pathlib import Path
 
 import click
 from loguru import logger as logging
 
-
-def _setup_logging(logging_level: str) -> None:
-    """
-    Sets logging format and level. The format is
-
-        %(asctime)s [%(levelname)-8s] %(message)s
-
-    e.g.
-
-        2022-02-01 10:41:43,797 [INFO    ] Hello world
-        2022-02-01 10:42:12,488 [CRITICAL] We're out of beans!
-
-    Args:
-        logging_level (str): Either 'critical', 'debug', 'error', 'info', or
-            'warning', case insensitive. If invalid, defaults to 'info'.
-    """
-    logging.remove()
-    logging.add(
-        sys.stderr,
-        format=(
-            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> "
-            + "[<level>{level: <8}</level>] "
-            + "<level>{message}</level>"
-        ),
-        level=logging_level.upper(),
-        enqueue=True,
-        colorize=True,
-    )
+from .logging import setup_logging
 
 
 @click.command()
@@ -85,7 +57,7 @@ def main(
     from .tv_dataset import TorchvisionDataset
     from .utils import dataset_n_targets
 
-    _setup_logging(logging_level)
+    setup_logging(logging_level)
     pl.seed_everything(0)
 
     output_dir = Path("out") / model_name / dataset_name

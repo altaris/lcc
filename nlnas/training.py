@@ -12,6 +12,8 @@ import torch
 from loguru import logger as logging
 from pytorch_lightning.strategies.strategy import Strategy
 
+from .logging import r0_debug, r0_info
+
 
 class NoCheckpointFound(Exception):
     """Raised by `nlnas.utils.last_checkpoint_path` if no checkpoint is found"""
@@ -239,10 +241,10 @@ def train_model(
         root_dir = Path(root_dir)
 
     name = name or model.__class__.__name__.lower()
-    logging.info("Training model '{}' in '{}'", name, root_dir)
+    r0_info("Training model '{}' in '{}'", name, root_dir)
 
     accelerator = os.getenv("PL_ACCELERATOR", "auto").lower()
-    logging.debug("Set accelerator to '{}'", accelerator)
+    r0_debug("Set accelerator to '{}'", accelerator)
     if accelerator in ["auto", "gpu"] and torch.cuda.is_available():
         torch.set_float32_matmul_precision("medium")  # hehe matmul go brrrr
 
@@ -289,16 +291,11 @@ def train_model(
 
     ckpt = Path(trainer.checkpoint_callback.best_model_path)  # type: ignore
     v, e, s = checkpoint_ves(ckpt)
-    if model.global_rank == 0:
-        logging.info(
-            "Training completed: version={}, best_epoch={}, n_steps={}",
-            v,
-            e,
-            s,
-        )
+    r0_info(
+        "Training completed: version={}, best_epoch={}, n_steps={}", v, e, s
+    )
     if reload:
-        if model.global_rank == 0:
-            logging.debug("Reloading best checkpoint '{}'", ckpt)
+        r0_debug("Reloading best checkpoint '{}'", ckpt)
         model = type(model).load_from_checkpoint(str(ckpt))  # type: ignore
     return model, ckpt
 

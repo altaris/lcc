@@ -10,34 +10,35 @@ from nlnas import (
     TorchvisionClassifier,
     TorchvisionDataset,
     VHTorchvisionClassifier,
+    separability,
     train_and_analyse_all,
 )
+from nlnas.logging import setup_logging
 from nlnas.training import train_model, train_model_guarded
-from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS
 from nlnas.utils import dataset_n_targets
 
 
 def main():
     pl.seed_everything(0)
-    model_names = [
+    backbones = [
         "resnet18",
     ]
+    separation_score = "gdv"
     submodule_names = [
         # "model.0.layer1.0"
         # "model.0.layer1.1"
         "model.0.layer1",
         # "model.0.layer2.0"
         # "model.0.layer2.1"
-        # "model.0.layer2",
+        "model.0.layer2",
         # "model.0.layer3.0"
         # "model.0.layer3.1"
-        # "model.0.layer3",
+        "model.0.layer3",
         # "model.0.layer4.0"
         # "model.0.layer4.1"
-        # "model.0.layer4",
-        # "model.0.fc",
-        # "model.1",
-        # "model",
+        "model.0.layer4",
+        "model.0.fc",
+        "model.1",
     ]
     dataset_names = [
         # "mnist",
@@ -58,35 +59,60 @@ def main():
             tvtr.Resize([64, 64], antialias=True),
         ]
     )
-    for model_name, dataset_name in product(model_names, dataset_names):
-        output_dir = Path("out") / (model_name + "_lv") / dataset_name
+    for backbone, dataset_name in product(backbones, dataset_names):
+        model_name = (
+            backbone + "_" + separation_score + "_l1l2l3l4fc1_w1e-4_b256"
+        )
+        output_dir = Path("out") / model_name / dataset_name
         dataset = TorchvisionDataset(
             dataset_name,
             transform=transform,
-            dataloader_kwargs={"drop_last": True, **DEFAULT_DATALOADER_KWARGS},
+            dataloader_kwargs={
+                "batch_size": 256,
+                "pin_memory": True,
+                "num_workers": 16,
+            },
         )
         dataset.setup("fit")
         n_classes = len(dataset_n_targets(dataset.val_dataloader()))
         image_shape = list(next(iter(dataset.val_dataloader()))[0].shape)[1:]
         model = VHTorchvisionClassifier(
-            model_name=model_name,
+            model_name=backbone,
             n_classes=n_classes,
-            submodules=submodule_names,
+            submodules=[
+                # "model.0.layer1.0"
+                # "model.0.layer1.1"
+                "model.0.layer1",
+                # "model.0.layer2.0"
+                # "model.0.layer2.1"
+                "model.0.layer2",
+                # "model.0.layer3.0"
+                # "model.0.layer3.1"
+                "model.0.layer3",
+                # "model.0.layer4.0"
+                # "model.0.layer4.1"
+                "model.0.layer4",
+                "model.0.fc",
+                "model.1",
+            ],
             add_final_fc=True,
             input_shape=image_shape,
-            horizontal_lr=1e-3,
+            separation_score=separation_score,
+            separation_weight=1e-4,
         )
-        train_model(
-            model,
-            dataset,
-            output_dir / "model",
-            name=model_name,
-            max_epochs=512,
-            strategy="ddp_find_unused_parameters_true",
+        train_and_analyse_all(
+            model=model,
+            submodule_names=submodule_names,
+            dataset=dataset,
+            output_dir=output_dir,
+            model_name=model_name,
+            tsne=True,
+            phate=True,
         )
 
 
 if __name__ == "__main__":
+    setup_logging()
     try:
         main()
     except KeyboardInterrupt:
