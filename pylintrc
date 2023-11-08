@@ -69,6 +69,7 @@ disable=
       too-many-arguments,
       broad-except,
       bare-except,
+      not-callable, ; too many false positive
       ; duplicate-code,
       ; global-statement,
       ; import-outside-toplevel,

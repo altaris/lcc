@@ -161,6 +161,11 @@ class TorchvisionDataset(pl.LightningDataModule):
             )
 
     def train_dataloader(self) -> DataLoader:
+        """
+        Returns the training dataloader. The training dataset must have been
+        loaded before calling this method using
+        `TorchvisionDataset.setup('fit')`
+        """
         if self.train_dataset is None:
             raise RuntimeError(
                 "The dataset has not been loaded. Call "
@@ -170,6 +175,11 @@ class TorchvisionDataset(pl.LightningDataModule):
         return DataLoader(dataset=self.train_dataset, **self.dataloader_kwargs)
 
     def val_dataloader(self) -> DataLoader:
+        """
+        Returns the validation dataloader. The validation dataset must have
+        been loaded before calling this method using
+        `TorchvisionDataset.setup('fit')` (yes, `'fit'`, this is not a typo)
+        """
         if self.val_dataset is None:
             raise RuntimeError(
                 "The dataset has not been loaded. Call "
@@ -179,6 +189,10 @@ class TorchvisionDataset(pl.LightningDataModule):
         return DataLoader(dataset=self.val_dataset, **self.dataloader_kwargs)
 
     def test_dataloader(self) -> DataLoader:
+        """
+        Returns the test dataloader. The test dataset must have been loaded
+        before calling this method using `TorchvisionDataset.setup('test')`
+        """
         if self.dataset is None:
             raise RuntimeError(
                 "The dataset has not been loaded. Call "
@@ -188,6 +202,11 @@ class TorchvisionDataset(pl.LightningDataModule):
         return DataLoader(dataset=self.dataset, **self.dataloader_kwargs)
 
     def predict_dataloader(self) -> DataLoader:
+        """
+        Returns the prediction dataloader. The prediction dataset must have
+        been loaded before calling this method using
+        `TorchvisionDataset.setup('predict')`
+        """
         if self.dataset is None:
             raise RuntimeError(
                 "The dataset has not been loaded. Call "
