@@ -249,8 +249,9 @@ class TruncatedClassifier(Classifier):
         )  # Need to make sure the model is loaded to get hparams first
         n_classes = _model.hparams["n_classes"]
         input_shape = _model.hparams["input_shape"]
+        kwargs["n_classes"] = n_classes
 
-        super().__init__(n_classes=n_classes, **kwargs)
+        super().__init__(**kwargs)
         self.save_hyperparameters()
 
         self.model = _model
