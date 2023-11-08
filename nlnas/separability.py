@@ -4,14 +4,15 @@
 from itertools import combinations
 import random
 from math import sqrt
-from typing import Tuple
+from typing import Literal
 
 import numpy as np
 import torch
 from sklearn.svm import SVC
 from torch import Tensor
 from torch.nn.functional import one_hot, pdist
-from tqdm import tqdm
+
+SQRT_2 = 1.4142135623730951
 
 
 def _var(x: Tensor) -> Tensor:
@@ -72,6 +73,89 @@ def gdv(x: Tensor, y: Tensor) -> Tensor:
     # )
 
 
+def gr_dist(
+    a: Tensor,
+    b: Tensor,
+    metric: Literal[
+        "arc_length", "chordal", "projection", "binet_cauchy"
+    ] = "arc_length",
+    do_svd: bool = True,
+) -> Tensor:
+    """
+    Grassmanian distance between the subspaces spanned by two design matrices
+    `a` and `b`. These don't need to be orthogonal.
+
+    Args:
+        a (Tensor): A `(N, d)` design matrix, where `N` is the batch size and
+            `d` is the latent dimension
+        b (Tensor): A `(N, d)` design matrix
+        metric (Literal[&quot;arc_length&quot;, &quot;chordal&quot;,
+            &quot;projection&quot;, &quot;binet_cauchy&quot;], optional):
+            Metric type, defaults to `"arc_length"`.
+        do_svd (bool, optional): Set to `False` if the rows of `a` are
+            already pairwise orthogonal, and likewise for `b`
+    Returns:
+        A tensor that is differentiable in `a` and `b`
+    """
+    if do_svd:
+        _, _, v_a_t = torch.linalg.svd(a)
+        _, _, v_b_t = torch.linalg.svd(b)
+        w_a, w_b = v_a_t[: len(a)], v_b_t[: len(b)]
+    else:
+        w_a, w_b = a, b
+    cos_theta = torch.linalg.svdvals(w_a @ w_b.T)
+    cos_theta = cos_theta[cos_theta <= 1]
+    if metric == "chordal":
+        return SQRT_2 * torch.sqrt(len(cos_theta) - cos_theta.sum())
+    if metric == "binet_cauchy":
+        return torch.sqrt(1 - torch.prod(cos_theta**2))
+    theta = torch.acos(cos_theta)
+    if metric == "projection":
+        return torch.linalg.vector_norm(theta.sin() ** 2, ord=2)
+    return torch.linalg.vector_norm(theta, ord=2)  # arc_length
+
+
+def mean_gr_dist(
+    x: Tensor,
+    y: Tensor,
+    n_classes: int = -1,
+    metric: Literal[
+        "arc_length", "chordal", "projection", "binet_cauchy"
+    ] = "arc_length",
+) -> Tensor:
+    """
+    Mean Grassmanian distance between all classes.
+
+    Warning:
+        If $k$ is the number of classes (distinct values of `y` if `n_classes`
+        is not specified), then this methods makes $k$ calls to
+        `torch.linalg.svd` which can be expensive.
+
+    Args:
+        x (Tensor): A `(N, d)` design matrix, where `N` is the batch size and
+            `d` is the latent dimension
+        y (Tensor): A `(N,)` label tensor
+        n_classes (int, optional): Leave it to `-1` to automatically infer the
+            number of classes
+        metric (Literal[ &quot;arc_length&quot;, &quot;chordal&quot;,
+            &quot;projection&quot;, &quot;binet_cauchy&quot; ], optional):
+            Metric type, defaults to `"arc_length"`.
+
+    Returns:
+        A tensor that is differentiable in `x`
+    """
+    if n_classes <= 0:
+        n_classes = len(y.unique(sorted=False))
+    w_t, g = [], []
+    for i in range(n_classes):
+        a = x[y == i]
+        _, _, v_t = torch.linalg.svd(x[y == i])
+        w_t.append(v_t[: len(a)])
+    for i, j in combinations(range(n_classes), 2):
+        g.append(gr_dist(w_t[i], w_t[j], metric=metric, do_svd=False))
+    return torch.stack(g).mean()
+
+
 def label_variation(
     x: Tensor,
     y: Tensor,
@@ -124,54 +208,6 @@ def label_variation(
     return torch.trace(y_oh.T @ a @ y_oh) / (
         y_oh.shape[0] * y_oh.shape[-1]  # * k
     )
-
-
-def pairwise_gdv(
-    x: np.ndarray | Tensor,
-    y: np.ndarray | Tensor,
-    max_class_pairs: int = 100,
-) -> Tuple[list[dict], float]:
-    """
-    Pairwise GDVs, see `nlnas.separability.gdv`.
-
-    Args:
-        x (np.ndarray | Tensor): A `(N, ...)` tensor or array, where `N` is the
-            number of samples. It will automatically be flattened to a 2
-            dimensional tensor.
-        y (np.ndarray | Tensor): A `(N,)` tensor or array.
-        max_class_pairs (int): The number of calls to `nlnas.separability.gdv`
-            this method needs to make is quadratic in the number of classes. If
-            there are many classes, this can be prohibitively expensive. So, if
-            the number of class pairs exceeds `max_class_pairs`, only
-            `max_class_pairs` pairs chosen at random are considered
-
-    Returns:
-        A dict that looks like this:
-
-            [
-                {
-                    "idx": <a pair of int>,
-                    "value": <a float>,
-                },
-                ...
-            ]
-
-        and a float which is the mean of all `value`'s
-    """
-    x = Tensor(x) if isinstance(x, np.ndarray) else x
-    y = Tensor(y) if isinstance(y, np.ndarray) else y
-    n_classes = len(np.unique(y))
-    class_idx_pairs = list(combinations(range(n_classes), 2))
-    if (n_classes * (n_classes - 1) / 2) > max_class_pairs:
-        class_idx_pairs = random.sample(class_idx_pairs, max_class_pairs)
-    result = []
-    progress = tqdm(class_idx_pairs, desc="Computing GDVs", leave=False)
-    for i, j in progress:
-        progress.set_postfix({"i": i, "j": j})
-        yij = (y == i) + (y == j)
-        a, b = x[yij], y[yij] == i
-        result.append({"idx": (i, j), "value": float(gdv(a, b))})
-    return result, float(np.mean([d["value"] for d in result]))  # type: ignore
 
 
 def pairwise_svc_scores(

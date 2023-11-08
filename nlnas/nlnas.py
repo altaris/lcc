@@ -26,7 +26,12 @@ from tqdm import tqdm
 from .classifier import Classifier
 from .pdist import pdist
 from .plotting import class_scatter
-from .separability import gdv, label_variation, pairwise_svc_scores
+from .separability import (
+    gdv,
+    mean_gr_dist,
+    label_variation,
+    pairwise_svc_scores,
+)
 from .training import all_checkpoint_paths, checkpoint_ves, train_model_guarded
 from .tv_dataset import TorchvisionDataset
 from .utils import get_first_n
@@ -296,8 +301,7 @@ def analyse_training(
                 data.append([epoch, sm, v])
         lvs = pd.DataFrame(data, columns=["epoch", "submodule", "lv"])
         lvs.to_csv(lv_csv_path)
-
-        # LV PLOTTING
+        # PLOTTING
         e = np.linspace(0, last_epoch, num=5, dtype=int)
         figure = sns.lineplot(
             lvs[lvs["epoch"].isin(e)],
@@ -316,9 +320,9 @@ def analyse_training(
         figure.get_figure().savefig(output_dir / "lv_epoch.png")
         plt.clf()
 
+    # GDV COMPUTATION
     gdv_csv_path = output_dir / "gdv.csv"
     if not gdv_csv_path.exists():
-        # GDV COMPUTATION
         data = []
         logging.info("Computing GDVs")
         progress = tqdm(ckpt_analysis_dirs, leave=False)
@@ -330,7 +334,7 @@ def analyse_training(
                 data.append([epoch, sm, v])
         gdvs = pd.DataFrame(data, columns=["epoch", "submodule", "gdv"])
         gdvs.to_csv(gdv_csv_path)
-        # GDV PLOTTING
+        # PLOTTING
         e = np.linspace(0, last_epoch, num=5, dtype=int)
         figure = sns.lineplot(
             gdvs[gdvs["epoch"].isin(e)],
@@ -348,6 +352,35 @@ def analyse_training(
         )
         figure.get_figure().savefig(output_dir / "gdv_epoch.png")
         plt.clf()
+
+    # GRASSMANNIAN DISTANCE COMPUTATION
+    gr_csv_path = output_dir / "gr.csv"
+    if not gr_csv_path.exists():
+        data = []
+        logging.info("Computing Grassmannian geodesic distances")
+        progress = tqdm(ckpt_analysis_dirs, leave=False)
+        for epoch, path in enumerate(progress):
+            evaluations = tb.load_json(Path(path) / "eval" / "eval.json")
+            for sm, z in evaluations["z"].items():
+                progress.set_postfix({"epoch": epoch, "submodule": sm})
+                v = float(mean_gr_dist(z.flatten(1), evaluations["y"]))
+                data.append([epoch, sm, v])
+        grs = pd.DataFrame(data, columns=["epoch", "submodule", "gr"])
+        grs.to_csv(gr_csv_path)
+        # PLOTTING
+        # evaluations = tb.load_json(
+        #     Path(ckpt_analysis_dirs[0]) / "eval" / "eval.json"
+        # )
+        progress = tqdm(evaluations["z"].keys(), desc="Plotting", leave=False)
+        for sm in progress:
+            progress.set_postfix({"submodule": sm})
+            figure = sns.lineplot(
+                grs[grs["submodule"] == sm], x="epoch", y="gr"
+            )
+            figure.axvline(last_epoch, linestyle=":", color="gray")
+            figure.set(title=f"Mean Grass. dst. for {sm}")
+            figure.get_figure().savefig(output_dir / f"gr_{sm}.png")
+            plt.clf()
 
     tsne_all_path = output_dir / "tsne_all.png"
     if tsne and not tsne_all_path.exists():
