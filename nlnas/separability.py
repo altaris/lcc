@@ -4,7 +4,7 @@
 from itertools import combinations
 import random
 from math import sqrt
-from typing import Literal
+from typing import Iterable, Literal
 
 import numpy as np
 import torch
@@ -13,6 +13,25 @@ from torch import Tensor
 from torch.nn.functional import one_hot, pdist
 
 SQRT_2 = 1.4142135623730951
+
+
+def _img_orthn_basis(x: Tensor) -> Tensor:
+    """
+    Given a `(N, d)` design matrix, where `N` is the batch size and `d` is the
+    latent dimension returns a `(r, d)` matrix whose rows form an orthonormal
+    basis of the subspace of $\\mathbb{R}^d$ spanned by the dataset vectors.
+
+    Args:
+        x (Tensor): A `(N, d)` design matrix, where `N` is the batch size and
+            `d` is the latent dimension
+
+    Returns:
+        A `(r, d)` tensor that is differentiable in `x`, where `r` is the rank
+        of `x.T`
+    """
+    u, s, _ = torch.linalg.svd(x.T)
+    b = u[:, : len(s)][:, s > 0]
+    return b.T
 
 
 def _var(x: Tensor) -> Tensor:
@@ -79,11 +98,11 @@ def gr_dist(
     metric: Literal[
         "arc_length", "chordal", "projection", "binet_cauchy"
     ] = "arc_length",
-    do_svd: bool = True,
+    orthonormal: bool = False,
 ) -> Tensor:
     """
     Grassmanian distance between the subspaces spanned by two design matrices
-    `a` and `b`. These don't need to be orthogonal.
+    `a` and `b`. These don't need to be orthonormal.
 
     Args:
         a (Tensor): A `(N, d)` design matrix, where `N` is the batch size and
@@ -92,17 +111,15 @@ def gr_dist(
         metric (Literal[&quot;arc_length&quot;, &quot;chordal&quot;,
             &quot;projection&quot;, &quot;binet_cauchy&quot;], optional):
             Metric type, defaults to `"arc_length"`.
-        do_svd (bool, optional): Set to `False` if the rows of `a` are
-            already pairwise orthogonal, and likewise for `b`
+        orthonormal (bool, optional): Wether the rows of `a` form an
+            orthonormal family (and same for `b`).
+
     Returns:
-        A tensor that is differentiable in `a` and `b`
+        A scalar tensor that is differentiable in `a` and `b`
     """
-    if do_svd:
-        _, _, v_a_t = torch.linalg.svd(a)
-        _, _, v_b_t = torch.linalg.svd(b)
-        w_a, w_b = v_a_t[: len(a)], v_b_t[: len(b)]
-    else:
-        w_a, w_b = a, b
+    w_a, w_b = (
+        (a, b) if orthonormal else (_img_orthn_basis(a), _img_orthn_basis(b))
+    )
     cos_theta = torch.linalg.svdvals(w_a @ w_b.T)
     cos_theta = cos_theta[cos_theta <= 1]
     if metric == "chordal":
@@ -118,7 +135,7 @@ def gr_dist(
 def mean_gr_dist(
     x: Tensor,
     y: Tensor,
-    n_classes: int = -1,
+    classes: Iterable[int] | None = None,
     metric: Literal[
         "arc_length", "chordal", "projection", "binet_cauchy"
     ] = "arc_length",
@@ -135,25 +152,23 @@ def mean_gr_dist(
         x (Tensor): A `(N, d)` design matrix, where `N` is the batch size and
             `d` is the latent dimension
         y (Tensor): A `(N,)` label tensor
-        n_classes (int, optional): Leave it to `-1` to automatically infer the
-            number of classes
+        classes (Iterable[int], optional): Leave to `None` to automatically
+            find the class labels from `y`.
         metric (Literal[ &quot;arc_length&quot;, &quot;chordal&quot;,
             &quot;projection&quot;, &quot;binet_cauchy&quot; ], optional):
             Metric type, defaults to `"arc_length"`.
 
     Returns:
-        A tensor that is differentiable in `x`
+        A scalar tensor that is differentiable in `x`
     """
-    if n_classes <= 0:
-        n_classes = len(y.unique(sorted=False))
-    w_t, g = [], []
-    for i in range(n_classes):
-        a = x[y == i]
-        _, _, v_t = torch.linalg.svd(x[y == i])
-        w_t.append(v_t[: len(a)])
-    for i, j in combinations(range(n_classes), 2):
-        g.append(gr_dist(w_t[i], w_t[j], metric=metric, do_svd=False))
-    return torch.stack(g).mean()
+    classes = classes or y.unique(sorted=False)
+    assert classes is not None  # for typechecking
+    bs = [_img_orthn_basis(x[y == i]) for i in classes]
+    ds = [
+        gr_dist(bs[i], bs[j], metric=metric, orthonormal=True)
+        for i, j in combinations(classes, 2)
+    ]
+    return torch.stack(ds).mean()
 
 
 def label_variation(

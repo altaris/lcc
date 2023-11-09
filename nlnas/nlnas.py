@@ -542,6 +542,7 @@ def train_and_analyse_all(
     )
     logging.info("Analyzing epochs")
     progress = tqdm(all_checkpoint_paths(p), leave=False)
+    # progress = tqdm([], leave=False)
     for i, ckpt in enumerate(progress):
         analyse_ckpt(
             model=ckpt,
