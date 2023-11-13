@@ -28,7 +28,7 @@ from .pdist import pdist
 from .plotting import class_scatter
 from .separability import (
     gdv,
-    mean_gr_dist,
+    mean_ggd,
     label_variation,
     pairwise_svc_scores,
 )
@@ -363,7 +363,7 @@ def analyse_training(
             evaluations = tb.load_json(Path(path) / "eval" / "eval.json")
             for sm, z in evaluations["z"].items():
                 progress.set_postfix({"epoch": epoch, "submodule": sm})
-                v = float(mean_gr_dist(z.flatten(1), evaluations["y"]))
+                v = float(mean_ggd(z.flatten(1), evaluations["y"]))
                 data.append([epoch, sm, v])
         grs = pd.DataFrame(data, columns=["epoch", "submodule", "gr"])
         grs.to_csv(gr_csv_path)

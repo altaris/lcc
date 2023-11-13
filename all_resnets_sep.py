@@ -9,10 +9,9 @@ from loguru import logger as logging
 from nlnas import (
     TorchvisionClassifier,
     TorchvisionDataset,
-    VHTorchvisionClassifier,
-    separability,
     train_and_analyse_all,
 )
+from nlnas.classifier import TruncatedClassifier
 from nlnas.logging import setup_logging
 from nlnas.training import train_model, train_model_guarded
 from nlnas.utils import dataset_n_targets
@@ -23,8 +22,8 @@ def main():
     backbones = [
         "resnet18",
     ]
-    separation_score = "gdv"
-    submodule_names = [
+    separation_score = "ggd"
+    obs_submodules = [
         # "model.0.layer1.0"
         # "model.0.layer1.1"
         "model.0.layer1",
@@ -39,6 +38,22 @@ def main():
         "model.0.layer4",
         "model.0.fc",
         "model.1",
+    ]
+    sep_submodules = [
+        # "model.0.layer1.0"
+        # "model.0.layer1.1"
+        # "model.0.layer1",
+        # "model.0.layer2.0"
+        # "model.0.layer2.1"
+        # "model.0.layer2",
+        # "model.0.layer3.0"
+        # "model.0.layer3.1"
+        # "model.0.layer3",
+        # "model.0.layer4.0"
+        # "model.0.layer4.1"
+        "model.0.layer4",
+        # "model.0.fc",
+        # "model.1",
     ]
     dataset_names = [
         # "mnist",
@@ -60,9 +75,7 @@ def main():
         ]
     )
     for backbone, dataset_name in product(backbones, dataset_names):
-        model_name = (
-            backbone + "_" + separation_score + "_l1l2l3l4fc1_w1e-4_b256"
-        )
+        model_name = backbone + "_" + separation_score + "_l4_w1"
         output_dir = Path("out") / model_name / dataset_name
         dataset = TorchvisionDataset(
             dataset_name,
@@ -76,38 +89,22 @@ def main():
         dataset.setup("fit")
         n_classes = len(dataset_n_targets(dataset.val_dataloader()))
         image_shape = list(next(iter(dataset.val_dataloader()))[0].shape)[1:]
-        model = VHTorchvisionClassifier(
+        model = TorchvisionClassifier(
             model_name=backbone,
             n_classes=n_classes,
-            submodules=[
-                # "model.0.layer1.0"
-                # "model.0.layer1.1"
-                "model.0.layer1",
-                # "model.0.layer2.0"
-                # "model.0.layer2.1"
-                "model.0.layer2",
-                # "model.0.layer3.0"
-                # "model.0.layer3.1"
-                "model.0.layer3",
-                # "model.0.layer4.0"
-                # "model.0.layer4.1"
-                "model.0.layer4",
-                "model.0.fc",
-                "model.1",
-            ],
-            add_final_fc=True,
             input_shape=image_shape,
-            separation_score=separation_score,
-            separation_weight=1e-4,
+            add_final_fc=True,
+            sep_submodules=sep_submodules,
+            sep_score=separation_score,
+            sep_weight=1,
         )
         train_and_analyse_all(
             model=model,
-            submodule_names=submodule_names,
+            submodule_names=obs_submodules,
             dataset=dataset,
             output_dir=output_dir,
             model_name=model_name,
             tsne=True,
-            phate=True,
         )
 
 

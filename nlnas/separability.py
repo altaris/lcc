@@ -4,7 +4,7 @@
 from itertools import combinations
 import random
 from math import sqrt
-from typing import Iterable, Literal
+from typing import Iterable
 
 import numpy as np
 import torch
@@ -29,9 +29,11 @@ def _img_orthn_basis(x: Tensor) -> Tensor:
         A `(r, d)` tensor that is differentiable in `x`, where `r` is the rank
         of `x.T`
     """
+    # x is a "row-wise" design matrix (one where the feature vectors are the
+    # rows), but torch.linalg.svd expects a "column-wise" design matrix. u is
+    # also column-wise
     u, s, _ = torch.linalg.svd(x.T)
-    b = u[:, : len(s)][:, s > 0]
-    return b.T
+    return u.T[: len(s)][s > 1e-5]
 
 
 def _var(x: Tensor) -> Tensor:
@@ -92,25 +94,24 @@ def gdv(x: Tensor, y: Tensor) -> Tensor:
     # )
 
 
-def gr_dist(
+def ggd(
     a: Tensor,
     b: Tensor,
-    metric: Literal[
-        "arc_length", "chordal", "projection", "binet_cauchy"
-    ] = "arc_length",
     orthonormal: bool = False,
 ) -> Tensor:
     """
-    Grassmanian distance between the subspaces spanned by two design matrices
-    `a` and `b`. These don't need to be orthonormal.
+    Grassmanian geodesic distance between the subspaces spanned by two design
+    matrices `a` and `b`. These don't need to be orthonormal or have the same
+    rank. See table 3 of
+
+        Ye, Ke, and Lek-Heng Lim. "Schubert varieties and distances between
+        subspaces of different dimensions." SIAM Journal on Matrix Analysis and
+        Applications 37.3 (2016): 1176-1197.
 
     Args:
         a (Tensor): A `(N, d)` design matrix, where `N` is the batch size and
             `d` is the latent dimension
         b (Tensor): A `(N, d)` design matrix
-        metric (Literal[&quot;arc_length&quot;, &quot;chordal&quot;,
-            &quot;projection&quot;, &quot;binet_cauchy&quot;], optional):
-            Metric type, defaults to `"arc_length"`.
         orthonormal (bool, optional): Wether the rows of `a` form an
             orthonormal family (and same for `b`).
 
@@ -119,26 +120,18 @@ def gr_dist(
     """
     w_a, w_b = (
         (a, b) if orthonormal else (_img_orthn_basis(a), _img_orthn_basis(b))
-    )
+    )  # both (?, d)
     cos_theta = torch.linalg.svdvals(w_a @ w_b.T)
-    cos_theta = cos_theta[cos_theta <= 1]
-    if metric == "chordal":
-        return SQRT_2 * torch.sqrt(len(cos_theta) - cos_theta.sum())
-    if metric == "binet_cauchy":
-        return torch.sqrt(1 - torch.prod(cos_theta**2))
+    cos_theta = torch.min(cos_theta, torch.ones_like(cos_theta))
     theta = torch.acos(cos_theta)
-    if metric == "projection":
-        return torch.linalg.vector_norm(theta.sin() ** 2, ord=2)
-    return torch.linalg.vector_norm(theta, ord=2)  # arc_length
+    r_corr = abs(w_a.shape[0] - w_b.shape[0]) * torch.pi**2 / 4
+    return torch.sqrt(r_corr + (theta**2).sum())
 
 
-def mean_gr_dist(
+def mean_ggd(
     x: Tensor,
     y: Tensor,
     classes: Iterable[int] | None = None,
-    metric: Literal[
-        "arc_length", "chordal", "projection", "binet_cauchy"
-    ] = "arc_length",
 ) -> Tensor:
     """
     Mean Grassmanian distance between all classes.
@@ -154,18 +147,15 @@ def mean_gr_dist(
         y (Tensor): A `(N,)` label tensor
         classes (Iterable[int], optional): Leave to `None` to automatically
             find the class labels from `y`.
-        metric (Literal[ &quot;arc_length&quot;, &quot;chordal&quot;,
-            &quot;projection&quot;, &quot;binet_cauchy&quot; ], optional):
-            Metric type, defaults to `"arc_length"`.
 
     Returns:
         A scalar tensor that is differentiable in `x`
     """
-    classes = classes or y.unique(sorted=False)
+    classes = classes or list(y.unique(sorted=False))
     assert classes is not None  # for typechecking
-    bs = [_img_orthn_basis(x[y == i]) for i in classes]
+    bs = {i: _img_orthn_basis(x[y == i]) for i in classes}
     ds = [
-        gr_dist(bs[i], bs[j], metric=metric, orthonormal=True)
+        ggd(bs[i], bs[j], orthonormal=True)
         for i, j in combinations(classes, 2)
     ]
     return torch.stack(ds).mean()

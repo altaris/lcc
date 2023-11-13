@@ -15,7 +15,7 @@ from torchvision.models import get_model
 
 # from tqdm import tqdm
 
-from .separability import gdv, label_variation
+from .separability import gdv, label_variation, mean_ggd
 from .utils import best_device
 
 
@@ -24,14 +24,14 @@ class Classifier(pl.LightningModule):
 
     n_classes: int
     sep_submodules: list[str]
-    sep_score: Literal["gdv", "lv"]
+    sep_score: Literal["gdv", "lv", "ggd"]
     sep_weight: float
 
     def __init__(
         self,
         n_classes: int,
         sep_submodules: list[str] | None = None,
-        sep_score: Literal["gdv", "lv"] = "gdv",
+        sep_score: Literal["gdv", "lv", "ggd"] = "lv",
         sep_weight: float = 1e-1,
         **kwargs: Any,
     ) -> None:
@@ -40,11 +40,12 @@ class Classifier(pl.LightningModule):
             n_classes (int):
             sep_submodules (list[str] | None, optional): Submodules to consider
                 for the latent separation score
-            sep_score (Literal[&quot;gdv&quot;, &quot;lv&quot;], optional):
-                Type of separation score, either `"gdv"` (see
-                `nlnas.separability.gdv`) or `"lv"` (see
-                `nlnas.separability.lv`). Ignored if `sep_submodules` is left
-                to `None`
+            sep_score (Literal[&quot;gdv&quot;, &quot;lv&quot;,
+                &quot;gdd&quot;], optional): Type of separation score, either
+                `"gdv"` (see `nlnas.separability.gdv`), `"lv"` (see
+                `nlnas.separability.lv`), or `"ggd"` (see
+                `nlnas.separability.mean_gr_dist`). Ignored if `sep_submodules`
+                is left to `None`
             sep_weight (float, optional): Weight of the separation score.
                 Ignored if `sep_submodules` is left to `None`
         """
@@ -78,6 +79,10 @@ class Classifier(pl.LightningModule):
                         )
                         for v in output_dict.values()
                     ]
+                ).mean()
+            elif self.sep_score == "ggd":
+                sep_loss = -torch.stack(
+                    [mean_ggd(v.flatten(1), y) for v in output_dict.values()]
                 ).mean()
             else:
                 raise RuntimeError(
