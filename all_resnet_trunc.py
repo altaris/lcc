@@ -67,7 +67,7 @@ def main():
         dataset=ds,
         output_dir=output_dir,
         model_name=trunc_model_name,
-        tsne=True,
+        umap=True
         # strategy="ddp_find_unused_parameters_true",
     )
 

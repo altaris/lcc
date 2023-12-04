@@ -1,7 +1,6 @@
 """Main module"""
 
 import random
-import shutil
 from glob import glob
 from itertools import combinations
 from pathlib import Path
@@ -18,27 +17,20 @@ import seaborn as sns
 import turbo_broccoli as tb
 from bokeh.io import export_png
 from loguru import logger as logging
-from phate import PHATE
-from sklearn.manifold import TSNE
 from torch import Tensor
 from tqdm import tqdm
+from umap import UMAP
 
 from .classifier import Classifier
-from .pdist import pdist
 from .plotting import class_scatter
-from .separability import (
-    gdv,
-    mean_ggd,
-    label_variation,
-    pairwise_svc_scores,
-)
+from .separability import gdv, label_variation, mean_ggd, pairwise_svc_scores
 from .training import all_checkpoint_paths, checkpoint_ves, train_model_guarded
 from .tv_dataset import TorchvisionDataset
 from .utils import get_first_n
 
 MAX_CLASS_PAIRS = 200
 """
-In `analyse_ckpt`, if `tsne_svc_separability` is `True`, a SVC-based
+In `analyse_ckpt`, if `svc_separability` is `True`, a SVC-based
 separability scoring is computed. Specifically, for each pair of classes, we
 compute how well separated they are by fitting a SVC and computing the score.
 If there are many classes, the number of pairs can be very large. If this
@@ -58,9 +50,8 @@ def analyse_ckpt(
     output_dir: str | Path,
     n_samples: int = 5000,
     model_cls: Type[Classifier] | None = None,
-    tsne: bool = True,
-    tsne_svc_separability: bool = True,
-    phate: bool = False,
+    umap: bool = True,
+    svc_separability: bool = True,
 ):
     """
     Full separability analysis and plottings
@@ -75,10 +66,9 @@ def analyse_ckpt(
             name of a torchvision dataset
         output_dir (str | Path):
         n_samples (int, optional):
-        tsne (bool, optional): Wether to compute TSNE embeddings and plots
-        tsne_svc_separability (bool, optional): Wether to compute the TSNE-SVC
-            separability scores and plots. If set to `True`, overrides `tsne`.
-        phate (bool, optional): Wether to compute the PHATE embeddings and plots
+        umap (bool, optional): Wether to compute UMAP embeddings and plots
+        svc_separability (bool, optional): Wether to compute the UMAP-SVC
+            separability scores and plots. If set to `True`, overrides `umap`.
     """
     output_dir = Path(output_dir)
 
@@ -116,60 +106,28 @@ def analyse_ckpt(
     outputs: dict = h.result
     x_train, y_train = outputs["x"], outputs["y"]
 
-    # TSNE
-    if tsne or tsne_svc_separability:
-        # COMPUTE DISTANCE MATRICES
-        h = tb.GuardedBlockHandler(output_dir / "pdist" / "pdist.json")
-        chunk_path = h.output_path.parent / "chunks"
-        for _ in h.guard():
-            h.result = {}
-            logging.debug("Computing distance matrix")
-            progress = tqdm(outputs["z"].items(), leave=False)
-            for k, z in progress:
-                progress.set_postfix({"submodule": k})
-                h.result[k] = pdist(
-                    z.flatten(1).numpy(),
-                    chunk_size=int(n_samples / 10),
-                    chunk_path=chunk_path / k,
-                )
-        if chunk_path.is_dir():
-            logging.debug("Removing pdist chuncks directory '{}'", chunk_path)
-            try:
-                shutil.rmtree(chunk_path)
-            except OSError as err:
-                logging.error(
-                    "Could not remove chunks directory '{}': {}",
-                    chunk_path,
-                    err,
-                )
-        distance_matrices: dict[str, np.ndarray] = h.result
-
+    # UMAP
+    if umap or svc_separability:
         # EMBEDDING
-        h = tb.GuardedBlockHandler(output_dir / "tsne" / "tsne.json")
+        h = tb.GuardedBlockHandler(output_dir / "umap" / "umap.json")
         for _ in h.guard():
             h.result = {}
-            logging.debug("Computing TSNE embeddings")
-            progress = tqdm(distance_matrices.items(), leave=False)
+            logging.debug("Computing UMAP embeddings")
+            progress = tqdm(outputs["z"].items(), leave=False)
             for k, m in progress:
                 progress.set_postfix({"submodule": k})
-                t = TSNE(
-                    n_components=2,
-                    metric="precomputed",
-                    init="random",
-                    n_jobs=-1,
-                )
-                t.fit_transform(m)
-                e = np.array(t.embedding_)
+                t = UMAP(n_components=2, metric="euclidean")
+                e = t.fit_transform(m.flatten(1))
                 e = (e - e.min(axis=0)) / (e.max(axis=0) - e.min(axis=0))
                 h.result[k] = e
-        tsne_embeddings: dict[str, np.ndarray] = h.result
+        umap_embeddings: dict[str, np.ndarray] = h.result
 
         # PLOTTING
-        h = tb.GuardedBlockHandler(output_dir / "tsne" / "plots.json")
+        h = tb.GuardedBlockHandler(output_dir / "umap" / "plots.json")
         for _ in h.guard():
             h.result = {}
-            logging.debug("Plotting TSNE embeddings")
-            progress = tqdm(tsne_embeddings.items(), leave=False)
+            logging.debug("Plotting UMAP embeddings")
+            progress = tqdm(umap_embeddings.items(), leave=False)
             for k, e in progress:
                 progress.set_postfix({"submodule": k})
                 figure = bk.figure(title=k, toolbar_location=None)
@@ -180,7 +138,7 @@ def analyse_ckpt(
                 )
 
     # SEPARABILITY SCORE AND PLOTTING
-    if tsne_svc_separability:
+    if svc_separability:
         n_classes = len(np.unique(y_train))
         class_idx_pairs = list(combinations(range(n_classes), 2))
         if (n_classes * (n_classes - 1) / 2) > MAX_CLASS_PAIRS:
@@ -192,7 +150,7 @@ def analyse_ckpt(
             h.result = {}
             # PAIRWISE RBF
             logging.debug("Fitting SVCs")
-            progress = tqdm(tsne_embeddings.items(), leave=False)
+            progress = tqdm(umap_embeddings.items(), leave=False)
             for k, e in progress:
                 progress.set_postfix({"submodule": k})
                 h.result[k] = pairwise_svc_scores(
@@ -230,44 +188,13 @@ def analyse_ckpt(
             )
             plt.clf()
 
-    # PHATE
-    if phate:
-        # EMBEDDING
-        h = tb.GuardedBlockHandler(output_dir / "phate" / "phate.json")
-        for _ in h.guard():
-            h.result = {}
-            logging.debug("Computing PHATE embeddings")
-            progress = tqdm(outputs["z"].items(), leave=False)
-            for k, z in progress:
-                progress.set_postfix({"submodule": k})
-                e = PHATE(verbose=False).fit_transform(z.flatten(1))
-                e = (e - e.min(axis=0)) / (e.max(axis=0) - e.min(axis=0))
-                h.result[k] = e
-        phate_embeddings: dict[str, np.ndarray] = h.result
-
-        # PLOTTING
-        h = tb.GuardedBlockHandler(output_dir / "phate" / "plots.json")
-        for _ in h.guard():
-            h.result = {}
-            logging.debug("Plotting PHATE embeddings")
-            progress = tqdm(phate_embeddings.items(), leave=False)
-            for k, e in progress:
-                progress.set_postfix({"submodule": k})
-                figure = bk.figure(title=k, toolbar_location=None)
-                class_scatter(figure, e, y_train.numpy(), "viridis")
-                h.result[k] = figure
-                export_png(
-                    figure, filename=h.output_path.parent / (k + ".png")
-                )
-
 
 def analyse_training(
     output_dir: str | Path,
     lv_k: int = 10,
     last_epoch: int | None = None,
-    tsne: bool = False,
-    phate: bool = False,
-    # tsne_svc_separability: bool = True,
+    umap: bool = False,
+    # svc_separability: bool = True,
 ):
     """
     For now only plot LV scores per epoch and per submodule
@@ -382,16 +309,16 @@ def analyse_training(
             figure.get_figure().savefig(output_dir / f"gr_{sm}.png")
             plt.clf()
 
-    tsne_all_path = output_dir / "tsne_all.png"
-    if tsne and not tsne_all_path.exists():
+    umap_all_path = output_dir / "umap_all.png"
+    if umap and not umap_all_path.exists():
         rows, epochs = [], np.linspace(0, last_epoch, num=10, dtype=int)
-        logging.info("Consolidating TSNE plots")
+        logging.info("Consolidating UMAP plots")
         progress = tqdm(ckpt_analysis_dirs, leave=False)
         for epoch, path in enumerate(progress):
             if not epoch in epochs:
                 continue
             progress.set_postfix({"epoch": epoch})
-            document = tb.load_json(Path(path) / "tsne" / "plots.json")
+            document = tb.load_json(Path(path) / "umap" / "plots.json")
             for figure in document.values():
                 figure.height, figure.width = 200, 200
                 figure.grid.visible, figure.axis.visible = False, False
@@ -399,89 +326,7 @@ def analyse_training(
         figure = bk.gridplot(rows)
         logging.debug("Sleeping for 5s before rendering to file")
         sleep(5)
-        export_png(figure, filename=tsne_all_path)
-
-    phate_all_path = output_dir / "phate_all.png"
-    if phate and not phate_all_path.exists():
-        rows, epochs = [], np.linspace(0, last_epoch, num=10, dtype=int)
-        logging.info("Consolidating PHATE plots")
-        progress = tqdm(ckpt_analysis_dirs, leave=False)
-        for epoch, path in enumerate(progress):
-            if not epoch in epochs:
-                continue
-            progress.set_postfix({"epoch": epoch})
-            document = tb.load_json(Path(path) / "phate" / "plots.json")
-            for figure in document.values():
-                figure.height, figure.width = 200, 200
-                figure.grid.visible, figure.axis.visible = False, False
-            rows.append(list(document.values()))
-        figure = bk.gridplot(rows)
-        logging.debug("Sleeping for 5s before rendering to file")
-        sleep(5)
-        export_png(figure, filename=phate_all_path)
-
-    # dfs = []
-    # for epoch, p in enumerate(ckpt_analysis_dirs):
-    #     with (Path(p) / "svc" / "pairwise_rbf.json").open(
-    #         mode="r", encoding="utf-8"
-    #     ) as fp:
-    #         doc = json.load(fp)  # Prevents loading numpy arrays
-    #     data = [
-    #         [epoch, k, np.mean([d["score"] for d in v])]
-    #         for k, v in doc.items()
-    #     ]
-    #     df = pd.DataFrame(data, columns=["epoch", "submodule", "mean_score"])
-    #     dfs.append(df)
-    # tss = pd.concat(dfs, ignore_index=True)
-    # tss.to_csv(output_path / "tsne_svc.csv")
-
-    # e = np.linspace(0, last_epoch, num=5, dtype=int)
-    # figure = sns.lineplot(
-    #     tss[tss["epoch"].isin(e)],
-    #     x="submodule",
-    #     y="mean_score",
-    #     hue="epoch",
-    #     size="epoch",
-    # )
-    # figure.set(title="Separability scores by epoch")
-    # figure.set_xticklabels(
-    #     figure.get_xticklabels(),
-    #     rotation=45,
-    #     rotation_mode="anchor",
-    #     ha="right",
-    # )
-    # figure.get_figure().savefig(output_path / "tsne_svc.png")
-
-    # val_acc = metrics["val/acc"].to_numpy()
-    # val_loss = metrics["val/loss"].to_numpy()
-    # submodules = tss[tss["epoch"] == 0]["submodule"]
-    # data = []
-    # for s in submodules:
-    #     a = tss[tss["submodule"] == s]["mean_score"].to_numpy()
-    #     data.append(
-    #         [s, np.corrcoef(val_acc, a)[0, 1], np.corrcoef(val_loss, a)[0, 1]],
-    #     )
-    # correlations = pd.DataFrame(
-    #     data, columns=["submodule", "val/acc", "val/loss"]
-    # )
-    # correlations.to_csv(output_path / "tsne_svc_corr.csv")
-
-    # mcorr = correlations.melt(
-    #     id_vars=["submodule"],
-    #     var_name="sep. vs.",
-    #     value_name="corr.",
-    # )
-    # grid = sns.FacetGrid(mcorr, col="sep. vs.")
-    # grid.map(sns.barplot, "submodule", "corr.")
-    # for ax in grid.axes_dict.values():
-    #     ax.set_xticklabels(
-    #         ax.get_xticklabels(),
-    #         rotation=45,
-    #         rotation_mode="anchor",
-    #         ha="right",
-    #     )
-    #     ax.set_ylim(-1, 1)
-    # grid.fig.savefig(output_path / "tsne_svc_corr.png")
+        export_png(figure, filename=umap_all_path)
 
 
 def train_and_analyse_all(
@@ -492,8 +337,7 @@ def train_and_analyse_all(
     model_name: str | None = None,
     n_samples: int = 5000,
     strategy: str = "ddp",
-    tsne: bool = False,
-    phate: bool = False,
+    umap: bool = True,
 ):
     """
     Trains a model and performs a separability analysis (see
@@ -512,8 +356,7 @@ def train_and_analyse_all(
             lower case class name, i.e. `model.__class__.__name__.lower()`.
         n_samples (int, optional): Defaults to 5000.
         strategy (str, optional): Training strategy to use.
-        tsne (bool, optional): Wether to compute and plot TSNE embeddings.
-        phate (bool, optional): Wether to compute and plot PHATE embeddings.
+        umap (bool, optional): Wether to compute and plot UMAP embeddings.
     """
     # tb.set_max_nbytes(1000)  # Ensure artefacts
     model_name = model_name or model.__class__.__name__.lower()
@@ -551,14 +394,12 @@ def train_and_analyse_all(
             dataset=dataset,
             output_dir=output_dir / f"version_{version}" / str(i),
             n_samples=n_samples,
-            tsne=tsne,
-            phate=phate,
-            tsne_svc_separability=False,
+            umap=umap,
+            svc_separability=False,
         )
     logging.info("Analyzing training")
     analyse_training(
         output_dir / f"version_{version}",
         last_epoch=best_epoch,
-        tsne=tsne,
-        phate=phate,
+        umap=umap,
     )

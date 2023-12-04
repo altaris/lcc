@@ -10,3 +10,4 @@ scikit-learn
 tensorboard
 torch
 torchvision
+umap-learn
