@@ -1,12 +1,15 @@
 click
 git+https://github.com/altaris/turbo-broccoli.git
-joblib
 loguru
 matplotlib
 numpy
+Pillow
 pytorch-lightning
+regex
 safetensors
 scikit-learn
+seaborn
+selenium==4.8.2
 tensorboard
 torch
 torchvision
