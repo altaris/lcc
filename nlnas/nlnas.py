@@ -1,8 +1,6 @@
 """Main module"""
 
-import random
 from glob import glob
-from itertools import combinations
 from pathlib import Path
 from time import sleep
 from typing import Type
@@ -23,20 +21,10 @@ from umap import UMAP
 
 from .classifier import Classifier
 from .plotting import class_scatter
-from .separability import gdv, label_variation, mean_ggd, pairwise_svc_scores
+from .separability import gdv, label_variation, mean_ggd
 from .training import all_checkpoint_paths, checkpoint_ves, train_model_guarded
 from .tv_dataset import TorchvisionDataset
 from .utils import get_first_n
-
-MAX_CLASS_PAIRS = 200
-"""
-In `analyse_ckpt`, if `svc_separability` is `True`, a SVC-based
-separability scoring is computed. Specifically, for each pair of classes, we
-compute how well separated they are by fitting a SVC and computing the score.
-If there are many classes, the number of pairs can be very large. If this
-number is greater than `MAX_CLASS_PAIRS`, then only `MAX_CLASS_PAIRS` pairs are
-chosen at random (among all possible pairs) for the separability scoring.
-"""
 
 
 def _is_ckpt_analysis_dir(p: Path | str) -> bool:
@@ -51,7 +39,6 @@ def analyse_ckpt(
     n_samples: int = 5000,
     model_cls: Type[Classifier] | None = None,
     umap: bool = True,
-    svc_separability: bool = True,
 ):
     """
     Full separability analysis and plottings
@@ -67,8 +54,6 @@ def analyse_ckpt(
         output_dir (str | Path):
         n_samples (int, optional):
         umap (bool, optional): Wether to compute UMAP embeddings and plots
-        svc_separability (bool, optional): Wether to compute the UMAP-SVC
-            separability scores and plots. If set to `True`, overrides `umap`.
     """
     output_dir = Path(output_dir)
 
@@ -97,7 +82,7 @@ def analyse_ckpt(
     x_train, y_train = outputs["x"], outputs["y"]
 
     # UMAP
-    if umap or svc_separability:
+    if umap:
         # EMBEDDING
         h = tb.GuardedBlockHandler(output_dir / "umap" / "umap.json")
         for _ in h.guard():
@@ -127,64 +112,12 @@ def analyse_ckpt(
                     figure, filename=h.output_path.parent / (k + ".png")
                 )
 
-    # SEPARABILITY SCORE AND PLOTTING
-    if svc_separability:
-        n_classes = len(np.unique(y_train))
-        class_idx_pairs = list(combinations(range(n_classes), 2))
-        if (n_classes * (n_classes - 1) / 2) > MAX_CLASS_PAIRS:
-            class_idx_pairs = random.sample(class_idx_pairs, MAX_CLASS_PAIRS)
-        h = tb.GuardedBlockHandler(output_dir / "svc" / "pairwise_rbf.json")
-        # h = tb.GuardedBlockHandler(output_dir / "svc" / "pairwise_linear.json")
-        # h = tb.GuardedBlockHandler(output_dir / "svc" / "full_linear.json")
-        for _ in h.guard():
-            h.result = {}
-            # PAIRWISE RBF
-            logging.debug("Fitting SVCs")
-            progress = tqdm(umap_embeddings.items(), leave=False)
-            for k, e in progress:
-                progress.set_postfix({"submodule": k})
-                h.result[k] = pairwise_svc_scores(
-                    e, y_train, MAX_CLASS_PAIRS, kernel="rbf"
-                )
-                h.result[k] = pairwise_svc_scores(
-                    e, y_train, MAX_CLASS_PAIRS, kernel="linear"
-                )
-
-            # FULL LINEAR
-            # for k, e in outputs.items():
-            #     logging.debug("Fitting SVC for outputs of submodule '{}'", k)
-            #     a = e.flatten(1).numpy()
-            #     svc = SVC(kernel="linear").fit(a, y)
-            #     h.result[k] = {"svc": svc, "score": svc.score(a, y)}
-
-            # Plotting is done here to be in the guarded block
-            logging.debug("Plotting separability scores")
-            scores = [
-                [k, np.mean([d["score"] for d in v])]
-                for k, v in h.result.items()
-            ]
-            # scores = [[k, v["score"]] for k, v in h.result.items()]
-            df = pd.DataFrame(scores, columns=["submodule", "score"])
-            figure = sns.lineplot(df, x="submodule", y="score")
-            figure.set(title="Linear separability score")
-            figure.set_xticklabels(
-                figure.get_xticklabels(),
-                rotation=45,
-                rotation_mode="anchor",
-                ha="right",
-            )
-            figure.get_figure().savefig(
-                h.output_path.parent / "separability.png"
-            )
-            plt.clf()
-
 
 def analyse_training(
     output_dir: str | Path,
     lv_k: int = 10,
     last_epoch: int | None = None,
     umap: bool = False,
-    # svc_separability: bool = True,
 ):
     """
     For now only plot LV scores per epoch and per submodule
@@ -385,7 +318,6 @@ def train_and_analyse_all(
             output_dir=output_dir / f"version_{version}" / str(i),
             n_samples=n_samples,
             umap=umap,
-            svc_separability=False,
         )
     logging.info("Analyzing training")
     analyse_training(
