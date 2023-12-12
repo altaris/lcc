@@ -82,27 +82,17 @@ def analyse_ckpt(
     # EVALUATION
     h = tb.GuardedBlockHandler(output_dir / "eval" / "eval.json")
     for _ in h.guard():
-        # LOAD DATASET IF NEEDED
         if not isinstance(dataset, pl.LightningDataModule):
             dataset = TorchvisionDataset(dataset)
         dataset.setup("fit")
         x_train, y_train = get_first_n(dataset.train_dataloader(), n_samples)
-
         out: dict[str, Tensor] = {}
-        model.eval()
         model.forward_intermediate(
             x_train,
             submodule_names,
             out,
         )
-        # Hotfix. Sometimes, the model doesn't produce contiguous tensors (like
-        # ViTs) which prevents dumping. Later version of TurboBroccoli should
-        # contiguous-ize tensors for us
-        h.result = {
-            "x": x_train,
-            "y": y_train,
-            "z": {k: v.contiguous() for k, v in out.items()},
-        }
+        h.result = {"x": x_train, "y": y_train, "z": out}
     outputs: dict = h.result
     x_train, y_train = outputs["x"], outputs["y"]
 
