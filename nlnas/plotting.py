@@ -1,17 +1,22 @@
 """Plotting utilities"""
-import bokeh.palettes as plt
+
+import bokeh.layouts as bkl
+import bokeh.models as bkm
+import bokeh.palettes as bkp
 import bokeh.plotting as bk
 import numpy as np
 from scipy.stats import multivariate_normal
 from sklearn.mixture import GaussianMixture
 
+from .clustering import otm_matching_predicates
+
 BK_PALETTE_FUNCTIONS = {
-    "cividis": plt.cividis,
-    "gray": plt.gray,
-    "grey": plt.grey,
-    "inferno": plt.inferno,
-    "magma": plt.magma,
-    "viridis": plt.viridis,
+    "cividis": bkp.cividis,
+    "gray": bkp.gray,
+    "grey": bkp.grey,
+    "inferno": bkp.inferno,
+    "magma": bkp.magma,
+    "viridis": bkp.viridis,
 }
 
 
@@ -19,7 +24,7 @@ def class_scatter(
     plot: bk.figure,
     x: np.ndarray,
     y: np.ndarray,
-    palette: plt.Palette | list[str] | str | None = None,
+    palette: bkp.Palette | list[str] | str | None = None,
     size: float = 3,
 ) -> None:
     """
@@ -32,10 +37,11 @@ def class_scatter(
         x (np.ndarray): A `(N, 2)` array
         y (np.ndarray): A `(N,)` int array. Each unique value corresponds to a
             class
-        palette (plt.Palette | list[str] | str | None, optional): Either a
-            palette object, a list of HTML colors (at least as many as the
-            number of classes), or a name in
-            `nlnas.plotting.BK_PALETTE_FUNCTIONS`.
+        palette (Palette | list[str] | str | None, optional): Either a
+            palette object (see
+            https://docs.bokeh.org/en/latest/docs/reference/palettes.html#bokeh-palettes),
+            a list of HTML colors (at least as many as the number of classes),
+            or a name in `nlnas.plotting.BK_PALETTE_FUNCTIONS`.
         size (float, optional): Dot size. The outlier's dot size will be half
             that
 
@@ -44,7 +50,7 @@ def class_scatter(
     """
     n_classes = len(np.unique(y[y >= 0]))
     if palette is None:
-        palette = plt.gray(n_classes)
+        palette = bkp.viridis(n_classes)
     if isinstance(palette, str):
         if palette not in BK_PALETTE_FUNCTIONS:
             raise ValueError(f"Unknown palette '{palette}'")
@@ -113,3 +119,79 @@ def gaussian_mixture_plot(
     plot.contour(x, y, z, lvls, line_color=line_color)
     m = gm.means_
     plot.cross(m[:, 0], m[:, 1], color=means_color)
+
+
+def class_matching_plot(
+    x: np.ndarray,
+    y_a: np.ndarray,
+    y_b: np.ndarray,
+    matching: dict[int, set[int]],
+    size: int = 400,
+) -> bkm.GridBox:
+    """
+    Args:
+        x: (np.ndarray): A `(N, 2)` array
+        y_a (np.ndarray): A `(N,)` integer array with values in $\\{ 0, 1, ...,
+            c_a - 1 \\}$ for some $c_a > 0$.
+        y_b (np.ndarray): A `(N,)` integer array with values in $\\{ 0, 1, ...,
+            c_b - 1 \\}$ for some $c_b > 0$.
+        matching (dict[int, set[int]]): Matching between the labels of `y_a`
+            and the labels of `y_b`
+    """
+    p1, p2, p3, p4 = otm_matching_predicates(y_a, y_b, matching)
+    n_true, n_matched = p1.sum(axis=1), p2.sum(axis=1)
+    n_inter = (p1 & p2).sum(axis=1)
+    n_miss, n_exc = p3.sum(axis=1), p4.sum(axis=1)
+
+    figures = []
+    for a, bs in matching.items():
+        n_true, n_matched = p1[a].sum(), p2[a].sum()
+        n_inter = (p1[a] & p2[a]).sum()
+        n_miss, n_exc = p3[a].sum(), p4[a].sum()
+        fig_a = bk.figure(
+            width=size,
+            height=size,
+            title=f"Ground truth, class {a}; n = {n_true}",
+        )
+        class_scatter(fig_a, x[p1[a]], y_a[p1[a]])
+        fig_b = bk.figure(
+            width=size,
+            height=size,
+            title=(
+                f"{len(bs)} matched classes: "
+                + ", ".join(map(str, bs))
+                + f"; n = {n_matched}"
+            ),
+        )
+        class_scatter(fig_b, x[p2[a]], y_b[p2[a]])
+        fig_match = bk.figure(
+            width=size,
+            height=size,
+            title=f"Intersection; n = {n_inter}",
+        )
+        class_scatter(fig_match, x[p1[a] & p2[a]], y_b[p1[a] & p2[a]])
+        y_diff = p3[a] + 2 * p4[a]
+        fig_diff = bk.figure(
+            width=size,
+            height=size,
+            title=(
+                f"Symmetric difference; n = {n_miss + n_exc}\n"
+                f"Misses (red) = {n_miss}; excess (blue) = {n_exc}"
+            ),
+        )
+        class_scatter(
+            fig_diff,
+            x[y_diff > 0],
+            y_diff[y_diff > 0],
+            palette=["#ff0000", "#0000ff"],
+        )
+        make_same_xy_range(fig_a, fig_b, fig_match, fig_diff)
+        figures.append([fig_a, fig_b, fig_match, fig_diff])
+
+    return bkl.grid(figures)  # type: ignore
+
+
+def make_same_xy_range(*args: bk.figure) -> None:
+    """Makes sure all figures share the same `x_range` and `y_range`"""
+    for f in args[1:]:
+        f.x_range, f.y_range = args[0].x_range, args[0].y_range

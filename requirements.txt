@@ -2,6 +2,7 @@ click
 git+https://github.com/altaris/turbo-broccoli.git
 loguru
 matplotlib
+networkx
 numpy
 Pillow
 pytorch-lightning

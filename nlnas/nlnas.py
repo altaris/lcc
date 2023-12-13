@@ -6,6 +6,7 @@ from time import sleep
 from typing import Type
 
 import bokeh.plotting as bk
+import bokeh.layouts as bkl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -20,7 +21,11 @@ from tqdm import tqdm
 from umap import UMAP
 
 from .classifier import Classifier
-from .plotting import class_scatter
+from .clustering import (
+    louvain_communities,
+    class_otm_matching,
+)
+from .plotting import class_scatter, class_matching_plot, make_same_xy_range
 from .separability import gdv, label_variation, mean_ggd
 from .training import all_checkpoint_paths, checkpoint_ves, train_model_guarded
 from .tv_dataset import TorchvisionDataset
@@ -38,7 +43,6 @@ def analyse_ckpt(
     output_dir: str | Path,
     n_samples: int = 5000,
     model_cls: Type[Classifier] | None = None,
-    umap: bool = True,
 ):
     """
     Full separability analysis and plottings
@@ -53,7 +57,6 @@ def analyse_ckpt(
             name of a torchvision dataset
         output_dir (str | Path):
         n_samples (int, optional):
-        umap (bool, optional): Wether to compute UMAP embeddings and plots
     """
     output_dir = Path(output_dir)
 
@@ -81,43 +84,103 @@ def analyse_ckpt(
     outputs: dict = h.result
     x_train, y_train = outputs["x"], outputs["y"]
 
-    # UMAP
-    if umap:
-        # EMBEDDING
-        h = tb.GuardedBlockHandler(output_dir / "umap" / "umap.json")
-        for _ in h.guard():
-            h.result = {}
-            logging.debug("Computing UMAP embeddings")
-            progress = tqdm(outputs["z"].items(), leave=False)
-            for k, m in progress:
-                progress.set_postfix({"submodule": k})
-                t = UMAP(n_components=2, metric="euclidean")
-                e = t.fit_transform(m.flatten(1))
-                e = (e - e.min(axis=0)) / (e.max(axis=0) - e.min(axis=0))
-                h.result[k] = e
-        umap_embeddings: dict[str, np.ndarray] = h.result
+    # UMAP EMBEDDING
+    h = tb.GuardedBlockHandler(output_dir / "umap" / "umap.st")
+    for _ in h.guard():
+        h.result = {}
+        logging.debug("Computing UMAP embeddings")
+        progress = tqdm(
+            outputs["z"].items(), desc="UMAP embedding", leave=False
+        )
+        for sm, z in progress:
+            progress.set_postfix({"submodule": sm})
+            t = UMAP(n_components=2, metric="euclidean")
+            e = t.fit_transform(z.flatten(1))
+            e = (e - e.min(axis=0)) / (e.max(axis=0) - e.min(axis=0))
+            h.result[sm] = e
+    umap_embeddings: dict[str, np.ndarray] = h.result
 
-        # PLOTTING
-        h = tb.GuardedBlockHandler(output_dir / "umap" / "plots.json")
+    # PLOTTING
+    h = tb.GuardedBlockHandler(output_dir / "umap" / "plots.json")
+    for _ in h.guard():
+        h.result = {}
+        logging.debug("Plotting UMAP embeddings")
+        progress = tqdm(
+            umap_embeddings.items(), desc="UMAP plotting", leave=False
+        )
+        for sm, e in progress:
+            progress.set_postfix({"submodule": sm})
+            figure = bk.figure(title=sm, toolbar_location=None)
+            class_scatter(figure, e, y_train.numpy())
+            h.result[sm] = figure
+            export_png(figure, filename=h.output_path.parent / (sm + ".png"))
+
+    # LOUVAIN CLUSTERING
+    progress = tqdm(
+        outputs["z"].items(), desc="Louvain clustering", leave=False
+    )
+    k = 25
+    for sm, z in progress:
+        progress.set_postfix({"submodule": sm})
+
+        # CLUSTERING
+        h = tb.GuardedBlockHandler(output_dir / "clustering" / f"{sm}.json")
+        for _ in h.guard():
+            (
+                communities,
+                y_louvain,
+                kd_tree,
+                knn_dist,
+                knn_idx,
+            ) = louvain_communities(z, k, scaling="standard")
+            matching = class_otm_matching(outputs["y"], y_louvain)
+            h.result = {
+                "k": k,
+                "communities": communities,
+                "y_louvain": y_louvain,
+                "kd_tree": kd_tree,
+                "knn_dist": knn_dist,
+                "knn_idx": knn_idx,
+                "matching": matching,
+            }
+        y_louvain, matching = h.result["y_louvain"], h.result["matching"]
+
+        h = tb.GuardedBlockHandler(output_dir / "clustering" / "plots.json")
         for _ in h.guard():
             h.result = {}
-            logging.debug("Plotting UMAP embeddings")
-            progress = tqdm(umap_embeddings.items(), leave=False)
-            for k, e in progress:
-                progress.set_postfix({"submodule": k})
-                figure = bk.figure(title=k, toolbar_location=None)
-                class_scatter(figure, e, y_train.numpy(), "viridis")
-                h.result[k] = figure
-                export_png(
-                    figure, filename=h.output_path.parent / (k + ".png")
-                )
+
+            # Side-by-side class scatter
+            fig_true = bk.figure(title="Ground truth")
+            class_scatter(
+                fig_true,
+                umap_embeddings[sm],
+                outputs["y"],
+                palette="viridis",
+            )
+
+            fig_louvain = bk.figure(
+                title=(
+                    f"Louvain communities ({y_louvain.max() + 1}), k = {k}"
+                ),
+            )
+            class_scatter(fig_louvain, umap_embeddings[sm], y_louvain)
+            make_same_xy_range(fig_true, fig_louvain)
+            h.result["scatter"] = bkl.row(fig_true, fig_louvain)
+
+            # Class matching plot
+            h.result["match"] = class_matching_plot(
+                umap_embeddings[sm], outputs["y"], y_louvain, matching
+            )
+
+            # EXPORT
+            for k, v in h.result.items():
+                export_png(v, filename=h.output_path.parent / f"{k}.png")
 
 
 def analyse_training(
     output_dir: str | Path,
     lv_k: int = 10,
     last_epoch: int | None = None,
-    umap: bool = False,
 ):
     """
     For now only plot LV scores per epoch and per submodule
@@ -138,23 +201,24 @@ def analyse_training(
     last_epoch = last_epoch or len(ckpt_analysis_dirs) - 1
 
     # LV COMPUTATION
-    lv_csv_path = output_dir / "lv.csv"
-    if not lv_csv_path.exists():
+    h = tb.GuardedBlockHandler(output_dir / "lv.csv")
+    for _ in h.guard():
         data = []
         logging.info("Computing LVs")
-        progress = tqdm(ckpt_analysis_dirs, leave=False)
+        progress = tqdm(ckpt_analysis_dirs, desc="LV", leave=False)
         for epoch, path in enumerate(progress):
             evaluations = tb.load_json(Path(path) / "eval" / "eval.json")
             for sm, z in evaluations["z"].items():
                 progress.set_postfix({"epoch": epoch, "submodule": sm})
                 v = float(label_variation(z, evaluations["y"], k=lv_k))
                 data.append([epoch, sm, v])
-        lvs = pd.DataFrame(data, columns=["epoch", "submodule", "lv"])
-        lvs.to_csv(lv_csv_path)
+        df = pd.DataFrame(data, columns=["epoch", "submodule", "lv"])
+        h.result = df
+
         # PLOTTING
         e = np.linspace(0, last_epoch, num=5, dtype=int)
         figure = sns.lineplot(
-            lvs[lvs["epoch"].isin(e)],
+            df[df["epoch"].isin(e)],
             x="submodule",
             y="lv",
             hue="epoch",
@@ -171,23 +235,24 @@ def analyse_training(
         plt.clf()
 
     # GDV COMPUTATION
-    gdv_csv_path = output_dir / "gdv.csv"
-    if not gdv_csv_path.exists():
+    h = tb.GuardedBlockHandler(output_dir / "gdv.csv")
+    for _ in h.guard():
         data = []
         logging.info("Computing GDVs")
-        progress = tqdm(ckpt_analysis_dirs, leave=False)
+        progress = tqdm(ckpt_analysis_dirs, desc="GDV", leave=False)
         for epoch, path in enumerate(progress):
             evaluations = tb.load_json(Path(path) / "eval" / "eval.json")
             for sm, z in evaluations["z"].items():
                 progress.set_postfix({"epoch": epoch, "submodule": sm})
                 v = float(gdv(z, evaluations["y"]))
                 data.append([epoch, sm, v])
-        gdvs = pd.DataFrame(data, columns=["epoch", "submodule", "gdv"])
-        gdvs.to_csv(gdv_csv_path)
+        df = pd.DataFrame(data, columns=["epoch", "submodule", "gdv"])
+        h.result = df
+
         # PLOTTING
         e = np.linspace(0, last_epoch, num=5, dtype=int)
         figure = sns.lineplot(
-            gdvs[gdvs["epoch"].isin(e)],
+            df[df["epoch"].isin(e)],
             x="submodule",
             y="gdv",
             hue="epoch",
@@ -204,39 +269,42 @@ def analyse_training(
         plt.clf()
 
     # GRASSMANNIAN DISTANCE COMPUTATION
-    gr_csv_path = output_dir / "gr.csv"
-    if not gr_csv_path.exists():
+    h = tb.GuardedBlockHandler(output_dir / "gr.csv")
+    for _ in h.guard():
         data = []
         logging.info("Computing Grassmannian geodesic distances")
-        progress = tqdm(ckpt_analysis_dirs, leave=False)
+        progress = tqdm(ckpt_analysis_dirs, desc="GGD", leave=False)
         for epoch, path in enumerate(progress):
             evaluations = tb.load_json(Path(path) / "eval" / "eval.json")
             for sm, z in evaluations["z"].items():
                 progress.set_postfix({"epoch": epoch, "submodule": sm})
                 v = float(mean_ggd(z.flatten(1), evaluations["y"]))
                 data.append([epoch, sm, v])
-        grs = pd.DataFrame(data, columns=["epoch", "submodule", "gr"])
-        grs.to_csv(gr_csv_path)
+        df = pd.DataFrame(data, columns=["epoch", "submodule", "gr"])
+        h.result = df
+
         # PLOTTING
         # evaluations = tb.load_json(
         #     Path(ckpt_analysis_dirs[0]) / "eval" / "eval.json"
         # )
-        progress = tqdm(evaluations["z"].keys(), desc="Plotting", leave=False)
+        progress = tqdm(
+            evaluations["z"].keys(), desc="GGD plotting", leave=False
+        )
         for sm in progress:
             progress.set_postfix({"submodule": sm})
-            figure = sns.lineplot(
-                grs[grs["submodule"] == sm], x="epoch", y="gr"
-            )
+            figure = sns.lineplot(df[df["submodule"] == sm], x="epoch", y="gr")
             figure.axvline(last_epoch, linestyle=":", color="gray")
             figure.set(title=f"Mean Grass. dst. for {sm}")
             figure.get_figure().savefig(output_dir / f"gr_{sm}.png")
             plt.clf()
 
     umap_all_path = output_dir / "umap_all.png"
-    if umap and not umap_all_path.exists():
+    if not umap_all_path.exists():
         rows, epochs = [], np.linspace(0, last_epoch, num=10, dtype=int)
         logging.info("Consolidating UMAP plots")
-        progress = tqdm(ckpt_analysis_dirs, leave=False)
+        progress = tqdm(
+            ckpt_analysis_dirs, desc="UMAP summary plot", leave=False
+        )
         for epoch, path in enumerate(progress):
             if not epoch in epochs:
                 continue
@@ -260,7 +328,6 @@ def train_and_analyse_all(
     model_name: str | None = None,
     n_samples: int = 5000,
     strategy: str = "ddp",
-    umap: bool = True,
 ):
     """
     Trains a model and performs a separability analysis (see
@@ -279,7 +346,6 @@ def train_and_analyse_all(
             lower case class name, i.e. `model.__class__.__name__.lower()`.
         n_samples (int, optional): Defaults to 5000.
         strategy (str, optional): Training strategy to use.
-        umap (bool, optional): Wether to compute and plot UMAP embeddings.
     """
     # tb.set_max_nbytes(1000)  # Ensure artefacts
     model_name = model_name or model.__class__.__name__.lower()
@@ -317,11 +383,9 @@ def train_and_analyse_all(
             dataset=dataset,
             output_dir=output_dir / f"version_{version}" / str(i),
             n_samples=n_samples,
-            umap=umap,
         )
     logging.info("Analyzing training")
     analyse_training(
         output_dir / f"version_{version}",
         last_epoch=best_epoch,
-        umap=umap,
     )
