@@ -12,7 +12,7 @@ from nlnas import (
     train_and_analyse_all,
 )
 from nlnas.logging import setup_logging
-from nlnas.utils import dataset_n_targets
+from nlnas.utils import dl_targets
 
 
 def extract_logits(_module, _inputs, outputs) -> Tensor | None:
@@ -62,7 +62,7 @@ def main():
         output_dir = Path("out") / m / d
         ds = TorchvisionDataset(d, transform=transform)
         ds.setup("fit")
-        n_classes = len(dataset_n_targets(ds.val_dataloader()))
+        n_classes = len(dl_targets(ds.val_dataloader()))
         image_shape = list(next(iter(ds.val_dataloader()))[0].shape)[1:]
         model = TorchvisionClassifier(
             model_name=m,

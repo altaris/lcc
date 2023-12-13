@@ -28,6 +28,12 @@ dataloaders](https://pytorch.org/docs/stable/data.html?highlight=dataloader#torc
 """
 
 DEFAULT_DOWNLOAD_PATH: Path = Path.home() / "torchvision" / "datasets"
+"""
+Default download path for torchvision dataset. This constant is actually
+defined at runtime by calling
+[`Path.home()`](https://docs.python.org/3/library/pathlib.html#pathlib.Path.home)
+so the value as displayed in the docs may not be accurate.
+"""
 
 ALL_DATASETS = {
     "caltech101": torchvision.datasets.Caltech101,
@@ -67,7 +73,7 @@ ALL_DATASETS = {
 
 class TorchvisionDataset(pl.LightningDataModule):
     """
-    A torchvision dataset wrapped inside a `LightningDataModule`
+    A torchvision dataset wrapped inside a [`LightningDataModule`](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.core.LightningDataModule.html)
 
     See also:
         https://pytorch.org/vision/stable/datasets.html#image-classification

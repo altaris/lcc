@@ -17,7 +17,7 @@ from nlnas.training import (
     train_model,
     train_model_guarded,
 )
-from nlnas.utils import dataset_n_targets
+from nlnas.utils import dl_targets
 
 
 def main():

@@ -15,4 +15,4 @@ from .training import (
     train_model_guarded,
 )
 from .tv_dataset import TorchvisionDataset
-from .utils import best_device, dataset_n_targets, get_first_n
+from .utils import best_device, dl_targets, dl_head

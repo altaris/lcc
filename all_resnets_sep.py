@@ -14,7 +14,7 @@ from nlnas import (
 from nlnas.classifier import TruncatedClassifier
 from nlnas.logging import setup_logging
 from nlnas.training import train_model, train_model_guarded
-from nlnas.utils import dataset_n_targets
+from nlnas.utils import dl_targets
 
 
 def main():
@@ -87,7 +87,7 @@ def main():
             },
         )
         dataset.setup("fit")
-        n_classes = len(dataset_n_targets(dataset.val_dataloader()))
+        n_classes = len(dl_targets(dataset.val_dataloader()))
         image_shape = list(next(iter(dataset.val_dataloader()))[0].shape)[1:]
         model = TorchvisionClassifier(
             model_name=backbone,

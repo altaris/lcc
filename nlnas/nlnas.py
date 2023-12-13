@@ -29,7 +29,7 @@ from .plotting import class_scatter, class_matching_plot, make_same_xy_range
 from .separability import gdv, label_variation, mean_ggd
 from .training import all_checkpoint_paths, checkpoint_ves, train_model_guarded
 from .tv_dataset import TorchvisionDataset
-from .utils import get_first_n
+from .utils import dl_head
 
 
 def _is_ckpt_analysis_dir(p: Path | str) -> bool:
@@ -45,14 +45,18 @@ def analyse_ckpt(
     model_cls: Type[Classifier] | None = None,
 ):
     """
-    Full separability analysis and plottings
+    Analyses a model checkpoint. I can't be bothered to list everything this
+    does. Suffice it to say that the main trian-analyse workflow
+    (`train_and_analyse all`) calls this method on every checkpoint obtained
+    during training.
 
     Args:
-        model (Classifier | str | Path): A model or a path to a
-            model checkpoint
+        model (`nlnas.classifier.Classifier` | str | Path): A model or a path
+            to a model checkpoint
         submodule_names (list[str]): List or comma-separated list of
             submodule names. For example, the interesting submodules of
-            `resnet18` are `maxpool, layer1, layer2, layer3, layer4, fc`
+            `resnet18` are `maxpool`, layer1`, layer2`, layer3`, layer4` and
+            `fc`
         dataset (pl.LightningDataModule | str): A lightning datamodule or the
             name of a torchvision dataset
         output_dir (str | Path):
@@ -73,7 +77,7 @@ def analyse_ckpt(
         if not isinstance(dataset, pl.LightningDataModule):
             dataset = TorchvisionDataset(dataset)
         dataset.setup("fit")
-        x_train, y_train = get_first_n(dataset.train_dataloader(), n_samples)
+        x_train, y_train = dl_head(dataset.train_dataloader(), n_samples)
         out: dict[str, Tensor] = {}
         model.forward_intermediate(
             x_train,
@@ -183,20 +187,17 @@ def analyse_ckpt(
                 export_png(v, filename=h.output_path.parent / (k + ".png"))
 
 
-def analyse_training(
-    output_dir: str | Path,
-    lv_k: int = 10,
-    last_epoch: int | None = None,
-):
+def analyse_training(output_dir: str | Path, last_epoch: int | None = None):
     """
-    For now only plot LV scores per epoch and per submodule
+    Unlike `analyse_ckpt`, this method analyses the training as a whole. Again,
+    I don't feel like explaining it all. Suffice it to say that the main
+    trian-analyse workflow (`train_and_analyse all`) calls this method after
+    calling `analyse_ckpt` on every checkpoint.
 
     Args:
         output_path (str | Path): e.g. `./out/resnet18/cifar10/version_1/`
-        n_samples (int): Sorry it's not inferred ¯\\_(ツ)_/¯
-        lv_k (int, optional): $k$ hyperparameter to compute LV
-        last_epoch (int, optional): If specified, only plot LV curves up to
-            that epoch
+        last_epoch (int, optional): Only considers training epoch up to that
+            epoch
     """
     output_dir = (
         output_dir if isinstance(output_dir, Path) else Path(output_dir)
@@ -216,7 +217,7 @@ def analyse_training(
             evaluations = tb.load_json(Path(path) / "eval" / "eval.json")
             for sm, z in evaluations["z"].items():
                 progress.set_postfix({"epoch": epoch, "submodule": sm})
-                v = float(label_variation(z, evaluations["y"], k=lv_k))
+                v = float(label_variation(z, evaluations["y"]))
                 data.append([epoch, sm, v])
         df = pd.DataFrame(data, columns=["epoch", "submodule", "lv"])
         h.result = df
@@ -336,11 +337,15 @@ def train_and_analyse_all(
     strategy: str = "ddp",
 ):
     """
-    Trains a model and performs a separability analysis (see
-    `nlnas.nlnas.analyse`) on ALL models, obtained at the end of each epochs.
+    Trains a model and performs a separability analysis on ALL model
+    checkpoints (1 per training epoch).
+
+    1. Train `model` on `dataset`;
+    2. Call `analyse_ckpt` on every checkpoint;
+    3. Call `analyse_training`.
 
     Args:
-        model (Classifier):
+        model (`nlnas.classifier.Classifier`):
         submodule_names (list[str]): List or comma-separated list of
             submodule names. For example, the interesting submodules of
             `resnet18` are `maxpool, layer1, layer2, layer3, layer4, fc`
@@ -350,10 +355,12 @@ def train_and_analyse_all(
         model_name (str, optional): Model name override (for naming
             directories and for logging). If left to `None`, is set to the
             lower case class name, i.e. `model.__class__.__name__.lower()`.
-        n_samples (int, optional): Defaults to 5000.
-        strategy (str, optional): Training strategy to use.
+        n_samples (int, optional): The analysis part of this workflow requires
+            evaluating the model on some samples from the dataset. Defaults to
+            5000 samples.
+        strategy (str, optional): Training strategy to use. See
+            https://lightning.ai/docs/pytorch/stable/extensions/strategy.html#selecting-a-built-in-strategy
     """
-    # tb.set_max_nbytes(1000)  # Ensure artefacts
     model_name = model_name or model.__class__.__name__.lower()
     if isinstance(output_dir, str):
         output_dir = Path(output_dir)

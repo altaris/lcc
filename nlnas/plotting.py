@@ -32,6 +32,13 @@ def class_scatter(
     classes (those for which the `y` value is strictly less than 0), called
     _outliers_ here, are all plotted black.
 
+    Example:
+
+        ![Example 1](../docs/imgs/class_scatter.png)
+
+        (this example does't have outliers but I'm sure you can use your
+        imagination)
+
     Args:
         plot (bk.figure):
         x (np.ndarray): A `(N, 2)` array
@@ -90,7 +97,7 @@ def gaussian_mixture_plot(
     """
     A countour plot of a gaussian mixture density. No filling.
 
-    Example usage:
+    Example:
 
     ```py
     import bokeh.plotting as bk
@@ -98,6 +105,16 @@ def gaussian_mixture_plot(
     gaussian_mixture_plot(plot, gm)
     bk.show(plot)
     ```
+
+    Example:
+        It is possible to plot more than 1 GM on a single figure:
+
+        ![Example 1](../docs/imgs/gaussian_mixture_plot.1.png)
+
+        The red and blue contours each correspond to a call of
+        `gaussian_mixture_plot`. Don't worry about the lines. Look I was too
+        lazy to make a clean example so I just grabbed this image from a
+        presentation I made in the past.
 
     """
     x, y = np.meshgrid(
@@ -129,14 +146,22 @@ def class_matching_plot(
     size: int = 400,
 ) -> bkm.GridBox:
     """
+    Given a dataset `x` and two labellings `y_a` and `y_b`, this method makes a
+    scatter plot detailling the situation. Labels in `y_a` are considered to be
+    ground truth.
+
+    Example:
+        ![Example 1](../docs/imgs/class_matching_plot.png)
+
     Args:
         x: (np.ndarray): A `(N, 2)` array
-        y_a (np.ndarray): A `(N,)` integer array with values in $\\{ 0, 1, ...,
-            c_a - 1 \\}$ for some $c_a > 0$.
-        y_b (np.ndarray): A `(N,)` integer array with values in $\\{ 0, 1, ...,
-            c_b - 1 \\}$ for some $c_b > 0$.
+        y_a (np.ndarray): A `(N,)` integer array with values in $\\\\{ 0, 1, ...,
+            c_a - 1 \\\\}$ for some $c_a > 0$.
+        y_b (np.ndarray): A `(N,)` integer array with values in $\\\\{ 0, 1, ...,
+            c_b - 1 \\\\}$ for some $c_b > 0$.
         matching (dict[int, set[int]]): Matching between the labels of `y_a`
             and the labels of `y_b`
+        size (int, optional): The size of each scatter plot
     """
     p1, p2, p3, p4 = otm_matching_predicates(y_a, y_b, matching)
     n_true, n_matched = p1.sum(axis=1), p2.sum(axis=1)

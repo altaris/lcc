@@ -1,4 +1,7 @@
-"""A torchvision image classifier wrapped inside a `LightningModule`"""
+"""
+A torchvision image classifier wrapped inside a
+[`LightningModule`](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html)
+"""
 
 # from itertools import chain
 from pathlib import Path
@@ -40,12 +43,13 @@ class Classifier(pl.LightningModule):
             n_classes (int):
             sep_submodules (list[str] | None, optional): Submodules to consider
                 for the latent separation score
-            sep_score (Literal[&quot;gdv&quot;, &quot;lv&quot;,
-                &quot;gdd&quot;], optional): Type of separation score, either
-                `"gdv"` (see `nlnas.separability.gdv`), `"lv"` (see
-                `nlnas.separability.lv`), or `"ggd"` (see
-                `nlnas.separability.mean_gr_dist`). Ignored if `sep_submodules`
-                is left to `None`
+            sep_score (Literal["gdv", "lv", "gdd"], optional): Type of
+                separation score, either
+                - `gdv` for the Generalized Discrimination Value (see
+                  `nlnas.separability.gdv`),
+                - `lv` for Label Variation (see `nlnas.separability.lv`),
+                - or `ggd` for Geodesic Grassmanian Distance
+                  (see `nlnas.separability.ggd`).
             sep_weight (float, optional): Weight of the separation score.
                 Ignored if `sep_submodules` is left to `None`
         """
@@ -141,9 +145,10 @@ class Classifier(pl.LightningModule):
             x (Tensor):
             submodules (list[str]):
             output_dict (dict):
-            keep_gradients (bool): If `True`, the tensors in `output_dict` keep
-                their gradients (if they had some on the first place). If
-                `False`, they are detached and moved to the CPU.
+            keep_gradients (bool, optional): If `True`, the tensors in
+                `output_dict` keep their gradients (if they had some on the
+                first place). If `False`, they are detached and moved to the
+                CPU.
         """
 
         def create_hook(key: str):
@@ -229,7 +234,7 @@ class TruncatedClassifier(Classifier):
     """
     Given a `Classifier` and the name of one of its submodule, wrapping it in a
     `TruncatedClassifier` produces a "truncated model" that does the following:
-    * evaluate an input x on the base classifier,
+    * evaluate an input `x` on the base classifier,
     * take the latent representation outputed by the specified submodule,
     * flatten it and pass it through a final (trainable) head.
     """

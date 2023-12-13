@@ -1,5 +1,7 @@
 """
-Image and image dataset distances
+A distributed implementation of
+[`scipy.spatial.distance.pdist`](https://scipy.github.io/devdocs/reference/generated/scipy.spatial.distance.pdist.html#scipy.spatial.distance.pdist)
+
 """
 
 import re
@@ -104,6 +106,7 @@ def pdist(
     Each correspond to a `chunk_size * chunk_size` submatrix in the global
     distance matrix. For obvious optimization reasons, `i` is always `<= j`.
     Each `.npz` file contains the following:
+
     * `cdist`: The distance matrix chunk (in condensed form).
 
     Warning:

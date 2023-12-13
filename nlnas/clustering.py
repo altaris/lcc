@@ -16,6 +16,7 @@ class DummyTransformer(TransformerMixin):
     # pylint: disable=arguments-differ
     # pylint: disable=unused-argument
     def fit_transform(self, x: np.ndarray, *args, **kwargs) -> np.ndarray:
+        """Simply returns `x`"""
         return x
 
 
@@ -43,7 +44,7 @@ def _otm_matching(
             tag.
         set_a (list[str]):
         set_b (list[str]):
-        mode (Literal[&quot;min&quot;, &quot;max&quot;], optional):
+        mode (Literal["min", "max"], optional):
 
     Returns:
         A dict that maps a node in `set_a` to the subset of its matched nodes
@@ -74,27 +75,28 @@ def class_otm_matching(
     y_a: np.ndarray, y_b: np.ndarray
 ) -> dict[int, set[int]]:
     """
-    Let `y_a` and `y_b` `(N,)` integer array. We think of them as labels on
-    some dataset, say `x`. This method performs a one-to-many matching from the
-    labels in `y_a` to the labels in `y_b` to overall maximize the cardinality
-    of the intersection between a-classes and the union of their matched
-    b-classes.
+    Let `y_a` and `y_b` be `(N,)` integer array. We think of them as classes on
+    some dataset, say `x`, which we call respectively a-classes and b-classes.
+    This method performs a one-to-many matching from the classes in `y_a` to
+    the classes in `y_b` to overall maximize the cardinality of the
+    intersection between a-classes and the union of their matched b-classes.
 
-    For example:
+    Example:
 
         >>> y_a = np.array([ 1,  1,  1,  1,  2,  2,  3,  4,  4])
         >>> y_b = np.array([10, 50, 10, 20, 20, 20, 30, 30, 30])
         >>> otm_matching(y_a, y_b)
         {1: {10, 50}, 2: {20}, 3: set(), 4: {30}}
 
-    Here, `y_a` assigns labels `1` to samples 0 to 3, label `2` to samples 4
-    and 5 etc. On the other hand, `y_b` assigns its own labels to the dataset.
-    What is the best way to regroup labels of `y_b` to approximate the
-    labelling of `y_a`? The `otm_matching` return value argues that labels `10`
-    and `15` should be regrouped under `1` (they fit neatly), label `20` should
-    be renamed to `2` (eventhough it "leaks" a little, in that sample 3 is
-    labelled with `1` and `20`), and label `30` should be renamed to `4`. No
-    label in `y_b` is assigned to label `3` in this matching.
+        Here, `y_a` assigns class `1` to samples 0 to 3, label `2` to samples 4
+        and 5 etc. On the other hand, `y_b` assigns its own classes to the
+        dataset. What is the best way to regroup classes of `y_b` to
+        approximate the labelling of `y_a`? The `otm_matching` return value
+        argues that classes `10` and `15` should be regrouped under `1` (they
+        fit neatly), label `20` should be renamed to `2` (eventhough it "leaks"
+        a little, in that sample 3 is labelled with `1` and `20`), and class
+        `30` should be renamed to `4`. No class in `y_b` is assigned to class
+        `3` in this matching.
 
     Note:
         The values in `y_a` and `y_b` don't actually need to be distinct: the
@@ -107,11 +109,11 @@ def class_otm_matching(
 
     Args:
         y_a (np.ndarray): A `(N,)` integer array. Unlike in the examples above,
-            it is best if it only contains values in $\\{ 0, 1, ..., c_a - 1
-            \\}$ for some $c_a > 0$.
+            it is best if it only contains values in $\\\\{ 0, 1, ..., c_a - 1
+            \\\\}$ for some $c_a > 0$.
         y_b (np.ndarray): A `(N,)` integer array. Unlike in the examples above,
-            it is best if it only contains values in $\\{ 0, 1, ..., c_b - 1
-            \\}$ for some $c_b > 0$.
+            it is best if it only contains values in $\\\\{ 0, 1, ..., c_b - 1
+            \\\\}$ for some $c_b > 0$.
     """
     match_graph = nx.DiGraph()
     for i, j in product(np.unique(y_a), np.unique(y_b)):
@@ -143,32 +145,33 @@ def louvain_communities(
         z (np.ndarray): A `(N, d)` array
         k (int, optional): The number of neighbors to consider for the Louvain
             clustering algorithm
-        scaling (Literal[&quot;standard&quot;, &quot;minmax&quot;] |
-            TransformerMixin | None, optional): Scaling method for `z`.
-            `"standard"` uses
+        scaling (Literal["standard", "minmax"] | TransformerMixin | None,
+            optional): Scaling method for `z`. `"standard"` uses
             [`sklearn.preprocessing.StandardScaler`](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.StandardScaler.html),
             "minmax" uses
             [sklearn.preprocessing.MinMaxScaler](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.MinMaxScaler.html).
             It is also possible to pass an actual class that has a
-            `fit_transform` method with a single argument.
+            `fit_transform` method with a single mandatory argument.
 
     Returns:
         Ok so this returns a lot of things:
-        - list[set[int]]: The actual louvain communities, which is a partition
-          of the set $\\{ 1, 2, ..., N \\}$.
-        - np.ndarray: The `(N,)` label vector for the communities. Let's call
-          it `y_louvain`. If there are `c` communities, then `y_louvain` has
-          integer values from `0` to `c-1`, and if `y_louvain[i] == j`, then
-          `z[i]` belongs to the `j`-th community
-        - KDTree: The kernel density tree used to find the `k` nearest
-          neighbors of the rows of `z`
-        - np.ndarray: The `(N, k)` distance matrix `m` of the rows of `z` to
-          their `k` nearest neighbors: if $0 \\leq i < N$ and $0 \\leq j < k$,
-          then `m[i, j] = np.linalg(z[i] - z[n])` where `z[n]` is the `j`-th
-          nearest neighbor of `z[i]`.
-        - np.ndarray: The `(N, k)` index matrix `u` of the nearest neighbors of
-          the rows of `z`: if $0 \\leq i < N$ and $0 \\leq j < k$, then `u[i,
-          j] = n` where `z[n]` is the `j`-th nearest neighbor of `z[i]`.
+        1. (`list[set[int]]`) The actual louvain communities, which is a
+           partition of the set $\\\\{ 0, 1, ..., N-1 \\\\}$.
+        2. (`np.ndarray`) The `(N,)` label vector for the communities. Let's
+           call it `y_louvain`. If there are `c` communities, then `y_louvain`
+           has integer values in $\\\\{ 0, 1, ..., c-1 \\\\}$, and if
+           `y_louvain[i] == j`, then `z[i]` belongs to the `j`-th community
+        3. ([`sklearn.neighbors.KDTree`](https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KDTree.html))
+           The kernel density tree used to find the `k` nearest neighbors of
+           the rows of `z`
+        4. (`np.ndarray`) The `(N, k)` distance matrix `m` of the rows of `z`
+           to their `k` nearest neighbors: if $0 \\leq i < N$ and $0 \\leq j <
+           k$, then `m[i, j] = np.linalg(z[i] - z[n])` where `z[n]` is the
+           `j`-th nearest neighbor of `z[i]`.
+        5. (`np.ndarray`) The `(N, k)` index matrix `u` of the nearest
+           neighbors of the rows of `z`: if $0 \\leq i < N$ and $0 \\leq j <
+           k$, then `u[i, j] = n` where `z[n]` is the `j`-th nearest neighbor
+           of `z[i]`.
     """
     if scaling == "standard":
         scaler = StandardScaler()
@@ -205,40 +208,41 @@ def otm_matching_predicates(
     matching: dict[int, set[int]],
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
-    Let `y_a` be `(N,)` integer array with values between `0` and `c_a - 1`. If
-    `y_a[i] == j`, then it is understood that the `i`-th sample (in some
-    dataset, say `x`) is in class `j`, which for disambiguation we'll call
-    a-class `j`.
+    Let `y_a` be `(N,)` integer array with values in $\\\\{ 0, 1, ..., c_a-1
+    \\\\}$. If `y_a[i] == j`, then it is understood that the `i`-th sample (in
+    some dataset, say `x`) is in class `j`, which for disambiguation we'll call
+    the a-class `j`.
 
-    Likewise, let `y_b` be `(N,)` integer array with values between `0` and
-    `c_b - 1`. If `y_b[i] == j`, then it is understood that the `i`-th sample
-    `x[i]` is in b-class `j`.
+    Likewise, let `y_b` be `(N,)` integer array with values $\\\\{ 0, 1, ...,
+    c_b-1 \\\\}$. If `y_b[i] == j`, then it is understood that the `i`-th
+    sample `x[i]` is in b-class `j`.
 
-    Finally, let `matching` be a (possible one-to-many) matching between the
-    classes of `y_a` and the classes of `y_b`. In other words each a-class
-    corresponds to some set of b-classes.
+    Finally, let `matching` be a (possibley one-to-many) matching between the
+    a-classes and the b-classes. In other words each a-class corresponds to
+    some set of b-classes.
 
-    This method returns three boolean arrays with shape `(c_a, N)`:
-    - `p1` is simply given by `p1[a] = (y_a == a)`, or in other words,
-      `p1[a, i]` is `True` if and only if the `i`-th sample is in a-class `a`.
-    - `p2[a, i]` is `True` if and only if the `i`-th sample is in a b-class
-      that has matched to a-class `a`.
-    - `p3` is (informally) given by `p3[a] = (p1[a] and not p2[a])`. In
-      other words, `p3[a, i]` is `True` if sample `i` is in a-class `a` but
-      not in any b-class matched with `a`.
-    - `p4` is the "dual" of `p3`: `p4[a] = (p2[a] and not p1[a])`. In
-      other words, `p4[a, i]` is `True` if sample `i` is not in a-class `a`,
-      but is in a b-class matched with `a`.
+    This method returns four boolean arrays with shape `(c_a, N)`:
+
+    1. `p1` is simply given by `p1[a] = (y_a == a)`, or in other words, `p1[a,
+       i]` is `True` if and only if the `i`-th sample is in a-class `a`.
+    2. `p2[a, i]` is `True` if and only if the `i`-th sample is in a b-class
+       that has matched to a-class `a`.
+    3. `p3` is (informally) given by `p3[a] = (p1[a] and not p2[a])`. In other
+       words, `p3[a, i]` is `True` if sample `i` is in a-class `a` but not in
+       any b-class matched with `a`.
+    4. `p4` is the "dual" of `p3`: `p4[a] = (p2[a] and not p1[a])`. In other
+       words, `p4[a, i]` is `True` if sample `i` is not in a-class `a`, but is
+       in a b-class matched with `a`.
 
     I hope this all makes sense.
 
     Args:
-        y_a (np.ndarray): A `(N,)` integer array with values in $\\{ 0, 1, ...,
-            c_a - 1 \\}$ for some $c_a > 0$.
-        y_b (np.ndarray): A `(N,)` integer array with values in $\\{ 0, 1, ...,
-            c_b - 1 \\}$ for some $c_b > 0$.
-        matching (dict[int, set[int]]): A partition of $\\{ 0, ..., c_b - 1
-            \\}$ into $c_a$ sets. The $i$-th set is understood to be the set of
+        y_a (np.ndarray): A `(N,)` integer array with values in $\\\\{ 0, 1, ...,
+            c_a - 1 \\\\}$ for some $c_a > 0$.
+        y_b (np.ndarray): A `(N,)` integer array with values in $\\\\{ 0, 1, ...,
+            c_b - 1 \\\\}$ for some $c_b > 0$.
+        matching (dict[int, set[int]]): A partition of $\\\\{ 0, ..., c_b - 1
+            \\\\}$ into $c_a$ sets. The $i$-th set is understood to be the set of
             all classes of `y_b` that matched with the $i$-th class of `y_a`
     """
     c_a = y_a.max() + 1

@@ -53,8 +53,8 @@ def gdv(x: Tensor, y: Tensor) -> Tensor:
 
     Args:
         x (Tensor): A `(N, ...)` tensor, where `N` is the number of samples. It
-            will automatically be flattened to a 2 dimensional tensor.
-        y (Tensor): A `(N,)` tensor.
+            will automatically be flattened to a 2 dimensional tensor
+        y (Tensor): A `(N,)` integer tensor
 
     Returns:
         A scalar tensor
@@ -108,7 +108,7 @@ def ggd(
     Args:
         a (Tensor): A `(N, d)` design matrix, where `N` is the batch size and
             `d` is the latent dimension
-        b (Tensor): A `(N, d)` design matrix
+        b (Tensor): Another `(N, d)` design matrix
         orthonormal (bool, optional): Wether the rows of `a` form an
             orthonormal family (and same for `b`).
 
@@ -136,7 +136,8 @@ def mean_ggd(
     Warning:
         If $k$ is the number of classes (distinct values of `y` if `n_classes`
         is not specified), then this methods makes $k$ calls to
-        `torch.linalg.svd` which can be expensive.
+        [`torch.linalg.svd`](https://pytorch.org/docs/stable/generated/torch.linalg.svd.html)
+        and $k(k-1)/2$ calls to `ggd` which can be expensive.
 
     Args:
         x (Tensor): A `(N, d)` design matrix, where `N` is the batch size and
@@ -161,7 +162,7 @@ def mean_ggd(
 def label_variation(
     x: Tensor,
     y: Tensor,
-    k: int,
+    k: int = 10,
     n_classes: int = -1,
     sigma: float = 1.0,
 ) -> Tensor:
@@ -172,21 +173,21 @@ def label_variation(
         Latent Space Geometries with Graphs. Algorithms 2021, 14, 39.
         https://doi.org/10.3390/a14020039
 
-    with a few tweaks.
-
-    TODO: list the tweaks =]
-
-    This method is differentiable, but a call to
+    with a few tweaks. This method is differentiable, but a call to
     [`torch.cdist`](https://pytorch.org/docs/stable/generated/torch.cdist.html)
     is needed which makes its cost quadratic in `N`, where `N` is the the
     number of samples, aka the length of `x`.
+
+    TODO:
+        list the tweaks =]
+
 
     Args:
         x (Tensor): Sample tensor with shape `(N, d)`, where `d` the latent
             dimension
         y (Tensor): Label vector with shape `(N,)`
-        k (int): Number of nearest neighbors to consider when thresholding the
-            distance matrix of `x`
+        k (int, optional): Number of nearest neighbors to consider when
+            thresholding the distance matrix of `x`
         n_classes (int): Leave it to `-1` to automatically infer the number of
             classes
         sigma (float, optional): RBF parameter

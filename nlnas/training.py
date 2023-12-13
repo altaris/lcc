@@ -1,4 +1,4 @@
-"""General utilities"""
+"""General model training utilities"""
 
 import os
 from glob import glob
@@ -69,8 +69,8 @@ def checkpoint_ves(path: str | Path) -> Tuple[int, int, int]:
 
         out/resnet18/cifar10/model/tb_logs/resnet18/version_2/checkpoints/epoch=32-step=5181.ckpt
 
-    returns the version number (2), the number of epochs (32), and the number
-    of steps (5181)
+    returns the **v**ersion number (2), the number of **e**pochs (32), and the
+    number of **s**teps (5181)
     """
     m = re.match(
         r".*version_(\d+)/checkpoints/epoch=(\d+)-step=(\d+)\.ckpt", str(path)
@@ -231,6 +231,8 @@ def train_model(
             ```
         strategy (Union[str, Strategy]): Strategy to use (duh). Defaults to
             `ddp`, but if running in a notebook, use `dp` or `ddp_notebook`.
+            See also
+            https://lightning.ai/docs/pytorch/stable/extensions/strategy.html#selecting-a-built-in-strategy .
         reload (bool, optional): Wether to reload the best checkpoint after
             training
         **kwargs: Forwarded to the [`pl.Trainer`
@@ -310,9 +312,8 @@ def train_model_guarded(
 ) -> Tuple[pl.LightningModule, Path]:
     """
     Guarded version of `nlnas.utils.train_model`, i.e. if a checkpoint already
-    exists for the model, it is loaded and returned instead of training the
-    model. **WARNING** if checkpoints exist, only the most recent one is
-    returned, which is not necessarily the best one.
+    exists for the model, the best one is found and loaded instead of
+    retraining the model.
     """
     _train = produces_artifact(
         pl_module_loader,

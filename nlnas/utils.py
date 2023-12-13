@@ -24,7 +24,7 @@ def best_device() -> str:
     return accelerator
 
 
-def get_first_n(dl: DataLoader, n: int) -> list[Tensor]:
+def dl_head(dl: DataLoader, n: int) -> list[Tensor]:
     """
     Gets a batch of length `n` consisting of the first `n` samples of the
     dataloader.
@@ -47,7 +47,7 @@ def get_first_n(dl: DataLoader, n: int) -> list[Tensor]:
     return list(map(lambda l: torch.concat(l)[:n], zip(*batches)))
 
 
-def dataset_n_targets(dl: DataLoader) -> set:
+def dl_targets(dl: DataLoader) -> set:
     """
     Returns (distinct) targets of the dataset underlying this dataloader. Has
     to iterate through the whole dataset, so it can be horribly inefficient =(

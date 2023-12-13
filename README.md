@@ -1,16 +1,14 @@
-# Neuron-level NAS
+# NLNAS
 
 ![Python 3](https://img.shields.io/badge/python-3-blue?logo=python)
 [![License](https://img.shields.io/badge/license-MIT-green)](https://choosealicense.com/licenses/mit/)
 [![Code style](https://img.shields.io/badge/style-black-black)](https://pypi.org/project/black)
 
-
-
 ## Contributing
 
 ### Dependencies
 
-- `python3.10` or newer;
+- `python3.11` or newer;
 - `requirements.txt` for runtime dependencies;
 - `requirements.dev.txt` for development dependencies.
 - `make` (optional);
@@ -18,7 +16,7 @@
 Simply run
 
 ```sh
-virtualenv venv -p python3.10
+virtualenv venv -p python3.11
 . ./venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
