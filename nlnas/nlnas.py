@@ -119,12 +119,14 @@ def analyse_ckpt(
     progress = tqdm(
         outputs["z"].items(), desc="Louvain clustering", leave=False
     )
-    k = 25
+    knn = 25
     for sm, z in progress:
         progress.set_postfix({"submodule": sm})
 
         # CLUSTERING
-        h = tb.GuardedBlockHandler(output_dir / "clustering" / f"{sm}.json")
+        h = tb.GuardedBlockHandler(
+            output_dir / "clustering" / sm / "cluster.json"
+        )
         for _ in h.guard():
             (
                 communities,
@@ -132,10 +134,12 @@ def analyse_ckpt(
                 kd_tree,
                 knn_dist,
                 knn_idx,
-            ) = louvain_communities(z, k, scaling="standard")
-            matching = class_otm_matching(outputs["y"], y_louvain)
+            ) = louvain_communities(
+                z.flatten(1).numpy(), k=knn, scaling="standard"
+            )
+            matching = class_otm_matching(outputs["y"].numpy(), y_louvain)
             h.result = {
-                "k": k,
+                "k": knn,
                 "communities": communities,
                 "y_louvain": y_louvain,
                 "kd_tree": kd_tree,
@@ -145,7 +149,9 @@ def analyse_ckpt(
             }
         y_louvain, matching = h.result["y_louvain"], h.result["matching"]
 
-        h = tb.GuardedBlockHandler(output_dir / "clustering" / "plots.json")
+        h = tb.GuardedBlockHandler(
+            output_dir / "clustering" / sm / "plots.json"
+        )
         for _ in h.guard():
             h.result = {}
 
@@ -154,13 +160,13 @@ def analyse_ckpt(
             class_scatter(
                 fig_true,
                 umap_embeddings[sm],
-                outputs["y"],
+                outputs["y"].numpy(),
                 palette="viridis",
             )
 
             fig_louvain = bk.figure(
                 title=(
-                    f"Louvain communities ({y_louvain.max() + 1}), k = {k}"
+                    f"Louvain communities ({y_louvain.max() + 1}), k = {knn}"
                 ),
             )
             class_scatter(fig_louvain, umap_embeddings[sm], y_louvain)
@@ -169,12 +175,12 @@ def analyse_ckpt(
 
             # Class matching plot
             h.result["match"] = class_matching_plot(
-                umap_embeddings[sm], outputs["y"], y_louvain, matching
+                umap_embeddings[sm], outputs["y"].numpy(), y_louvain, matching
             )
 
             # EXPORT
             for k, v in h.result.items():
-                export_png(v, filename=h.output_path.parent / f"{k}.png")
+                export_png(v, filename=h.output_path.parent / (k + ".png"))
 
 
 def analyse_training(
