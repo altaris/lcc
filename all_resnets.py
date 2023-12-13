@@ -78,7 +78,6 @@ def main():
             dataset=ds,
             output_dir=output_dir,
             model_name=m,
-            umap=True,
         )
 
 

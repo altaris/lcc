@@ -104,7 +104,6 @@ def main():
             dataset=dataset,
             output_dir=output_dir,
             model_name=model_name,
-            umap=True,
         )
 
 

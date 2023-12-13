@@ -76,7 +76,6 @@ def main():
             output_dir=output_dir,
             model_name=m,
             n_samples=500,
-            umap=True,
         )
 
 
