@@ -3,10 +3,10 @@
 from itertools import product
 from typing import Literal
 
+import faiss
 import networkx as nx
 import numpy as np
 from sklearn.base import TransformerMixin
-from sklearn.neighbors import KDTree
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 
@@ -137,7 +137,7 @@ def louvain_communities(
     scaling: Literal["standard", "minmax"]
     | TransformerMixin
     | None = "standard",
-) -> tuple[list[set[int]], np.ndarray, KDTree, np.ndarray, np.ndarray]:
+) -> tuple[list[set[int]], np.ndarray, np.ndarray, np.ndarray]:
     """
     Returns louvain communities of a set of points.
 
@@ -161,9 +161,6 @@ def louvain_communities(
            call it `y_louvain`. If there are `c` communities, then `y_louvain`
            has integer values in $\\\\{ 0, 1, ..., c-1 \\\\}$, and if
            `y_louvain[i] == j`, then `z[i]` belongs to the `j`-th community
-        3. ([`sklearn.neighbors.KDTree`](https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KDTree.html))
-           The kernel density tree used to find the `k` nearest neighbors of
-           the rows of `z`
         4. (`np.ndarray`) The `(N, k)` distance matrix `m` of the rows of `z`
            to their `k` nearest neighbors: if $0 \\leq i < N$ and $0 \\leq j <
            k$, then `m[i, j] = np.linalg(z[i] - z[n])` where `z[n]` is the
@@ -183,8 +180,11 @@ def louvain_communities(
         scaler = DummyTransformer()
     z_scaled = scaler.fit_transform(z)
 
-    kd_tree = KDTree(z_scaled)
-    knn_dist, knn_idx = kd_tree.query(z_scaled, k=k, dualtree=True)
+    index = faiss.IndexFlatL2(z_scaled.shape[-1])
+    # pylint: disable=no-value-for-parameter
+    index.add(z_scaled)
+    # pylint: disable=no-value-for-parameter
+    knn_dist, knn_idx = index.search(z_scaled, k)
 
     knn_graph = nx.Graph()
     knn_graph.add_nodes_from(range(z_scaled.shape[0]))
@@ -199,7 +199,7 @@ def louvain_communities(
         for n in c:
             y_louvain[n] = i
 
-    return communities, np.array(y_louvain), kd_tree, knn_dist, knn_idx
+    return communities, np.array(y_louvain), knn_dist, knn_idx
 
 
 def otm_matching_predicates(

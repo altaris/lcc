@@ -5,8 +5,8 @@ from pathlib import Path
 from time import sleep
 from typing import Type
 
-import bokeh.plotting as bk
 import bokeh.layouts as bkl
+import bokeh.plotting as bk
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -21,11 +21,8 @@ from tqdm import tqdm
 from umap import UMAP
 
 from .classifier import Classifier
-from .clustering import (
-    louvain_communities,
-    class_otm_matching,
-)
-from .plotting import class_scatter, class_matching_plot, make_same_xy_range
+from .clustering import class_otm_matching, louvain_communities
+from .plotting import class_matching_plot, class_scatter, make_same_xy_range
 from .separability import gdv, label_variation, mean_ggd
 from .training import all_checkpoint_paths, checkpoint_ves, train_model_guarded
 from .tv_dataset import TorchvisionDataset
@@ -135,7 +132,6 @@ def analyse_ckpt(
             (
                 communities,
                 y_louvain,
-                kd_tree,
                 knn_dist,
                 knn_idx,
             ) = louvain_communities(
@@ -146,7 +142,6 @@ def analyse_ckpt(
                 "k": knn,
                 "communities": communities,
                 "y_louvain": y_louvain,
-                "kd_tree": kd_tree,
                 "knn_dist": knn_dist,
                 "knn_idx": knn_idx,
                 "matching": matching,

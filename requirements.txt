@@ -1,4 +1,5 @@
 click
+faiss-cpu
 git+https://github.com/altaris/turbo-broccoli.git
 loguru
 matplotlib
