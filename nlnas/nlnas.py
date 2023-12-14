@@ -76,14 +76,19 @@ def analyse_ckpt(
         dataset.setup("fit")
         x_train, y_train = dl_head(dataset.train_dataloader(), n_samples)
         out: dict[str, Tensor] = {}
-        model.forward_intermediate(
+        y_pred = model.forward_intermediate(
             x_train,
             submodule_names,
             out,
         )
-        h.result = {"x": x_train, "y": y_train, "z": out}
+        h.result = {
+            "x": x_train,
+            "y_true": y_train,
+            "z": out,
+            "y_pred": y_pred,
+        }
     outputs: dict = h.result
-    x_train, y_train = outputs["x"], outputs["y"]
+    x_train, y_train = outputs["x"], outputs["y_true"]
 
     # UMAP EMBEDDING
     h = tb.GuardedBlockHandler(output_dir / "umap" / "umap.st")
@@ -137,7 +142,7 @@ def analyse_ckpt(
             ) = louvain_communities(
                 z.flatten(1).numpy(), k=knn, scaling="standard"
             )
-            matching = class_otm_matching(outputs["y"].numpy(), y_louvain)
+            matching = class_otm_matching(outputs["y_true"].numpy(), y_louvain)
             h.result = {
                 "k": knn,
                 "communities": communities,
@@ -159,7 +164,7 @@ def analyse_ckpt(
             class_scatter(
                 fig_true,
                 umap_embeddings[sm],
-                outputs["y"].numpy(),
+                outputs["y_true"].numpy(),
                 palette="viridis",
             )
 
@@ -174,7 +179,10 @@ def analyse_ckpt(
 
             # Class matching plot
             h.result["match"] = class_matching_plot(
-                umap_embeddings[sm], outputs["y"].numpy(), y_louvain, matching
+                umap_embeddings[sm],
+                outputs["y_true"].numpy(),
+                y_louvain,
+                matching,
             )
 
             # EXPORT
@@ -212,7 +220,7 @@ def analyse_training(output_dir: str | Path, last_epoch: int | None = None):
             evaluations = tb.load_json(Path(path) / "eval" / "eval.json")
             for sm, z in evaluations["z"].items():
                 progress.set_postfix({"epoch": epoch, "submodule": sm})
-                v = float(label_variation(z, evaluations["y"]))
+                v = float(label_variation(z, evaluations["y_true"]))
                 data.append([epoch, sm, v])
         df = pd.DataFrame(data, columns=["epoch", "submodule", "lv"])
         h.result = df
@@ -246,7 +254,7 @@ def analyse_training(output_dir: str | Path, last_epoch: int | None = None):
             evaluations = tb.load_json(Path(path) / "eval" / "eval.json")
             for sm, z in evaluations["z"].items():
                 progress.set_postfix({"epoch": epoch, "submodule": sm})
-                v = float(gdv(z, evaluations["y"]))
+                v = float(gdv(z, evaluations["y_true"]))
                 data.append([epoch, sm, v])
         df = pd.DataFrame(data, columns=["epoch", "submodule", "gdv"])
         h.result = df
@@ -280,7 +288,7 @@ def analyse_training(output_dir: str | Path, last_epoch: int | None = None):
             evaluations = tb.load_json(Path(path) / "eval" / "eval.json")
             for sm, z in evaluations["z"].items():
                 progress.set_postfix({"epoch": epoch, "submodule": sm})
-                v = float(mean_ggd(z.flatten(1), evaluations["y"]))
+                v = float(mean_ggd(z.flatten(1), evaluations["y_true"]))
                 data.append([epoch, sm, v])
         df = pd.DataFrame(data, columns=["epoch", "submodule", "gr"])
         h.result = df
@@ -300,6 +308,7 @@ def analyse_training(output_dir: str | Path, last_epoch: int | None = None):
             figure.get_figure().savefig(output_dir / f"gr_{sm}.png")
             plt.clf()
 
+    # UMAP PLOT
     umap_all_path = output_dir / "umap_all.png"
     if not umap_all_path.exists():
         rows, epochs = [], np.linspace(0, last_epoch, num=10, dtype=int)
