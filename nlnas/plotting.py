@@ -164,13 +164,14 @@ def class_matching_plot(
             strings, they must be convertible to ints.
         size (int, optional): The size of each scatter plot
     """
-    p1, p2, p3, p4 = otm_matching_predicates(y_a, y_b, matching)
+    m = {int(k): v for k, v in matching.items()}
+    p1, p2, p3, p4 = otm_matching_predicates(y_a, y_b, m)
     n_true, n_matched = p1.sum(axis=1), p2.sum(axis=1)
     n_inter = (p1 & p2).sum(axis=1)
     n_miss, n_exc = p3.sum(axis=1), p4.sum(axis=1)
 
     figures = []
-    for a, bs in matching.items():
+    for a, bs in m.items():
         n_true, n_matched = p1[a].sum(), p2[a].sum()
         n_inter = (p1[a] & p2[a]).sum()
         n_miss, n_exc = p3[a].sum(), p4[a].sum()
