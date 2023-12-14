@@ -3,7 +3,7 @@ A torchvision image classifier wrapped inside a
 [`LightningModule`](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html)
 """
 
-# from itertools import chain
+import warnings
 from pathlib import Path
 from typing import Any, Iterable, Literal
 
@@ -16,10 +16,25 @@ from torch import Tensor, nn
 from torch.utils.hooks import RemovableHandle
 from torchvision.models import get_model
 
-# from tqdm import tqdm
-
 from .separability import gdv, label_variation, mean_ggd
 from .utils import best_device
+
+# from tqdm import tqdm
+
+
+def _make_lazy_linear(*args, **kwargs) -> nn.LazyLinear:
+    """
+    Constructs a
+    [`LazyLinear`](https://pytorch.org/docs/stable/generated/torch.nn.LazyLinear.html)
+    layer but hides the following warning:
+
+        [...]torch/nn/modules/lazy.py:180: UserWarning: Lazy modules are a new
+        feature under heavy development so changes to the API or functionality
+        can happen at any moment.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return nn.LazyLinear(*args, **kwargs)
 
 
 class Classifier(pl.LightningModule):
@@ -217,7 +232,7 @@ class TorchvisionClassifier(Classifier):
         self.save_hyperparameters()
         modules = [get_model(model_name, **(model_config or {}))]
         if add_final_fc:
-            modules.append(nn.LazyLinear(n_classes))
+            modules.append(_make_lazy_linear(n_classes))
         self.model = nn.Sequential(*modules)
         if input_shape is not None:
             self.example_input_array = torch.zeros([1] + list(input_shape))
@@ -270,7 +285,7 @@ class TruncatedClassifier(Classifier):
         self.save_hyperparameters()
 
         self.model = _model
-        self.fc = nn.LazyLinear(n_classes).to(self.model.device)
+        self.fc = _make_lazy_linear(n_classes).to(self.model.device)
         self.model.requires_grad_(not freeze_base_model)
 
         def _hook(_model: nn.Module, _args: Any, output: Tensor) -> None:
