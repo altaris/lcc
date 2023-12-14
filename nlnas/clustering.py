@@ -205,7 +205,7 @@ def louvain_communities(
 def otm_matching_predicates(
     y_a: np.ndarray,
     y_b: np.ndarray,
-    matching: dict[int, set[int]],
+    matching: dict[int, set[int]] | dict[str, set[int]],
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Let `y_a` be `(N,)` integer array with values in $\\\\{ 0, 1, ..., c_a-1
@@ -241,15 +241,17 @@ def otm_matching_predicates(
             c_a - 1 \\\\}$ for some $c_a > 0$.
         y_b (np.ndarray): A `(N,)` integer array with values in $\\\\{ 0, 1, ...,
             c_b - 1 \\\\}$ for some $c_b > 0$.
-        matching (dict[int, set[int]]): A partition of $\\\\{ 0, ..., c_b - 1
-            \\\\}$ into $c_a$ sets. The $i$-th set is understood to be the set of
-            all classes of `y_b` that matched with the $i$-th class of `y_a`
+        matching (dict[int, set[int]] | dict[str, set[int]]): A partition of
+            $\\\\{ 0, ..., c_b - 1 \\\\}$ into $c_a$ sets. The $i$-th set is
+            understood to be the set of all classes of `y_b` that matched with
+            the $i$-th class of `y_a`. If some keys are strings, they must be
+            convertible to ints.
     """
+    m = {int(k): v for k, v in matching.items()}
     c_a = y_a.max() + 1
     p1 = [y_a == a for a in range(c_a)]
     p2 = [
-        np.sum([np.zeros_like(y_b)] + [y_b == b for b in matching[a]], axis=0)
-        > 0
+        np.sum([np.zeros_like(y_b)] + [y_b == b for b in m[a]], axis=0) > 0
         for a in range(c_a)
     ]
     p3 = [p1[a] & ~p2[a] for a in range(c_a)]

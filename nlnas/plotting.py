@@ -142,7 +142,7 @@ def class_matching_plot(
     x: np.ndarray,
     y_a: np.ndarray,
     y_b: np.ndarray,
-    matching: dict[int, set[int]],
+    matching: dict[int, set[int]] | dict[str, set[int]],
     size: int = 400,
 ) -> bkm.GridBox:
     """
@@ -159,8 +159,9 @@ def class_matching_plot(
             c_a - 1 \\\\}$ for some $c_a > 0$.
         y_b (np.ndarray): A `(N,)` integer array with values in $\\\\{ 0, 1, ...,
             c_b - 1 \\\\}$ for some $c_b > 0$.
-        matching (dict[int, set[int]]): Matching between the labels of `y_a`
-            and the labels of `y_b`
+        matching (dict[int, set[int]] | dict[str, set[int]]): Matching between
+            the labels of `y_a` and the labels of `y_b`. If some keys are
+            strings, they must be convertible to ints.
         size (int, optional): The size of each scatter plot
     """
     p1, p2, p3, p4 = otm_matching_predicates(y_a, y_b, matching)
