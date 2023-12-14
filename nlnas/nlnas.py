@@ -1,5 +1,6 @@
 """Main module"""
 
+import warnings
 from glob import glob
 from pathlib import Path
 from time import sleep
@@ -16,17 +17,33 @@ import seaborn as sns
 import turbo_broccoli as tb
 from bokeh.io import export_png
 from loguru import logger as logging
+from sklearn.metrics import log_loss
 from torch import Tensor
 from tqdm import tqdm
 from umap import UMAP
 
 from .classifier import Classifier
-from .clustering import class_otm_matching, louvain_communities
+from .clustering import (
+    class_otm_matching,
+    louvain_communities,
+    otm_matching_predicates,
+)
 from .plotting import class_matching_plot, class_scatter, make_same_xy_range
-from .separability import gdv, label_variation, mean_ggd
 from .training import all_checkpoint_paths, checkpoint_ves, train_model_guarded
 from .tv_dataset import TorchvisionDataset
 from .utils import dl_head
+
+
+def _ce(y_true: np.ndarray, y_pred: np.ndarray, n_classes: int = 10) -> float:
+    """
+    Compute the cross entropy between two label vectors. Basically just calls
+    [`sklearn.metrics.log_loss`](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.log_loss.html)
+    but hides warnings if the `y_pred` probability vector doesn't have rows
+    that sum up to 1.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return log_loss(y_true, y_pred, labels=np.arange(n_classes))
 
 
 def _is_ckpt_analysis_dir(p: Path | str) -> bool:
@@ -206,107 +223,107 @@ def analyse_training(output_dir: str | Path, last_epoch: int | None = None):
         output_dir if isinstance(output_dir, Path) else Path(output_dir)
     )
     ckpt_analysis_dirs = list(
-        filter(_is_ckpt_analysis_dir, glob(str(output_dir / "*")))
+        map(Path, filter(_is_ckpt_analysis_dir, glob(str(output_dir / "*"))))
     )
     last_epoch = last_epoch or len(ckpt_analysis_dirs) - 1
 
     # LV COMPUTATION
-    h = tb.GuardedBlockHandler(output_dir / "lv.csv")
-    for _ in h.guard():
-        data = []
-        logging.info("Computing LVs")
-        progress = tqdm(ckpt_analysis_dirs, desc="LV", leave=False)
-        for epoch, path in enumerate(progress):
-            evaluations = tb.load_json(Path(path) / "eval" / "eval.json")
-            for sm, z in evaluations["z"].items():
-                progress.set_postfix({"epoch": epoch, "submodule": sm})
-                v = float(label_variation(z, evaluations["y_true"]))
-                data.append([epoch, sm, v])
-        df = pd.DataFrame(data, columns=["epoch", "submodule", "lv"])
-        h.result = df
+    # h = tb.GuardedBlockHandler(output_dir / "lv.csv")
+    # for _ in h.guard():
+    #     data = []
+    #     logging.info("Computing LVs")
+    #     progress = tqdm(ckpt_analysis_dirs, desc="LV", leave=False)
+    #     for epoch, path in enumerate(progress):
+    #         evaluations = tb.load_json(path / "eval" / "eval.json")
+    #         for sm, z in evaluations["z"].items():
+    #             progress.set_postfix({"epoch": epoch, "submodule": sm})
+    #             v = float(label_variation(z, evaluations["y_true"]))
+    #             data.append([epoch, sm, v])
+    #     df = pd.DataFrame(data, columns=["epoch", "submodule", "lv"])
+    #     h.result = df
 
-        # PLOTTING
-        e = np.linspace(0, last_epoch, num=5, dtype=int)
-        figure = sns.lineplot(
-            df[df["epoch"].isin(e)],
-            x="submodule",
-            y="lv",
-            hue="epoch",
-            size="epoch",
-        )
-        figure.set(title="Label variation by epoch")
-        figure.set_xticklabels(
-            figure.get_xticklabels(),
-            rotation=45,
-            rotation_mode="anchor",
-            ha="right",
-        )
-        figure.get_figure().savefig(output_dir / "lv_epoch.png")
-        plt.clf()
+    #     # PLOTTING
+    #     e = np.linspace(0, last_epoch, num=5, dtype=int)
+    #     figure = sns.lineplot(
+    #         df[df["epoch"].isin(e)],
+    #         x="submodule",
+    #         y="lv",
+    #         hue="epoch",
+    #         size="epoch",
+    #     )
+    #     figure.set(title="Label variation by epoch")
+    #     figure.set_xticklabels(
+    #         figure.get_xticklabels(),
+    #         rotation=45,
+    #         rotation_mode="anchor",
+    #         ha="right",
+    #     )
+    #     figure.get_figure().savefig(output_dir / "lv_epoch.png")
+    #     plt.clf()
 
     # GDV COMPUTATION
-    h = tb.GuardedBlockHandler(output_dir / "gdv.csv")
-    for _ in h.guard():
-        data = []
-        logging.info("Computing GDVs")
-        progress = tqdm(ckpt_analysis_dirs, desc="GDV", leave=False)
-        for epoch, path in enumerate(progress):
-            evaluations = tb.load_json(Path(path) / "eval" / "eval.json")
-            for sm, z in evaluations["z"].items():
-                progress.set_postfix({"epoch": epoch, "submodule": sm})
-                v = float(gdv(z, evaluations["y_true"]))
-                data.append([epoch, sm, v])
-        df = pd.DataFrame(data, columns=["epoch", "submodule", "gdv"])
-        h.result = df
+    # h = tb.GuardedBlockHandler(output_dir / "gdv.csv")
+    # for _ in h.guard():
+    #     data = []
+    #     logging.info("Computing GDVs")
+    #     progress = tqdm(ckpt_analysis_dirs, desc="GDV", leave=False)
+    #     for epoch, path in enumerate(progress):
+    #         evaluations = tb.load_json(path / "eval" / "eval.json")
+    #         for sm, z in evaluations["z"].items():
+    #             progress.set_postfix({"epoch": epoch, "submodule": sm})
+    #             v = float(gdv(z, evaluations["y_true"]))
+    #             data.append([epoch, sm, v])
+    #     df = pd.DataFrame(data, columns=["epoch", "submodule", "gdv"])
+    #     h.result = df
 
-        # PLOTTING
-        e = np.linspace(0, last_epoch, num=5, dtype=int)
-        figure = sns.lineplot(
-            df[df["epoch"].isin(e)],
-            x="submodule",
-            y="gdv",
-            hue="epoch",
-            size="epoch",
-        )
-        figure.set(title="GDV by epoch")
-        figure.set_xticklabels(
-            figure.get_xticklabels(),
-            rotation=45,
-            rotation_mode="anchor",
-            ha="right",
-        )
-        figure.get_figure().savefig(output_dir / "gdv_epoch.png")
-        plt.clf()
+    #     # PLOTTING
+    #     e = np.linspace(0, last_epoch, num=5, dtype=int)
+    #     figure = sns.lineplot(
+    #         df[df["epoch"].isin(e)],
+    #         x="submodule",
+    #         y="gdv",
+    #         hue="epoch",
+    #         size="epoch",
+    #     )
+    #     figure.set(title="GDV by epoch")
+    #     figure.set_xticklabels(
+    #         figure.get_xticklabels(),
+    #         rotation=45,
+    #         rotation_mode="anchor",
+    #         ha="right",
+    #     )
+    #     figure.get_figure().savefig(output_dir / "gdv_epoch.png")
+    #     plt.clf()
 
     # GRASSMANNIAN DISTANCE COMPUTATION
-    h = tb.GuardedBlockHandler(output_dir / "gr.csv")
-    for _ in h.guard():
-        data = []
-        logging.info("Computing Grassmannian geodesic distances")
-        progress = tqdm(ckpt_analysis_dirs, desc="GGD", leave=False)
-        for epoch, path in enumerate(progress):
-            evaluations = tb.load_json(Path(path) / "eval" / "eval.json")
-            for sm, z in evaluations["z"].items():
-                progress.set_postfix({"epoch": epoch, "submodule": sm})
-                v = float(mean_ggd(z.flatten(1), evaluations["y_true"]))
-                data.append([epoch, sm, v])
-        df = pd.DataFrame(data, columns=["epoch", "submodule", "gr"])
-        h.result = df
+    # h = tb.GuardedBlockHandler(output_dir / "gr.csv")
+    # for _ in h.guard():
+    #     data = []
+    #     logging.info("Computing Grassmannian geodesic distances")
+    #     progress = tqdm(ckpt_analysis_dirs, desc="GGD", leave=False)
+    #     for epoch, path in enumerate(progress):
+    #         evaluations = tb.load_json(path / "eval" / "eval.json")
+    #         for sm, z in evaluations["z"].items():
+    #             progress.set_postfix({"epoch": epoch, "submodule": sm})
+    #             v = float(mean_ggd(z.flatten(1), evaluations["y_true"]))
+    #             data.append([epoch, sm, v])
+    #     df = pd.DataFrame(data, columns=["epoch", "submodule", "gr"])
+    #     h.result = df
 
-        # PLOTTING
-        # evaluations = tb.load_json(
-        #     Path(ckpt_analysis_dirs[0]) / "eval" / "eval.json"
-        # )
-        progress = tqdm(
-            evaluations["z"].keys(), desc="GGD plotting", leave=False
-        )
-        for sm in progress:
-            progress.set_postfix({"submodule": sm})
-            figure = sns.lineplot(df[df["submodule"] == sm], x="epoch", y="gr")
-            figure.axvline(last_epoch, linestyle=":", color="gray")
-            figure.set(title=f"Mean Grass. dst. for {sm}")
-            figure.get_figure().savefig(output_dir / f"gr_{sm}.png")
-            plt.clf()
+    #     # PLOTTING
+    #     # evaluations = tb.load_json(
+    #     #     ckpt_analysis_dirs[0] / "eval" / "eval.json"
+    #     # )
+    #     progress = tqdm(
+    #         evaluations["z"].keys(), desc="GGD plotting", leave=False
+    #     )
+    #     for sm in progress:
+    #         progress.set_postfix({"submodule": sm})
+    #         figure = sns.lineplot(df[df["submodule"] == sm], x="epoch", y="gr")
+    #         figure.axvline(last_epoch, linestyle=":", color="gray")
+    #         figure.set(title=f"Mean Grass. dst. for {sm}")
+    #         figure.get_figure().savefig(output_dir / f"gr_{sm}.png")
+    #         plt.clf()
 
     # UMAP PLOT
     umap_all_path = output_dir / "umap_all.png"
@@ -320,7 +337,7 @@ def analyse_training(output_dir: str | Path, last_epoch: int | None = None):
             if not epoch in epochs:
                 continue
             progress.set_postfix({"epoch": epoch})
-            document = tb.load_json(Path(path) / "umap" / "plots.json")
+            document = tb.load_json(path / "umap" / "plots.json")
             for figure in document.values():
                 figure.height, figure.width = 200, 200
                 figure.grid.visible, figure.axis.visible = False, False
@@ -329,6 +346,52 @@ def analyse_training(output_dir: str | Path, last_epoch: int | None = None):
         logging.debug("Sleeping for 5s before rendering to file")
         sleep(5)
         export_png(figure, filename=umap_all_path)
+
+    # CLUSTERING & CE
+    h = tb.GuardedBlockHandler(output_dir / "cluster_ce.csv")
+    for _ in h.guard():
+        df = pd.DataFrame(columns=["epoch", "layer", "all", "match", "miss"])
+        progress = tqdm(ckpt_analysis_dirs, desc="Clustering", leave=False)
+        for epoch, path in enumerate(progress):
+            progress.set_postfix({"epoch": epoch})
+            evaluations = tb.load_json(path / "eval" / "eval.json")
+            y_true = evaluations["y_true"].numpy()
+            y_pred = evaluations["y_pred"].numpy()
+            ce_all = _ce(y_true, y_pred)
+            for layer in evaluations["z"]:
+                progress.set_postfix({"epoch": epoch, "layer": layer})
+                clustering = tb.load_json(
+                    path / "clustering" / layer / "cluster.json"
+                )
+                p1, p2, _, _ = otm_matching_predicates(
+                    y_true, clustering["y_louvain"], clustering["matching"]
+                )
+                p_match = np.sum(p1 & p2, axis=0).astype(bool)
+                df.loc[len(df)] = {
+                    "epoch": epoch,
+                    "layer": layer,
+                    "all": ce_all,
+                    "match": _ce(y_true[p_match], y_pred[p_match]),
+                    "miss": _ce(y_true[~p_match], y_pred[~p_match]),
+                }
+        h.result = df.melt(
+            id_vars=["epoch", "layer"], var_name="subset", value_name="ce_loss"
+        )
+
+        # PLOTTING
+        figure = sns.relplot(
+            data=h.result,
+            x="epoch",
+            y="ce_loss",
+            hue="subset",
+            palette={"all": "black", "match": "blue", "miss": "red"},
+            style="subset",
+            dashes={"all": (1, 1), "match": "", "miss": ""},
+            col="layer",
+            kind="line",
+        )
+        figure.fig.savefig(output_dir / "cluster_ce.png")
+        plt.clf()
 
 
 def train_and_analyse_all(
