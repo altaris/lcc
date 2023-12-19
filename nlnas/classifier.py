@@ -3,23 +3,29 @@ A torchvision image classifier wrapped inside a
 [`LightningModule`](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html)
 """
 
+from collections import defaultdict
 import warnings
 from pathlib import Path
 from typing import Any, Iterable, Literal
-
+from itertools import chain
 import pytorch_lightning as pl
 import torch
 import torchmetrics
+from loguru import logger as logging
 from torch import Tensor, nn
-
-# from torch.optim import Optimizer
 from torch.utils.hooks import RemovableHandle
 from torchvision.models import get_model
+from tqdm import tqdm
+
+from nlnas.clustering import (
+    _otm_matching,
+    class_otm_matching,
+    louvain_communities,
+    louvain_loss,
+)
 
 from .separability import gdv, label_variation, mean_ggd
 from .utils import best_device
-
-# from tqdm import tqdm
 
 
 def _make_lazy_linear(*args, **kwargs) -> nn.LazyLinear:
@@ -42,14 +48,14 @@ class Classifier(pl.LightningModule):
 
     n_classes: int
     sep_submodules: list[str]
-    sep_score: Literal["gdv", "lv", "ggd"]
+    sep_score: Literal["gdv", "lv", "ggd"] | None
     sep_weight: float
 
     def __init__(
         self,
         n_classes: int,
         sep_submodules: list[str] | None = None,
-        sep_score: Literal["gdv", "lv", "ggd"] = "lv",
+        sep_score: Literal["gdv", "lv", "ggd"] | None = None,
         sep_weight: float = 1e-1,
         **kwargs: Any,
     ) -> None:
@@ -85,7 +91,7 @@ class Classifier(pl.LightningModule):
         )
         loss = nn.functional.cross_entropy(logits, y.long())
 
-        if self.sep_submodules:
+        if self.sep_score and self.sep_submodules:
             if self.sep_score == "gdv":
                 sep_loss = torch.stack(
                     [gdv(v, y) for v in output_dict.values()]
@@ -112,7 +118,7 @@ class Classifier(pl.LightningModule):
 
         if stage:
             self.log(f"{stage}/loss", loss, prog_bar=True, sync_dist=True)
-        if stage == "train" and self.sep_submodules:
+        if stage == "train" and self.sep_score and self.sep_submodules:
             self.log(
                 f"{stage}/{self.sep_score}",
                 sep_loss,
@@ -234,6 +240,7 @@ class TorchvisionClassifier(Classifier):
         if add_final_fc:
             modules.append(_make_lazy_linear(n_classes))
         self.model = nn.Sequential(*modules)
+
         if input_shape is not None:
             self.example_input_array = torch.zeros([1] + list(input_shape))
             self.model.eval()
@@ -243,6 +250,58 @@ class TorchvisionClassifier(Classifier):
     def forward(self, x: Tensor, *_, **__) -> Tensor:
         """Override"""
         return self.model(x.to(self.device))  # type: ignore
+
+
+class ClusterCorrectionTorchvisionClassifier(TorchvisionClassifier):
+    cc_optimizer: torch.optim.Optimizer
+
+    def configure_optimizers(self):
+        self.cc_optimizer = torch.optim.Adam(
+            list(
+                chain(
+                    *[
+                        self.get_submodule(sm).parameters()
+                        for sm in self.sep_submodules
+                    ]
+                )
+            ),
+            lr=1e-4,
+        )
+        return super().configure_optimizers()
+
+    def on_train_epoch_end(self) -> None:
+        """Override"""
+        dl = self.trainer.train_dataloader
+        if dl is None:
+            logging.warning(
+                "Module's training does not have a train_dataloader"
+            )
+            return
+        zs, ys = defaultdict(list), []
+        progress = tqdm(dl, desc="Evaluating whole dataset", keep=False)
+        for x, y in progress:
+            tmp: dict[str, Tensor] = {}
+            self.forward_intermediate(
+                x, self.sep_submodules, tmp, keep_gradients=True
+            )
+            for k, v in tmp.items():
+                zs[k].append(v)
+            ys.append(y)
+        z = {k: torch.concat(v).flatten(1) for k, v in zs.items()}
+        y_true = torch.concat(ys)
+
+        losses = []
+        progress = tqdm(z.items(), desc="Computing Louvain loss", keep=False)
+        for k, v in progress:
+            progress.set_postfix({"sm": k})
+            _, y_louvain, _, _ = louvain_communities(v.cpu().detach().numpy())
+            # y_louvain = torch.randint_like(y_true, high=15).cpu().numpy()
+            matching = class_otm_matching(y_true.numpy(), y_louvain)
+            # louvain[k] = (communities, y_louvain)
+            losses.append(louvain_loss(v, y_true.numpy(), y_louvain, matching))
+        torch.stack(losses).mean().backward()
+        self.cc_optimizer.step()
+        self.cc_optimizer.zero_grad()
 
 
 class TruncatedClassifier(Classifier):

@@ -1,23 +1,16 @@
 """Clustering of latent representations"""
 
 from itertools import product
+from math import sqrt
 from typing import Literal
 
 import faiss
 import networkx as nx
 import numpy as np
+import torch
 from sklearn.base import TransformerMixin
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
-
-
-class DummyTransformer(TransformerMixin):
-    """A transformer whose `fit_transform` method does nothing"""
-
-    # pylint: disable=arguments-differ
-    # pylint: disable=unused-argument
-    def fit_transform(self, x: np.ndarray, *args, **kwargs) -> np.ndarray:
-        """Simply returns `x`"""
-        return x
+from torch import Tensor
 
 
 def _otm_matching(
@@ -171,14 +164,10 @@ def louvain_communities(
            of `z[i]`.
     """
     if scaling == "standard":
-        scaler = StandardScaler()
+        scaling = StandardScaler()
     elif scaling == "minmax":
-        scaler = MinMaxScaler()
-    elif isinstance(scaling, TransformerMixin):
-        scaler = scaling
-    else:
-        scaler = DummyTransformer()
-    z_scaled = scaler.fit_transform(z)
+        scaling = MinMaxScaler()
+    z_scaled = z if scaling is None else scaling.fit_transform(z)  # type: ignore
 
     index = faiss.IndexFlatL2(z_scaled.shape[-1])
     # pylint: disable=no-value-for-parameter
@@ -200,6 +189,45 @@ def louvain_communities(
             y_louvain[n] = i
 
     return communities, np.array(y_louvain), knn_dist, knn_idx
+
+
+def louvain_loss(
+    x: Tensor,
+    y_true: np.ndarray,
+    y_louvain: np.ndarray,
+    matching: dict[int, set[int]] | dict[str, set[int]],
+) -> Tensor:
+    """
+    Mean distance between every missed point and the closest centroid of
+    their marched Louvain communities.
+
+    In more details, let $a_i$ be the true class of $x_i$, and $\\\\{ b_{i, 1},
+    \\\\ldots \\\\}$ be the Louvain classes matched to the true class $a_i$. If
+    $x_i$ is a "missed points", i.e. if the Louvain class of $x_i$ is not among
+    $\\\\{ b_{i, 1}, \\\\ldots \\\\}$, then it will contribute a term to the
+    Louvain loss, equal to the distance between $x_i$ and the closest centroid
+    of the Louvain clusters $b_{i, 1}, \\\\ldots$.
+
+    The Louvain loss is the average of these terms, divided by $\\\\sqrt{d}$,
+    where $d$ is the dimension of the latent space.
+    """
+    m = {int(k): v for k, v in matching.items()}
+    centroids = {
+        b: x[y_louvain == b].mean(dim=0) for b in np.unique(y_louvain)
+    }
+    _, _, p3, _ = otm_matching_predicates(y_true, y_louvain, matching)
+    dfcc = []
+    for a, bs in m.items():
+        if not bs:
+            continue
+        x_miss = x[p3[a]]
+        dst = torch.cdist(x_miss, torch.stack([centroids[b] for b in bs]))
+        cc = dst.argmin(dim=1)
+        for i in range(x_miss.shape[0]):
+            dfcc.append(dst[i, cc[i]])
+    if not dfcc:
+        return torch.tensor(0.0)
+    return sqrt(x.shape[-1]) * torch.stack(dfcc).mean()
 
 
 def otm_matching_predicates(
