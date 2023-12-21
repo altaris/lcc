@@ -249,7 +249,8 @@ def otm_matching_predicates(
     a-classes and the b-classes. In other words each a-class corresponds to
     some set of b-classes.
 
-    This method returns four boolean arrays with shape `(c_a, N)`:
+    This method returns four boolean arrays with shape `(c_a, N)`, which in my
+    head I call "true-louvain-miss-excess":
 
     1. `p1` is simply given by `p1[a] = (y_a == a)`, or in other words, `p1[a,
        i]` is `True` if and only if the `i`-th sample is in a-class `a`.

@@ -256,7 +256,7 @@ class ClusterCorrectionTorchvisionClassifier(TorchvisionClassifier):
     cc_optimizer: torch.optim.Optimizer
 
     def configure_optimizers(self):
-        self.cc_optimizer = torch.optim.Adam(
+        self.cc_optimizer = torch.optim.SGD(
             list(
                 chain(
                     *[
@@ -265,7 +265,7 @@ class ClusterCorrectionTorchvisionClassifier(TorchvisionClassifier):
                     ]
                 )
             ),
-            lr=1e-4,
+            lr=1e-3,
         )
         return super().configure_optimizers()
 
@@ -278,7 +278,7 @@ class ClusterCorrectionTorchvisionClassifier(TorchvisionClassifier):
             )
             return
         zs, ys = defaultdict(list), []
-        progress = tqdm(dl, desc="Evaluating whole dataset", keep=False)
+        progress = tqdm(dl, desc="Evaluating whole dataset", leave=False)
         for x, y in progress:
             tmp: dict[str, Tensor] = {}
             self.forward_intermediate(
@@ -291,13 +291,13 @@ class ClusterCorrectionTorchvisionClassifier(TorchvisionClassifier):
         y_true = torch.concat(ys)
 
         losses = []
-        progress = tqdm(z.items(), desc="Computing Louvain loss", keep=False)
+        progress = tqdm(z.items(), desc="Computing Louvain loss", leave=False)
         for k, v in progress:
             progress.set_postfix({"sm": k})
             _, y_louvain, _, _ = louvain_communities(v.cpu().detach().numpy())
+            # For testing
             # y_louvain = torch.randint_like(y_true, high=15).cpu().numpy()
             matching = class_otm_matching(y_true.numpy(), y_louvain)
-            # louvain[k] = (communities, y_louvain)
             losses.append(louvain_loss(v, y_true.numpy(), y_louvain, matching))
         torch.stack(losses).mean().backward()
         self.cc_optimizer.step()
