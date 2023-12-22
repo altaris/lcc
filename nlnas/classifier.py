@@ -3,22 +3,22 @@ A torchvision image classifier wrapped inside a
 [`LightningModule`](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html)
 """
 
-from collections import defaultdict
 import warnings
+from itertools import chain
 from pathlib import Path
 from typing import Any, Iterable, Literal
-from itertools import chain
+
 import pytorch_lightning as pl
 import torch
 import torchmetrics
 from loguru import logger as logging
 from torch import Tensor, nn
+from torch.utils.data import DataLoader
 from torch.utils.hooks import RemovableHandle
 from torchvision.models import get_model
 from tqdm import tqdm
 
 from nlnas.clustering import (
-    _otm_matching,
     class_otm_matching,
     louvain_communities,
     louvain_loss,
@@ -255,6 +255,26 @@ class TorchvisionClassifier(Classifier):
 class ClusterCorrectionTorchvisionClassifier(TorchvisionClassifier):
     cc_optimizer: torch.optim.Optimizer
 
+    def __init__(
+        self,
+        model_name: str,
+        n_classes: int,
+        input_shape: Iterable[int] | None = None,
+        model_config: dict[str, Any] | None = None,
+        add_final_fc: bool = False,
+        cc_lr: float = 1e-4,
+        **kwargs,
+    ) -> None:
+        super().__init__(
+            model_name,
+            n_classes,
+            input_shape,
+            model_config,
+            add_final_fc,
+            **kwargs,
+        )
+        self.save_hyperparameters()
+
     def configure_optimizers(self):
         self.cc_optimizer = torch.optim.SGD(
             list(
@@ -265,43 +285,42 @@ class ClusterCorrectionTorchvisionClassifier(TorchvisionClassifier):
                     ]
                 )
             ),
-            lr=1e-3,
+            lr=self.hparams["cc_lr"],
         )
         return super().configure_optimizers()
 
     def on_train_epoch_end(self) -> None:
         """Override"""
-        dl = self.trainer.train_dataloader
-        if dl is None:
+        tdl = self.trainer.train_dataloader
+        if tdl is None:
             logging.warning(
                 "Module's training does not have a train_dataloader"
             )
             return
-        zs, ys = defaultdict(list), []
-        progress = tqdm(dl, desc="Evaluating whole dataset", leave=False)
-        for x, y in progress:
-            tmp: dict[str, Tensor] = {}
+        # TODO: use params of tdl
+        dl = DataLoader(dataset=tdl.dataset, batch_size=2048)
+        progress = tqdm(dl, desc="Cluster correction", leave=False)
+        for x, y_true in progress:
+            out: dict[str, Tensor] = {}
             self.forward_intermediate(
-                x, self.sep_submodules, tmp, keep_gradients=True
+                x, self.sep_submodules, out, keep_gradients=True
             )
-            for k, v in tmp.items():
-                zs[k].append(v)
-            ys.append(y)
-        z = {k: torch.concat(v).flatten(1) for k, v in zs.items()}
-        y_true = torch.concat(ys)
-
-        losses = []
-        progress = tqdm(z.items(), desc="Computing Louvain loss", leave=False)
-        for k, v in progress:
-            progress.set_postfix({"sm": k})
-            _, y_louvain, _, _ = louvain_communities(v.cpu().detach().numpy())
-            # For testing
-            # y_louvain = torch.randint_like(y_true, high=15).cpu().numpy()
-            matching = class_otm_matching(y_true.numpy(), y_louvain)
-            losses.append(louvain_loss(v, y_true.numpy(), y_louvain, matching))
-        torch.stack(losses).mean().backward()
-        self.cc_optimizer.step()
-        self.cc_optimizer.zero_grad()
+            losses: list[Tensor] = []
+            for z in out.values():
+                _, y_louvain, _, _ = louvain_communities(
+                    z.flatten(1).cpu().detach().numpy()
+                )
+                # For testing
+                # y_louvain = torch.randint_like(y_true, high=15).cpu().numpy()
+                matching = class_otm_matching(y_true.numpy(), y_louvain)
+                losses.append(
+                    louvain_loss(z, y_true.numpy(), y_louvain, matching)
+                )
+            loss = torch.stack(losses).mean()
+            loss.backward()
+            self.cc_optimizer.step()
+            self.cc_optimizer.zero_grad()
+            progress.set_postfix({"train/lou": float(loss.round(decimals=2))})
 
 
 class TruncatedClassifier(Classifier):

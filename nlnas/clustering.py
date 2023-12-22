@@ -226,7 +226,7 @@ def louvain_loss(
         for i in range(x_miss.shape[0]):
             dfcc.append(dst[i, cc[i]])
     if not dfcc:
-        return torch.tensor(0.0)
+        return torch.tensor(0.0, requires_grad=True).to(x.device)
     return sqrt(x.shape[-1]) * torch.stack(dfcc).mean()
 
 
@@ -266,10 +266,10 @@ def otm_matching_predicates(
     I hope this all makes sense.
 
     Args:
-        y_a (np.ndarray): A `(N,)` integer array with values in $\\\\{ 0, 1, ...,
-            c_a - 1 \\\\}$ for some $c_a > 0$.
-        y_b (np.ndarray): A `(N,)` integer array with values in $\\\\{ 0, 1, ...,
-            c_b - 1 \\\\}$ for some $c_b > 0$.
+        y_a (np.ndarray): A `(N,)` integer array with values in $\\\\{ 0, 1,
+            ..., c_a - 1 \\\\}$ for some $c_a > 0$.
+        y_b (np.ndarray): A `(N,)` integer array with values in $\\\\{ 0, 1,
+            ..., c_b - 1 \\\\}$ for some $c_b > 0$.
         matching (dict[int, set[int]] | dict[str, set[int]]): A partition of
             $\\\\{ 0, ..., c_b - 1 \\\\}$ into $c_a$ sets. The $i$-th set is
             understood to be the set of all classes of `y_b` that matched with
@@ -281,6 +281,8 @@ def otm_matching_predicates(
     p1 = [y_a == a for a in range(c_a)]
     p2 = [
         np.sum([np.zeros_like(y_b)] + [y_b == b for b in m[a]], axis=0) > 0
+        if a in m
+        else np.full_like(y_a, False, dtype=bool)  # a is not matched in m
         for a in range(c_a)
     ]
     p3 = [p1[a] & ~p2[a] for a in range(c_a)]

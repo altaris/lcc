@@ -21,9 +21,6 @@ from nlnas.utils import dl_targets
 
 def main():
     pl.seed_everything(0)
-    model_names = [
-        "alexnet",
-    ]
     submodule_names = [
         "model.0.features.0",
         "model.0.features.3",
@@ -58,18 +55,23 @@ def main():
             # EnsuresRGB(),
         ]
     )
-    for m, d in product(model_names, dataset_names):
-        output_dir = Path("out") / (m + "_cc") / d
+    for d in dataset_names:
+        name = "alexnet_bcc_1e-4"
+        output_dir = Path("out") / name / d
         ds = TorchvisionDataset(d, transform=transform)
         ds.setup("fit")
         n_classes = len(dl_targets(ds.val_dataloader()))
         image_shape = list(next(iter(ds.val_dataloader()))[0].shape)[1:]
         model = ClusterCorrectionTorchvisionClassifier(
-            model_name=m,
+            model_name="alexnet",
             n_classes=n_classes,
             add_final_fc=True,
             input_shape=image_shape,
-            sep_submodules=["model.0.classifier"],
+            sep_submodules=[
+                "model.0.classifier.1",
+                "model.0.classifier.4",
+                "model.0.classifier.6",
+            ],
         )
         # train_model(
         #     model,
@@ -84,7 +86,7 @@ def main():
             submodule_names=submodule_names,
             dataset=ds,
             output_dir=output_dir,
-            model_name=m + "_cc",
+            model_name=name,
         )
 
 
