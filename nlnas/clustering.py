@@ -199,6 +199,7 @@ def louvain_loss(
     y_true: np.ndarray | Tensor,
     y_louvain: np.ndarray | None = None,
     matching: dict[int, set[int]] | dict[str, set[int]] | None = None,
+    k: int = 5,
 ) -> Tensor:
     """
     Mean distance between every missed point and the closest centroid of
@@ -208,12 +209,16 @@ def louvain_loss(
     \\\\ldots \\\\}$ be the Louvain classes matched to the true class $a_i$. If
     $z_i$ is a "missed points", i.e. if the Louvain class of $z_i$ is not among
     $\\\\{ b_{i, 1}, \\\\ldots \\\\}$, then it will contribute a term to the
-    Louvain loss, equal to the distance between $z_i$ and the closest centroid
-    of the Louvain clusters $b_{i, 1}, \\\\ldots$.
+    Louvain loss, equal to the distance between $z_i$ and the mean of the $k$
+    closest samples in the Louvain clusters $b_{i, 1}, \\\\ldots$.
 
     The Louvain loss is the average of these terms, divided by $\\\\sqrt{d}$,
     where $d$ is the dimension of the latent space.
     """
+
+    def _np(a: Tensor) -> np.ndarray:
+        return a.cpu().detach().numpy()
+
     if isinstance(y_true, Tensor):
         y_true = y_true.cpu().detach().numpy()
     assert isinstance(y_true, np.ndarray)  # For typechecking
@@ -222,23 +227,24 @@ def louvain_loss(
     if matching is None:
         matching = class_otm_matching(y_true, y_louvain)
     else:
-        matching = {int(k): v for k, v in matching.items()}
+        matching = {int(a): bs for a, bs in matching.items()}
+    _, p2, p3, _ = otm_matching_predicates(y_true, y_louvain, matching)
 
-    targets = {b: z[y_louvain == b].mean(dim=0) for b in np.unique(y_louvain)}
-
-    _, _, p3, _ = otm_matching_predicates(y_true, y_louvain, matching)
-    dfcc = []
-    for a, bs in matching.items():
-        if not bs:
+    losses = []
+    for a in matching:
+        if not (p2[a].any() and p3[a].any()):
+            # No matched Louvain class for a, or no misses
             continue
-        x_miss = z[p3[a]]
-        dst = torch.cdist(x_miss, torch.stack([targets[b] for b in bs]))
-        cc = dst.argmin(dim=1)
-        for i in range(x_miss.shape[0]):
-            dfcc.append(dst[i, cc[i]])
-    if not dfcc:
+        z_lou, z_miss = z[p2[a]], z[p3[a]]  # both non empty
+        index = IndexFlatL2(z.shape[-1])
+        index.add(_np(z_lou))  # pylint: disable=no-value-for-parameter
+        # pylint: disable=no-value-for-parameter
+        _, idx = index.search(_np(z_miss), min(k, z_lou.shape[0]))
+        targets = z_lou[torch.tensor(idx)].mean(dim=1)
+        losses.append(torch.norm(z_miss - targets, dim=-1).mean())
+    if not losses:
         return torch.tensor(0.0, requires_grad=True).to(z.device)
-    return sqrt(z.shape[-1]) * torch.stack(dfcc).mean()
+    return torch.stack(losses).mean() / sqrt(z.shape[-1])
 
 
 def otm_matching_predicates(

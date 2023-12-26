@@ -57,7 +57,7 @@ def main():
         ]
     )
     for d in dataset_names:
-        name = "alexnet_bcc_1e-3"
+        name = "alexnet_bcc_nn5_1e-3"
         output_dir = Path("out") / name / d
         ds = TorchvisionDataset(
             d,
