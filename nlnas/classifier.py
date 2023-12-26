@@ -48,14 +48,14 @@ class Classifier(pl.LightningModule):
 
     n_classes: int
     sep_submodules: list[str]
-    sep_score: Literal["gdv", "lv", "ggd"] | None
+    sep_score: Literal["gdv", "lv", "ggd", "louvain"] | None
     sep_weight: float
 
     def __init__(
         self,
         n_classes: int,
         sep_submodules: list[str] | None = None,
-        sep_score: Literal["gdv", "lv", "ggd"] | None = None,
+        sep_score: Literal["gdv", "lv", "ggd", "louvain"] | None = None,
         sep_weight: float = 1e-1,
         **kwargs: Any,
     ) -> None:
@@ -85,43 +85,43 @@ class Classifier(pl.LightningModule):
         x, y = batch
         y = y.to(self.device)
 
-        output_dict: dict[str, Tensor] = {}
+        out: dict[str, Tensor] = {}
         logits = self.forward_intermediate(
-            x, self.sep_submodules, output_dict, keep_gradients=True
+            x, self.sep_submodules, out, keep_gradients=True
         )
-        loss = nn.functional.cross_entropy(logits, y.long())
+        loss_ce = nn.functional.cross_entropy(logits, y.long())
 
         if self.sep_score and self.sep_submodules:
             if self.sep_score == "gdv":
-                sep_loss = torch.stack(
-                    [gdv(v, y) for v in output_dict.values()]
-                ).mean()
+                loss_cl = torch.stack([gdv(v, y) for v in out.values()]).mean()
             elif self.sep_score == "lv":
-                sep_loss = torch.stack(
+                loss_cl = torch.stack(
                     [
-                        label_variation(
-                            v, y.to(v), k=10, n_classes=self.n_classes
-                        )
-                        for v in output_dict.values()
+                        label_variation(v, y, k=10, n_classes=self.n_classes)
+                        for v in out.values()
                     ]
                 ).mean()
             elif self.sep_score == "ggd":
-                sep_loss = -torch.stack(
-                    [mean_ggd(v.flatten(1), y) for v in output_dict.values()]
+                loss_cl = -torch.stack(
+                    [mean_ggd(v.flatten(1), y) for v in out.values()]
+                ).mean()
+            elif self.sep_score == "louvain":
+                loss_cl = torch.stack(
+                    [louvain_loss(v, y) for v in out.values()]
                 ).mean()
             else:
                 raise RuntimeError(
                     f"Unknown separation score type '{self.sep_score}'."
                 )
         else:
-            sep_loss = torch.tensor(0.0)
+            loss_cl = torch.tensor(0.0)
 
         if stage:
-            self.log(f"{stage}/loss", loss, prog_bar=True, sync_dist=True)
+            self.log(f"{stage}/loss", loss_ce, prog_bar=True, sync_dist=True)
         if stage == "train" and self.sep_score and self.sep_submodules:
             self.log(
                 f"{stage}/{self.sep_score}",
-                sep_loss,
+                loss_cl,
                 prog_bar=True,
                 sync_dist=True,
             )
@@ -143,7 +143,7 @@ class Classifier(pl.LightningModule):
                 top_k=1,
             )
             self.log(f"{stage}/acc", acc, prog_bar=True, sync_dist=True)
-        return loss + self.sep_weight * sep_loss
+        return loss_ce + self.sep_weight * loss_cl
 
     def configure_optimizers(self):
         """Override"""
@@ -255,6 +255,7 @@ class TorchvisionClassifier(Classifier):
 class ClusterCorrectionTorchvisionClassifier(TorchvisionClassifier):
     cc_optimizer: torch.optim.Optimizer
 
+    # pylint: disable=unused-argument
     def __init__(
         self,
         model_name: str,
@@ -307,9 +308,7 @@ class ClusterCorrectionTorchvisionClassifier(TorchvisionClassifier):
             )
             losses: list[Tensor] = []
             for z in out.values():
-                _, y_louvain, _, _ = louvain_communities(
-                    z.flatten(1).cpu().detach().numpy()
-                )
+                _, y_louvain, _, _ = louvain_communities(z)
                 # For testing
                 # y_louvain = torch.randint_like(y_true, high=15).cpu().numpy()
                 matching = class_otm_matching(y_true.numpy(), y_louvain)

@@ -11,6 +11,7 @@ from nlnas import (
     TorchvisionClassifier,
     TorchvisionDataset,
     train_and_analyse_all,
+    DEFAULT_DATALOADER_KWARGS,
 )
 from nlnas.classifier import ClusterCorrectionTorchvisionClassifier
 from nlnas.logging import setup_logging
@@ -56,22 +57,28 @@ def main():
         ]
     )
     for d in dataset_names:
-        name = "alexnet_bcc_1e-4"
+        name = "alexnet_bcc_1e-3"
         output_dir = Path("out") / name / d
-        ds = TorchvisionDataset(d, transform=transform)
+        ds = TorchvisionDataset(
+            d,
+            transform=transform,
+            dataloader_kwargs={"drop_last": True, **DEFAULT_DATALOADER_KWARGS},
+        )
         ds.setup("fit")
         n_classes = len(dl_targets(ds.val_dataloader()))
         image_shape = list(next(iter(ds.val_dataloader()))[0].shape)[1:]
-        model = ClusterCorrectionTorchvisionClassifier(
+        model = TorchvisionClassifier(
             model_name="alexnet",
+            input_shape=image_shape,
             n_classes=n_classes,
             add_final_fc=True,
-            input_shape=image_shape,
             sep_submodules=[
                 "model.0.classifier.1",
                 "model.0.classifier.4",
                 "model.0.classifier.6",
             ],
+            sep_score="louvain",
+            sep_weight=1e-3,
         )
         # train_model(
         #     model,
@@ -92,9 +99,10 @@ def main():
 
 if __name__ == "__main__":
     setup_logging()
-    try:
-        main()
-    except KeyboardInterrupt:
-        pass
-    except:
-        logging.exception(":sad trombone:")
+    main()
+    # try:
+    #     main()
+    # except KeyboardInterrupt:
+    #     pass
+    # except:
+    #     logging.exception(":sad trombone:")

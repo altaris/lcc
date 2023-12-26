@@ -4,7 +4,7 @@ from itertools import product
 from math import sqrt
 from typing import Literal
 
-import faiss
+from faiss import IndexFlatL2
 import networkx as nx
 import numpy as np
 import torch
@@ -125,7 +125,7 @@ def class_otm_matching(
 
 
 def louvain_communities(
-    z: np.ndarray,
+    z: np.ndarray | Tensor,
     k: int = 50,
     scaling: Literal["standard", "minmax"]
     | TransformerMixin
@@ -135,7 +135,8 @@ def louvain_communities(
     Returns louvain communities of a set of points.
 
     Args:
-        z (np.ndarray): A `(N, d)` array
+        z (np.ndarray | Tensor): A `(N, d)` array. If it has another
+            shape, it is flattened to `(len(z), ...)`.
         k (int, optional): The number of neighbors to consider for the Louvain
             clustering algorithm
         scaling (Literal["standard", "minmax"] | TransformerMixin | None,
@@ -167,13 +168,15 @@ def louvain_communities(
         scaling = StandardScaler()
     elif scaling == "minmax":
         scaling = MinMaxScaler()
+    if isinstance(z, Tensor):
+        z = z.cpu().detach().numpy()
+    z = z.reshape(len(z), -1)
     z_scaled = z if scaling is None else scaling.fit_transform(z)  # type: ignore
 
-    index = faiss.IndexFlatL2(z_scaled.shape[-1])
+    index = IndexFlatL2(z_scaled.shape[-1])
+    index.add(z_scaled)  # pylint: disable=no-value-for-parameter
     # pylint: disable=no-value-for-parameter
-    index.add(z_scaled)
-    # pylint: disable=no-value-for-parameter
-    knn_dist, knn_idx = index.search(z_scaled, k)
+    knn_dist, knn_idx = index.search(z_scaled, min(k, z_scaled.shape[0]))
 
     knn_graph = nx.Graph()
     knn_graph.add_nodes_from(range(z_scaled.shape[0]))
@@ -192,42 +195,50 @@ def louvain_communities(
 
 
 def louvain_loss(
-    x: Tensor,
-    y_true: np.ndarray,
-    y_louvain: np.ndarray,
-    matching: dict[int, set[int]] | dict[str, set[int]],
+    z: Tensor,
+    y_true: np.ndarray | Tensor,
+    y_louvain: np.ndarray | None = None,
+    matching: dict[int, set[int]] | dict[str, set[int]] | None = None,
 ) -> Tensor:
     """
     Mean distance between every missed point and the closest centroid of
     their marched Louvain communities.
 
-    In more details, let $a_i$ be the true class of $x_i$, and $\\\\{ b_{i, 1},
+    In more details, let $a_i$ be the true class of $z_i$, and $\\\\{ b_{i, 1},
     \\\\ldots \\\\}$ be the Louvain classes matched to the true class $a_i$. If
-    $x_i$ is a "missed points", i.e. if the Louvain class of $x_i$ is not among
+    $z_i$ is a "missed points", i.e. if the Louvain class of $z_i$ is not among
     $\\\\{ b_{i, 1}, \\\\ldots \\\\}$, then it will contribute a term to the
-    Louvain loss, equal to the distance between $x_i$ and the closest centroid
+    Louvain loss, equal to the distance between $z_i$ and the closest centroid
     of the Louvain clusters $b_{i, 1}, \\\\ldots$.
 
     The Louvain loss is the average of these terms, divided by $\\\\sqrt{d}$,
     where $d$ is the dimension of the latent space.
     """
-    m = {int(k): v for k, v in matching.items()}
-    centroids = {
-        b: x[y_louvain == b].mean(dim=0) for b in np.unique(y_louvain)
-    }
+    if isinstance(y_true, Tensor):
+        y_true = y_true.cpu().detach().numpy()
+    assert isinstance(y_true, np.ndarray)  # For typechecking
+    if y_louvain is None:
+        _, y_louvain, _, _ = louvain_communities(z)
+    if matching is None:
+        matching = class_otm_matching(y_true, y_louvain)
+    else:
+        matching = {int(k): v for k, v in matching.items()}
+
+    targets = {b: z[y_louvain == b].mean(dim=0) for b in np.unique(y_louvain)}
+
     _, _, p3, _ = otm_matching_predicates(y_true, y_louvain, matching)
     dfcc = []
-    for a, bs in m.items():
+    for a, bs in matching.items():
         if not bs:
             continue
-        x_miss = x[p3[a]]
-        dst = torch.cdist(x_miss, torch.stack([centroids[b] for b in bs]))
+        x_miss = z[p3[a]]
+        dst = torch.cdist(x_miss, torch.stack([targets[b] for b in bs]))
         cc = dst.argmin(dim=1)
         for i in range(x_miss.shape[0]):
             dfcc.append(dst[i, cc[i]])
     if not dfcc:
-        return torch.tensor(0.0, requires_grad=True).to(x.device)
-    return sqrt(x.shape[-1]) * torch.stack(dfcc).mean()
+        return torch.tensor(0.0, requires_grad=True).to(z.device)
+    return sqrt(z.shape[-1]) * torch.stack(dfcc).mean()
 
 
 def otm_matching_predicates(

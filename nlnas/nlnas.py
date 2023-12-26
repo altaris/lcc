@@ -156,9 +156,7 @@ def analyse_ckpt(
                 y_louvain,
                 knn_dist,
                 knn_idx,
-            ) = louvain_communities(
-                z.flatten(1).numpy(), k=knn, scaling="standard"
-            )
+            ) = louvain_communities(z, k=knn, scaling="standard")
             matching = class_otm_matching(outputs["y_true"].numpy(), y_louvain)
             h.result = {
                 "k": knn,

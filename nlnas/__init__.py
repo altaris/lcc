@@ -14,5 +14,5 @@ from .training import (
     train_model,
     train_model_guarded,
 )
-from .tv_dataset import TorchvisionDataset
+from .tv_dataset import TorchvisionDataset, DEFAULT_DATALOADER_KWARGS
 from .utils import best_device, dl_targets, dl_head
