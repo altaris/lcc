@@ -91,22 +91,27 @@ class Classifier(pl.LightningModule):
         )
         loss_ce = nn.functional.cross_entropy(logits, y.long())
 
-        if self.sep_score and self.sep_submodules:
+        compute_sep_loss = (
+            stage == "train" and self.sep_score and self.sep_submodules
+        )
+        if compute_sep_loss:
             if self.sep_score == "gdv":
-                loss_cl = torch.stack([gdv(v, y) for v in out.values()]).mean()
+                loss_sep = torch.stack(
+                    [gdv(v, y) for v in out.values()]
+                ).mean()
             elif self.sep_score == "lv":
-                loss_cl = torch.stack(
+                loss_sep = torch.stack(
                     [
                         label_variation(v, y, k=10, n_classes=self.n_classes)
                         for v in out.values()
                     ]
                 ).mean()
             elif self.sep_score == "ggd":
-                loss_cl = -torch.stack(
+                loss_sep = -torch.stack(
                     [mean_ggd(v.flatten(1), y) for v in out.values()]
                 ).mean()
             elif self.sep_score == "louvain":
-                loss_cl = torch.stack(
+                loss_sep = torch.stack(
                     [louvain_loss(v, y) for v in out.values()]
                 ).mean()
             else:
@@ -114,14 +119,14 @@ class Classifier(pl.LightningModule):
                     f"Unknown separation score type '{self.sep_score}'."
                 )
         else:
-            loss_cl = torch.tensor(0.0)
+            loss_sep = torch.tensor(0.0)
 
         if stage:
             self.log(f"{stage}/loss", loss_ce, prog_bar=True, sync_dist=True)
-        if stage == "train" and self.sep_score and self.sep_submodules:
+        if compute_sep_loss:
             self.log(
                 f"{stage}/{self.sep_score}",
-                loss_cl,
+                loss_sep,
                 prog_bar=True,
                 sync_dist=True,
             )
@@ -143,7 +148,7 @@ class Classifier(pl.LightningModule):
                 top_k=1,
             )
             self.log(f"{stage}/acc", acc, prog_bar=True, sync_dist=True)
-        return loss_ce + self.sep_weight * loss_cl
+        return loss_ce + self.sep_weight * loss_sep
 
     def configure_optimizers(self):
         """Override"""
