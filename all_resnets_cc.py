@@ -22,20 +22,6 @@ from nlnas.utils import dl_targets
 
 def main():
     pl.seed_everything(0)
-    submodule_names = [
-        "model.0.features.0",
-        "model.0.features.3",
-        "model.0.features.6",
-        "model.0.features.8",
-        "model.0.features.10",
-        # "model.0.features",
-        "model.0.classifier.1",
-        "model.0.classifier.4",
-        "model.0.classifier.6",
-        # "model.0.classifier",
-        "model.1",
-        # "model"
-    ]
     dataset_names = [
         # "mnist",
         # "kmnist",
@@ -45,19 +31,19 @@ def main():
     ]
     transform = tvtr.Compose(
         [
-            tvtr.RandomCrop(32, padding=4),
-            tvtr.RandomHorizontalFlip(),
+            # tvtr.RandomCrop(32, padding=4),
+            # tvtr.RandomHorizontalFlip(),
             tvtr.ToTensor(),
-            tvtr.Normalize(  # Taken from pl_bolts cifar10_normalization
-                mean=[x / 255.0 for x in [125.3, 123.0, 113.9]],
-                std=[x / 255.0 for x in [63.0, 62.1, 66.7]],
-            ),
+            # tvtr.Normalize(  # Taken from pl_bolts cifar10_normalization
+            #     mean=[x / 255.0 for x in [125.3, 123.0, 113.9]],
+            #     std=[x / 255.0 for x in [63.0, 62.1, 66.7]],
+            # ),
             tvtr.Resize([64, 64], antialias=True),
             # EnsuresRGB(),
         ]
     )
     for d in dataset_names:
-        name = "alexnet_bcc_nn5_b2048_5e-1_2"
+        name = "resnet18_bcc_nn5_b2048_5e-1"
         output_dir = Path("out") / name / d
         ds = TorchvisionDataset(
             d,
@@ -78,25 +64,26 @@ def main():
             n_classes=n_classes,
             add_final_fc=True,
             sep_submodules=[
-                # "model.0.classifier.1",
-                # "model.0.classifier.4",
-                "model.0.classifier.6",
+                # "model.0.layer1",
+                # "model.0.layer2",
+                "model.0.layer3",
+                "model.0.layer4",
+                "model.0.fc",
                 "model.1",
             ],
             sep_score="louvain",
             sep_weight=5e-1,
         )
-        # train_model(
-        #     model,
-        #     ds,
-        #     output_dir / "model",
-        #     name=m,
-        #     max_epochs=512,
-        #     # strategy="ddp_find_unused_parameters_true",
-        # )
         train_and_analyse_all(
             model=model,
-            submodule_names=submodule_names,
+            submodule_names=[
+                "model.0.layer1",
+                "model.0.layer2",
+                "model.0.layer3",
+                "model.0.layer4",
+                "model.0.fc",
+                "model.1",
+            ],
             dataset=ds,
             output_dir=output_dir,
             model_name=name,
@@ -105,10 +92,9 @@ def main():
 
 if __name__ == "__main__":
     setup_logging()
-    main()
-    # try:
-    #     main()
-    # except KeyboardInterrupt:
-    #     pass
-    # except:
-    #     logging.exception(":sad trombone:")
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
+    except:
+        logging.exception(":sad trombone:")
