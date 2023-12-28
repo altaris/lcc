@@ -1,7 +1,12 @@
-DOCS_PATH 		= docs
 SRC_PATH 		= nlnas
-VENV			= ./venv
-PDOC			= pdoc -d google --math
+VENV_PATH		= ./venv
+DOCS_PATH 		= docs
+
+PYTHON			= python3.11
+PDOC			= $(PYTHON) -m pdoc -d google --math
+BLACK			= $(PYTHON) -m black --line-length 79 --target-version py311
+MYPY			= $(PYTHON) -m mypy
+PYLINT			= $(PYTHON) -m pylint
 
 .ONESHELL:
 
@@ -19,15 +24,14 @@ docs-browser:
 
 .PHONY: format
 format:
-	# isort .
-	black --line-length 79 --target-version py310 $(SRC_PATH)
-	black --line-length 79 --target-version py310 *.py
+	$(BLACK) $(SRC_PATH)
+	$(BLACK) *.py
 
 .PHONY: lint
 lint:
-	pylint $(SRC_PATH)
+	$(PYLINT) $(SRC_PATH)
 
 .PHONY: typecheck
 typecheck:
-	mypy -p $(SRC_PATH)
-	mypy *.py
+	$(MYPY) -p $(SRC_PATH)
+	$(MYPY) *.py
