@@ -209,5 +209,5 @@ def label_variation(
     a = torch.maximum(m0, m1)
     y_oh = one_hot(y.long(), n_classes).float()
     return torch.trace(y_oh.T @ a @ y_oh) / (
-        y_oh.shape[0] * y_oh.shape[-1]  # * k
-    )
+        y_oh.shape[0] * y_oh.shape[-1]
+    )  # * k

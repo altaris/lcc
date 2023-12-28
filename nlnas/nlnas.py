@@ -438,6 +438,11 @@ def train_and_analyse_all(
         name=model_name,
         max_epochs=512,
         strategy=strategy,
+        early_stopping_kwargs={
+            "monitor": "val/loss",
+            "patience": 50,
+            "mode": "min",
+        },
     )
     if model.global_rank != 0:
         return
