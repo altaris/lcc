@@ -286,6 +286,7 @@ def train_model(
         logger=[tb_logger, csv_logger],
         accelerator=accelerator,
         strategy=strategy,
+        log_every_n_steps=5,
         **kwargs,
     )
 

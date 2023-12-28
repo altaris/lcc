@@ -23,6 +23,11 @@ pip install -r requirements.txt
 pip install -r requirements.dev.txt
 ```
 
+Then install `cuML`
+```sh
+pip install --extra-index-url=https://pypi.nvidia.com cuml-cu12
+```
+
 ### Documentation
 
 Simply run

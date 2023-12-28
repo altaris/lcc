@@ -313,7 +313,7 @@ class ClusterCorrectionTorchvisionClassifier(TorchvisionClassifier):
             )
             losses: list[Tensor] = []
             for z in out.values():
-                _, y_louvain, _, _ = louvain_communities(z)
+                _, y_louvain = louvain_communities(z)
                 # For testing
                 # y_louvain = torch.randint_like(y_true, high=15).cpu().numpy()
                 matching = class_otm_matching(y_true.numpy(), y_louvain)

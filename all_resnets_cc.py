@@ -59,7 +59,7 @@ def main():
         n_classes = len(dl_targets(ds.val_dataloader()))
         image_shape = list(next(iter(ds.val_dataloader()))[0].shape)[1:]
         model = TorchvisionClassifier(
-            model_name="alexnet",
+            model_name="resnet18",
             input_shape=image_shape,
             n_classes=n_classes,
             add_final_fc=True,

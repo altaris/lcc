@@ -4,10 +4,10 @@ from itertools import product
 from math import sqrt
 from typing import Literal
 
-from faiss import IndexFlatL2
 import networkx as nx
 import numpy as np
 import torch
+from cuml.neighbors import NearestNeighbors
 from sklearn.base import TransformerMixin
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from torch import Tensor
@@ -130,7 +130,7 @@ def louvain_communities(
     scaling: Literal["standard", "minmax"]
     | TransformerMixin
     | None = "standard",
-) -> tuple[list[set[int]], np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[list[set[int]], np.ndarray]:
     """
     Returns louvain communities of a set of points.
 
@@ -171,27 +171,21 @@ def louvain_communities(
     if isinstance(z, Tensor):
         z = z.cpu().detach().numpy()
     z = z.reshape(len(z), -1)
-    z_scaled = z if scaling is None else scaling.fit_transform(z)  # type: ignore
+    z = z if scaling is None else scaling.fit_transform(z)  # type: ignore
 
-    index = IndexFlatL2(z_scaled.shape[-1])
-    index.add(z_scaled)  # pylint: disable=no-value-for-parameter
-    # pylint: disable=no-value-for-parameter
-    knn_dist, knn_idx = index.search(z_scaled, min(k, z_scaled.shape[0]))
+    index = NearestNeighbors(n_neighbors=min(k, z.shape[0]))
+    index.fit(z)
+    adj = -1 * index.kneighbors_graph(z)
+    graph = nx.from_scipy_sparse_array(adj, edge_attribute="weight")
+    graph.remove_edges_from(nx.selfloop_edges(graph))
+    communities: list[set[int]] = nx.community.louvain_communities(graph)  # type: ignore
 
-    knn_graph = nx.Graph()
-    knn_graph.add_nodes_from(range(z_scaled.shape[0]))
-    for n, (ds, ms) in enumerate(zip(knn_dist, knn_idx)):
-        for d, m in zip(ds, ms):
-            if d > 0:
-                knn_graph.add_edge(n, m, weight=-d)
-    communities: list[set[int]] = nx.community.louvain_communities(knn_graph)  # type: ignore
-
-    y_louvain = [0] * len(knn_graph)
+    y_louvain = [0] * len(graph)
     for i, c in enumerate(communities):
         for n in c:
             y_louvain[n] = i
 
-    return communities, np.array(y_louvain), knn_dist, knn_idx
+    return communities, np.array(y_louvain)
 
 
 def louvain_loss(
@@ -216,14 +210,14 @@ def louvain_loss(
     where $d$ is the dimension of the latent space.
     """
 
-    def _np(a: Tensor) -> np.ndarray:
-        return a.cpu().detach().numpy()
+    def _npf(a: Tensor) -> np.ndarray:
+        return a.cpu().detach().flatten(1).numpy()
 
     if isinstance(y_true, Tensor):
         y_true = y_true.cpu().detach().numpy()
     assert isinstance(y_true, np.ndarray)  # For typechecking
     if y_louvain is None:
-        _, y_louvain, _, _ = louvain_communities(z)
+        _, y_louvain = louvain_communities(z)
     if matching is None:
         matching = class_otm_matching(y_true, y_louvain)
     else:
@@ -233,13 +227,11 @@ def louvain_loss(
     losses = []
     for a in matching:
         if not (p2[a].any() and p3[a].any()):
-            # No matched Louvain class for a, or no misses
-            continue
+            continue  # No matched Louvain class for a, or no misses
         z_lou, z_miss = z[p2[a]], z[p3[a]]  # both non empty
-        index = IndexFlatL2(z.shape[-1])
-        index.add(_np(z_lou))  # pylint: disable=no-value-for-parameter
-        # pylint: disable=no-value-for-parameter
-        _, idx = index.search(_np(z_miss), min(k, z_lou.shape[0]))
+        index = NearestNeighbors(n_neighbors=min(k, z_lou.shape[0]))
+        index.fit(_npf(z_lou))
+        _, idx = index.kneighbors(_npf(z_miss))
         targets = z_lou[torch.tensor(idx)].mean(dim=1)
         losses.append(torch.norm(z_miss - targets, dim=-1).mean())
     if not losses:
