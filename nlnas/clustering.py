@@ -7,8 +7,8 @@ from typing import Literal
 import networkx as nx
 import numpy as np
 import torch
-from cuml.neighbors import NearestNeighbors
 from sklearn.base import TransformerMixin
+from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from torch import Tensor
 
@@ -138,7 +138,8 @@ def louvain_communities(
         z (np.ndarray | Tensor): A `(N, d)` array. If it has another
             shape, it is flattened to `(len(z), ...)`.
         k (int, optional): The number of neighbors to consider for the Louvain
-            clustering algorithm
+            clustering algorithm, excluding self (i.e. a point is not
+            considered as one if its nearest neighbors)
         scaling (Literal["standard", "minmax"] | TransformerMixin | None,
             optional): Scaling method for `z`. `"standard"` uses
             [`sklearn.preprocessing.StandardScaler`](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.StandardScaler.html),
@@ -172,12 +173,13 @@ def louvain_communities(
         z = z.cpu().detach().numpy()
     z = z.reshape(len(z), -1)
     z = z if scaling is None else scaling.fit_transform(z)  # type: ignore
+    assert isinstance(z, np.ndarray)  # for typechecking
 
-    index = NearestNeighbors(n_neighbors=min(k, z.shape[0]))
+    index = NearestNeighbors(n_neighbors=min(k + 1, z.shape[0]))
     index.fit(z)
     adj = -1 * index.kneighbors_graph(z)
     graph = nx.from_scipy_sparse_array(adj, edge_attribute="weight")
-    graph.remove_edges_from(nx.selfloop_edges(graph))
+    graph.remove_edges_from(nx.selfloop_edges(graph))  # exclude self as NN
     communities: list[set[int]] = nx.community.louvain_communities(graph)  # type: ignore
 
     y_louvain = [0] * len(graph)
@@ -229,9 +231,11 @@ def louvain_loss(
         if not (p2[a].any() and p3[a].any()):
             continue  # No matched Louvain class for a, or no misses
         z_lou, z_miss = z[p2[a]], z[p3[a]]  # both non empty
-        index = NearestNeighbors(n_neighbors=min(k, z_lou.shape[0]))
+        z_lou, z_miss = z_lou.flatten(1), z_miss.flatten(1)
+        index = NearestNeighbors(n_neighbors=min(k + 1, z_lou.shape[0]))
         index.fit(_npf(z_lou))
         _, idx = index.kneighbors(_npf(z_miss))
+        idx = idx[:, 1:]  # exclude self as nearest neighbor
         targets = z_lou[torch.tensor(idx)].mean(dim=1)
         losses.append(torch.norm(z_miss - targets, dim=-1).mean())
     if not losses:
