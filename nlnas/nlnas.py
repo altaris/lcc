@@ -20,7 +20,7 @@ from loguru import logger as logging
 from sklearn.metrics import log_loss
 from torch import Tensor
 from tqdm import tqdm
-from umap import UMAP
+from cuml import UMAP
 
 from .classifier import Classifier
 from .clustering import (
@@ -151,19 +151,12 @@ def analyse_ckpt(
             output_dir / "clustering" / sm / "cluster.json"
         )
         for _ in h.guard():
-            (
-                communities,
-                y_louvain,
-                knn_dist,
-                knn_idx,
-            ) = louvain_communities(z, k=knn, scaling="standard")
+            communities, y_louvain = louvain_communities(z, k=knn)
             matching = class_otm_matching(outputs["y_true"].numpy(), y_louvain)
             h.result = {
                 "k": knn,
                 "communities": communities,
                 "y_louvain": y_louvain,
-                "knn_dist": knn_dist,
-                "knn_idx": knn_idx,
                 "matching": matching,
             }
         y_louvain, matching = h.result["y_louvain"], h.result["matching"]
