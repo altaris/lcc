@@ -20,7 +20,7 @@ from loguru import logger as logging
 from sklearn.metrics import log_loss
 from torch import Tensor
 from tqdm import tqdm
-from cuml import UMAP
+from umap import UMAP
 
 from .classifier import Classifier
 from .clustering import (
