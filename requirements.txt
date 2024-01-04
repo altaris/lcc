@@ -1,3 +1,4 @@
+bokeh
 click
 cupy-cuda12x
 git+https://github.com/altaris/turbo-broccoli.git
