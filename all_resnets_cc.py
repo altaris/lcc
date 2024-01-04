@@ -43,7 +43,7 @@ def main():
         ]
     )
     for d in dataset_names:
-        name = "resnet18_bcc_nn5_b2048_5e-1"
+        name = "resnet18_bcc_nn5_b2048_1e-1"
         output_dir = Path("out") / name / d
         ds = TorchvisionDataset(
             d,
@@ -66,13 +66,13 @@ def main():
             sep_submodules=[
                 # "model.0.layer1",
                 # "model.0.layer2",
-                "model.0.layer3",
+                # "model.0.layer3",
                 "model.0.layer4",
                 "model.0.fc",
                 "model.1",
             ],
             sep_score="louvain",
-            sep_weight=5e-1,
+            sep_weight=1e-1,
         )
         train_and_analyse_all(
             model=model,
