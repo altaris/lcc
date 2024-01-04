@@ -177,7 +177,7 @@ def louvain_communities(
 
     index = NearestNeighbors(n_neighbors=min(k + 1, z.shape[0]))
     index.fit(z)
-    adj = -1 * index.kneighbors_graph(z)
+    adj = index.kneighbors_graph(z)
     graph = nx.from_scipy_sparse_array(adj, edge_attribute="weight")
     graph.remove_edges_from(nx.selfloop_edges(graph))  # exclude self as NN
     communities: list[set[int]] = nx.community.louvain_communities(graph)  # type: ignore
