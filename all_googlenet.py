@@ -37,7 +37,6 @@ def main():
         "model.0.inception5a",
         "model.0.inception5b",
         "model.0.fc",
-        "model.1",
     ]
     dataset_names = [
         # "mnist",
@@ -67,7 +66,6 @@ def main():
         model = TorchvisionClassifier(
             model_name=m,
             n_classes=n_classes,
-            add_final_fc=True,
             input_shape=image_shape,
         )
         model.model[0].register_forward_hook(extract_logits)

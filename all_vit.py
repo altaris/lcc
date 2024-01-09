@@ -35,7 +35,6 @@ def main():
         "model.0.encoder.layers.encoder_layer_10",
         "model.0.encoder.layers.encoder_layer_11",
         "model.0.heads",
-        "model.1",
     ]
     dataset_names = [
         # "mnist",
@@ -66,7 +65,6 @@ def main():
         model = TorchvisionClassifier(
             model_name=m,
             n_classes=n_classes,
-            add_final_fc=True,
             input_shape=image_shape,
         )
         train_and_analyse_all(

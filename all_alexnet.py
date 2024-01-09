@@ -34,8 +34,6 @@ def main():
         "model.0.classifier.4",
         "model.0.classifier.6",
         # "model.0.classifier",
-        "model.1",
-        # "model"
     ]
     dataset_names = [
         # "mnist",
@@ -66,17 +64,8 @@ def main():
         model = TorchvisionClassifier(
             model_name=m,
             n_classes=n_classes,
-            add_final_fc=True,
             input_shape=image_shape,
         )
-        # train_model(
-        #     model,
-        #     ds,
-        #     output_dir / "model",
-        #     name=m,
-        #     max_epochs=512,
-        #     # strategy="ddp_find_unused_parameters_true",
-        # )
         train_and_analyse_all(
             model=model,
             submodule_names=submodule_names,

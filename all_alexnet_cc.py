@@ -24,16 +24,15 @@ def main():
     pl.seed_everything(0)
     submodule_names = [
         "model.0.features.0",
-        "model.0.features.3",
+        # "model.0.features.3",
         "model.0.features.6",
-        "model.0.features.8",
+        # "model.0.features.8",
         "model.0.features.10",
         # "model.0.features",
         "model.0.classifier.1",
         "model.0.classifier.4",
         "model.0.classifier.6",
         # "model.0.classifier",
-        "model.1",
         # "model"
     ]
     dataset_names = [
@@ -41,7 +40,7 @@ def main():
         # "kmnist",
         # "fashionmnist",
         "cifar10",
-        "cifar100",
+        # "cifar100",
     ]
     transform = tvtr.Compose(
         [
@@ -57,16 +56,17 @@ def main():
         ]
     )
     for d in dataset_names:
-        name = "alexnet_bcc_nn5_b2048_5e-1"
+        name = "alexnet_l5_b2048_1e-5"
         output_dir = Path("out") / name / d
         ds = TorchvisionDataset(
             d,
             transform=transform,
             dataloader_kwargs={
                 "drop_last": True,
-                "batch_size": 1024,
+                "batch_size": 2048,
                 "pin_memory": True,
                 "num_workers": 8,
+                "persistent_workers": True,
             },
         )
         ds.setup("fit")
@@ -76,24 +76,14 @@ def main():
             model_name="alexnet",
             input_shape=image_shape,
             n_classes=n_classes,
-            add_final_fc=True,
             sep_submodules=[
-                # "model.0.classifier.1",
-                # "model.0.classifier.4",
+                "model.0.classifier.1",
+                "model.0.classifier.4",
                 "model.0.classifier.6",
-                "model.1",
             ],
             sep_score="louvain",
-            sep_weight=5e-1,
+            sep_weight=1e-5,
         )
-        # train_model(
-        #     model,
-        #     ds,
-        #     output_dir / "model",
-        #     name=m,
-        #     max_epochs=512,
-        #     # strategy="ddp_find_unused_parameters_true",
-        # )
         train_and_analyse_all(
             model=model,
             submodule_names=submodule_names,
@@ -105,10 +95,9 @@ def main():
 
 if __name__ == "__main__":
     setup_logging()
-    main()
-    # try:
-    #     main()
-    # except KeyboardInterrupt:
-    #     pass
-    # except:
-    #     logging.exception(":sad trombone:")
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
+    except:
+        logging.exception(":sad trombone:")

@@ -241,11 +241,13 @@ class TorchvisionClassifier(Classifier):
         """
         super().__init__(n_classes=n_classes, **kwargs)
         self.save_hyperparameters()
-        modules = [get_model(model_name, **(model_config or {}))]
+        model_config = model_config or {}
+        if "num_classes" not in model_config:
+            model_config["num_classes"] = n_classes
+        modules = [get_model(model_name, **model_config)]
         if add_final_fc:
             modules.append(_make_lazy_linear(n_classes))
         self.model = nn.Sequential(*modules)
-
         if input_shape is not None:
             self.example_input_array = torch.zeros([1] + list(input_shape))
             self.model.eval()

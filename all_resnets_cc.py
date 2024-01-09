@@ -27,32 +27,33 @@ def main():
         # "kmnist",
         # "fashionmnist",
         "cifar10",
-        "cifar100",
+        # "cifar100",
     ]
     transform = tvtr.Compose(
         [
-            # tvtr.RandomCrop(32, padding=4),
-            # tvtr.RandomHorizontalFlip(),
+            tvtr.RandomCrop(32, padding=4),
+            tvtr.RandomHorizontalFlip(),
             tvtr.ToTensor(),
-            # tvtr.Normalize(  # Taken from pl_bolts cifar10_normalization
-            #     mean=[x / 255.0 for x in [125.3, 123.0, 113.9]],
-            #     std=[x / 255.0 for x in [63.0, 62.1, 66.7]],
-            # ),
+            tvtr.Normalize(  # Taken from pl_bolts cifar10_normalization
+                mean=[x / 255.0 for x in [125.3, 123.0, 113.9]],
+                std=[x / 255.0 for x in [63.0, 62.1, 66.7]],
+            ),
             tvtr.Resize([64, 64], antialias=True),
             # EnsuresRGB(),
         ]
     )
     for d in dataset_names:
-        name = "resnet18_bcc_nn5_b2048_1e-5_2"
+        name = "resnet18_bcc_nn5_b4096_1e-5"
         output_dir = Path("out") / name / d
         ds = TorchvisionDataset(
             d,
             transform=transform,
             dataloader_kwargs={
                 "drop_last": True,
-                "batch_size": 2048,
+                "batch_size": 4096,
                 "pin_memory": True,
                 "num_workers": 8,
+                "persistent_workers": True,
             },
         )
         ds.setup("fit")
@@ -62,14 +63,12 @@ def main():
             model_name="resnet18",
             input_shape=image_shape,
             n_classes=n_classes,
-            add_final_fc=True,
             sep_submodules=[
                 # "model.0.layer1",
                 # "model.0.layer2",
                 # "model.0.layer3",
                 "model.0.layer4",
                 "model.0.fc",
-                "model.1",
             ],
             sep_score="louvain",
             sep_weight=1e-5,
@@ -82,7 +81,6 @@ def main():
                 "model.0.layer3",
                 "model.0.layer4",
                 "model.0.fc",
-                "model.1",
             ],
             dataset=ds,
             output_dir=output_dir,

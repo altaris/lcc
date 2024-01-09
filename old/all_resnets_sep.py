@@ -37,7 +37,6 @@ def main():
         # "model.0.layer4.1"
         "model.0.layer4",
         "model.0.fc",
-        "model.1",
     ]
     sep_submodules = [
         # "model.0.layer1.0"
@@ -53,7 +52,6 @@ def main():
         # "model.0.layer4.1"
         "model.0.layer4",
         # "model.0.fc",
-        # "model.1",
     ]
     dataset_names = [
         # "mnist",
