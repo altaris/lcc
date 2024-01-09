@@ -392,7 +392,7 @@ def train_and_analyse_all(
     output_dir: str | Path,
     model_name: str | None = None,
     n_samples: int = 5000,
-    strategy: str = "ddp",
+    strategy: str = "auto",
 ):
     """
     Trains a model and performs a separability analysis on ALL model
@@ -431,11 +431,11 @@ def train_and_analyse_all(
         name=model_name,
         max_epochs=512,
         strategy=strategy,
-        early_stopping_kwargs={
-            "monitor": "val/loss",
-            "patience": 50,
-            "mode": "min",
-        },
+        # early_stopping_kwargs={
+        #     "monitor": "val/loss",
+        #     "patience": 20,
+        #     "mode": "min",
+        # },
     )
     if model.global_rank != 0:
         return

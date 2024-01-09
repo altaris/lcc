@@ -225,8 +225,9 @@ def train_model(
             callback. By default, it is
             ```py
             {
-                monitor="val/loss",
-                patience=10,
+                "monitor": "val/loss",
+                "patience": 10,
+                "mode": "min",
             }
             ```
         strategy (Union[str, Strategy]): Strategy to use (duh). Defaults to

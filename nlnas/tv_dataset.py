@@ -21,6 +21,7 @@ DEFAULT_DATALOADER_KWARGS = {
     "batch_size": 256 if torch.cuda.is_available() else 64,
     "pin_memory": True,
     "num_workers": 8,
+    "persistent_workers": True,
 }
 """
 Default parameters for [pytorch
@@ -159,7 +160,7 @@ class TorchvisionDataset(pl.LightningDataModule):
         factory = ALL_DATASETS[self.dataset_name]
         self.dataset = factory(
             root=str(self.download_path),
-            download=True,
+            # download=True,  # Necessary first time but then clutters the logs
             transform=self.transform,
             **kwargs,
         )

@@ -91,7 +91,6 @@ def main():
             model_name=backbone,
             n_classes=n_classes,
             input_shape=image_shape,
-            add_final_fc=True,
             sep_submodules=sep_submodules,
             sep_score=separation_score,
             sep_weight=1,
