@@ -43,7 +43,7 @@ def main():
         ]
     )
     for d in dataset_names:
-        name = "resnet18_bcc_nn5_b2048_1e-1"
+        name = "resnet18_bcc_nn5_b2048_1e-5_2"
         output_dir = Path("out") / name / d
         ds = TorchvisionDataset(
             d,
@@ -52,7 +52,7 @@ def main():
                 "drop_last": True,
                 "batch_size": 2048,
                 "pin_memory": True,
-                "num_workers": 16,
+                "num_workers": 8,
             },
         )
         ds.setup("fit")
@@ -72,7 +72,7 @@ def main():
                 "model.1",
             ],
             sep_score="louvain",
-            sep_weight=1e-1,
+            sep_weight=1e-5,
         )
         train_and_analyse_all(
             model=model,

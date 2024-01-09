@@ -20,7 +20,7 @@ type annotation.
 DEFAULT_DATALOADER_KWARGS = {
     "batch_size": 256 if torch.cuda.is_available() else 64,
     "pin_memory": True,
-    "num_workers": 16,
+    "num_workers": 8,
 }
 """
 Default parameters for [pytorch

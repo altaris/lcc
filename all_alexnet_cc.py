@@ -66,7 +66,7 @@ def main():
                 "drop_last": True,
                 "batch_size": 1024,
                 "pin_memory": True,
-                "num_workers": 16,
+                "num_workers": 8,
             },
         )
         ds.setup("fit")

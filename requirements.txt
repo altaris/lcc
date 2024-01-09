@@ -1,6 +1,5 @@
 bokeh
 click
-cupy-cuda12x
 git+https://github.com/altaris/turbo-broccoli.git
 loguru
 matplotlib
@@ -14,7 +13,6 @@ scikit-learn
 seaborn
 selenium==4.8.2
 tensorboard
-tensorflow
 torch
 torchvision
 umap-learn

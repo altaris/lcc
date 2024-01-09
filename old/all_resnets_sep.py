@@ -83,7 +83,7 @@ def main():
             dataloader_kwargs={
                 "batch_size": 256,
                 "pin_memory": True,
-                "num_workers": 16,
+                "num_workers": 8,
             },
         )
         dataset.setup("fit")
