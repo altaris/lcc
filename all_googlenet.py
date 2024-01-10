@@ -60,13 +60,10 @@ def main():
     for m, d in product(model_names, dataset_names):
         output_dir = Path("out") / m / d
         ds = TorchvisionDataset(d, transform=transform)
-        ds.setup("fit")
-        n_classes = len(dl_targets(ds.val_dataloader()))
-        image_shape = list(next(iter(ds.val_dataloader()))[0].shape)[1:]
         model = TorchvisionClassifier(
             model_name=m,
-            n_classes=n_classes,
-            input_shape=image_shape,
+            n_classes=ds.n_classes,
+            input_shape=ds.image_shape,
         )
         model.model[0].register_forward_hook(extract_logits)
         train_and_analyse_all(

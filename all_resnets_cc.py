@@ -56,13 +56,10 @@ def main():
                 "persistent_workers": True,
             },
         )
-        ds.setup("fit")
-        n_classes = len(dl_targets(ds.val_dataloader()))
-        image_shape = list(next(iter(ds.val_dataloader()))[0].shape)[1:]
         model = TorchvisionClassifier(
             model_name="resnet18",
-            input_shape=image_shape,
-            n_classes=n_classes,
+            input_shape=ds.image_shape,
+            n_classes=ds.n_classes,
             sep_submodules=[
                 # "model.0.layer1",
                 # "model.0.layer2",

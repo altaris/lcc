@@ -65,17 +65,15 @@ def main():
                 "drop_last": True,
                 "batch_size": 2048,
                 "pin_memory": True,
-                "num_workers": 8,
+                "num_workers": 4,
                 "persistent_workers": True,
             },
         )
         ds.setup("fit")
-        n_classes = len(dl_targets(ds.val_dataloader()))
-        image_shape = list(next(iter(ds.val_dataloader()))[0].shape)[1:]
         model = TorchvisionClassifier(
             model_name="alexnet",
-            input_shape=image_shape,
-            n_classes=n_classes,
+            input_shape=ds.image_shape,
+            n_classes=ds.n_classes,
             sep_submodules=[
                 "model.0.classifier.1",
                 "model.0.classifier.4",

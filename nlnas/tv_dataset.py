@@ -1,5 +1,6 @@
 """A torchvision dataset wrapped inside a `LightningDataModule`"""
 
+import functools
 from pathlib import Path
 from typing import Any, Callable
 
@@ -8,7 +9,8 @@ import torch
 import torchvision
 from torch.utils.data import DataLoader, Dataset, random_split
 
-from nlnas.transforms import EnsuresRGB
+from .transforms import EnsuresRGB
+from .utils import dl_targets
 
 ImageTransform_t = Callable[[torch.Tensor], torch.Tensor]
 """
@@ -137,6 +139,40 @@ class TorchvisionDataset(pl.LightningDataModule):
         self.dataloader_kwargs = dataloader_kwargs or DEFAULT_DATALOADER_KWARGS
         self.train_val_split = train_val_split
 
+    @functools.cached_property
+    def image_shape(self) -> list[int]:
+        """
+        Returns the shape of the images in the dataset. This sets up the
+        current datamodule in `fit` mode and looks at the first image in the
+        validation dataset.
+        """
+        self.setup("fit")
+        return list(next(iter(self.val_dataloader()))[0].shape)[1:]
+
+    @functools.cached_property
+    def n_classes(self) -> int:
+        """
+        Returns the number of classes in the dataset. This sets up the current
+        datamodule in `fit` mode and iterates over the whole validation
+        dataset.
+        """
+        self.setup("fit")
+        return len(dl_targets(self.val_dataloader()))
+
+    def predict_dataloader(self) -> DataLoader:
+        """
+        Returns the prediction dataloader. The prediction dataset must have
+        been loaded before calling this method using
+        `TorchvisionDataset.setup('predict')`
+        """
+        if self.dataset is None:
+            raise RuntimeError(
+                "The dataset has not been loaded. Call "
+                "`TorchvisionDataset.setup('predict')` before using "
+                "this datamodule."
+            )
+        return DataLoader(dataset=self.dataset, **self.dataloader_kwargs)
+
     def prepare_data(self) -> None:
         """
         Overrides
@@ -170,6 +206,19 @@ class TorchvisionDataset(pl.LightningDataModule):
                 self.dataset, [self.train_val_split, 1 - self.train_val_split]
             )
 
+    def test_dataloader(self) -> DataLoader:
+        """
+        Returns the test dataloader. The test dataset must have been loaded
+        before calling this method using `TorchvisionDataset.setup('test')`
+        """
+        if self.dataset is None:
+            raise RuntimeError(
+                "The dataset has not been loaded. Call "
+                "`TorchvisionDataset.setup('test')` before using "
+                "this datamodule."
+            )
+        return DataLoader(dataset=self.dataset, **self.dataloader_kwargs)
+
     def train_dataloader(self) -> DataLoader:
         """
         Returns the training dataloader. The training dataset must have been
@@ -197,30 +246,3 @@ class TorchvisionDataset(pl.LightningDataModule):
                 "this datamodule."
             )
         return DataLoader(dataset=self.val_dataset, **self.dataloader_kwargs)
-
-    def test_dataloader(self) -> DataLoader:
-        """
-        Returns the test dataloader. The test dataset must have been loaded
-        before calling this method using `TorchvisionDataset.setup('test')`
-        """
-        if self.dataset is None:
-            raise RuntimeError(
-                "The dataset has not been loaded. Call "
-                "`TorchvisionDataset.setup('test')` before using "
-                "this datamodule."
-            )
-        return DataLoader(dataset=self.dataset, **self.dataloader_kwargs)
-
-    def predict_dataloader(self) -> DataLoader:
-        """
-        Returns the prediction dataloader. The prediction dataset must have
-        been loaded before calling this method using
-        `TorchvisionDataset.setup('predict')`
-        """
-        if self.dataset is None:
-            raise RuntimeError(
-                "The dataset has not been loaded. Call "
-                "`TorchvisionDataset.setup('predict')` before using "
-                "this datamodule."
-            )
-        return DataLoader(dataset=self.dataset, **self.dataloader_kwargs)
