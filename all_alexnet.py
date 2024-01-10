@@ -1,9 +1,6 @@
-from itertools import product
 from pathlib import Path
 
 import pytorch_lightning as pl
-import torch
-import torchvision
 import torchvision.transforms as tvtr
 from loguru import logger as logging
 
@@ -13,17 +10,11 @@ from nlnas import (
     train_and_analyse_all,
 )
 from nlnas.logging import setup_logging
-from nlnas.training import train_model, train_model_guarded
-from nlnas.transforms import EnsuresRGB
-from nlnas.utils import dl_targets
 
 
 def main():
     pl.seed_everything(0)
-    model_names = [
-        "alexnet",
-    ]
-    submodule_names = [
+    analysis_submodules = [
         "model.0.features.0",
         "model.0.features.3",
         "model.0.features.6",
@@ -35,13 +26,7 @@ def main():
         "model.0.classifier.6",
         # "model.0.classifier",
     ]
-    dataset_names = [
-        # "mnist",
-        # "kmnist",
-        # "fashionmnist",
-        "cifar10",
-        # "cifar100",
-    ]
+    output_dir = Path("out") / "alexnet" / "cifar10"
     transform = tvtr.Compose(
         [
             tvtr.RandomCrop(32, padding=4),
@@ -52,24 +37,21 @@ def main():
                 std=[x / 255.0 for x in [63.0, 62.1, 66.7]],
             ),
             tvtr.Resize([64, 64], antialias=True),
-            # EnsuresRGB(),
         ]
     )
-    for m, d in product(model_names, dataset_names):
-        output_dir = Path("out") / m / d
-        ds = TorchvisionDataset(d, transform=transform)
-        model = TorchvisionClassifier(
-            model_name=m,
-            n_classes=ds.n_classes,
-            input_shape=ds.image_shape,
-        )
-        train_and_analyse_all(
-            model=model,
-            submodule_names=submodule_names,
-            dataset=ds,
-            output_dir=output_dir,
-            model_name=m,
-        )
+    ds = TorchvisionDataset("cifar10", transform=transform)
+    model = TorchvisionClassifier(
+        model_name="alexnet",
+        n_classes=ds.n_classes,
+        input_shape=ds.image_shape,
+    )
+    train_and_analyse_all(
+        model=model,
+        submodule_names=analysis_submodules,
+        dataset=ds,
+        output_dir=output_dir,
+        model_name="alexnet",
+    )
 
 
 if __name__ == "__main__":
