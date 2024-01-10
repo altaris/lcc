@@ -2,7 +2,7 @@ SRC_PATH 		= nlnas
 VENV_PATH		= ./venv
 DOCS_PATH 		= docs
 
-PYTHON			= python3.11
+PYTHON			= python3.10
 PDOC			= $(PYTHON) -m pdoc -d google --math
 BLACK			= $(PYTHON) -m black --line-length 79 --target-version py310
 MYPY			= $(PYTHON) -m mypy

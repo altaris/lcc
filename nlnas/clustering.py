@@ -8,9 +8,15 @@ import networkx as nx
 import numpy as np
 import torch
 from sklearn.base import TransformerMixin
-from sklearn.neighbors import NearestNeighbors
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from torch import Tensor
+
+try:
+    from cuml.neighbors import NearestNeighbors
+    from cuml.preprocessing import MinMaxScaler, StandardScaler
+except ModuleNotFoundError:
+    # pylint: disable=ungrouped-imports
+    from sklearn.neighbors import NearestNeighbors
+    from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 
 def _otm_matching(
@@ -142,11 +148,11 @@ def louvain_communities(
             considered as one if its nearest neighbors)
         scaling (Literal["standard", "minmax"] | TransformerMixin | None,
             optional): Scaling method for `z`. `"standard"` uses
-            [`sklearn.preprocessing.StandardScaler`](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.StandardScaler.html),
-            "minmax" uses
-            [sklearn.preprocessing.MinMaxScaler](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.MinMaxScaler.html).
-            It is also possible to pass an actual class that has a
-            `fit_transform` method with a single mandatory argument.
+            [`sklearn.preprocessing.StandardScaler`](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.StandardScaler.html)
+            or CUML equivalent, "minmax" uses
+            [sklearn.preprocessing.MinMaxScaler](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.MinMaxScaler.html)
+            or CUML equivalent. It is also possible to pass an actual class
+            that has a `fit_transform` method with a single mandatory argument.
 
     Returns:
         Ok so this returns a lot of things:
@@ -180,13 +186,14 @@ def louvain_communities(
     adj = index.kneighbors_graph(z)
     graph = nx.from_scipy_sparse_array(adj, edge_attribute="weight")
     graph.remove_edges_from(nx.selfloop_edges(graph))  # exclude self as NN
-    communities: list[set[int]] = nx.community.louvain_communities(graph)  # type: ignore
-
+    communities: list[set[int]] = nx.community.louvain_communities(  # type: ignore
+        graph,
+        **({"backend": "cugraph"} if torch.cuda.is_available() else {}),  # type: ignore
+    )
     y_louvain = [0] * len(graph)
     for i, c in enumerate(communities):
         for n in c:
             y_louvain[n] = i
-
     return communities, np.array(y_louvain)
 
 

@@ -20,7 +20,11 @@ from loguru import logger as logging
 from sklearn.metrics import log_loss
 from torch import Tensor
 from tqdm import tqdm
-from umap import UMAP
+
+try:
+    from cuml import UMAP
+except ModuleNotFoundError:
+    from umap import UMAP
 
 from .classifier import Classifier
 from .clustering import (
@@ -118,7 +122,7 @@ def analyse_ckpt(
         for sm, z in progress:
             progress.set_postfix({"submodule": sm})
             t = UMAP(n_components=2, metric="euclidean")
-            e = t.fit_transform(z.flatten(1))
+            e = t.fit_transform(z.flatten(1).numpy())
             e = (e - e.min(axis=0)) / (e.max(axis=0) - e.min(axis=0))
             h.result[sm] = e
     umap_embeddings: dict[str, np.ndarray] = h.result

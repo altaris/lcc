@@ -8,7 +8,7 @@
 
 ### Dependencies
 
-- `python3.11` or newer;
+- `python3.10` or newer;
 - `requirements.txt` for runtime dependencies;
 - `requirements.dev.txt` for development dependencies.
 - `make` (optional);
@@ -16,11 +16,12 @@
 Simply run
 
 ```sh
-virtualenv venv -p python3.11
+virtualenv venv -p python3.10
 . ./venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-pip install -r requirements.dev.txt
+python3.10 -m pip install --upgrade pip
+python3.10 -m pip install -r requirements.txt
+python3.10 -m pip install -r requirements.dev.txt
+python3.10 -m pip install --no-cache-dir --extra-index-url https://pypi.nvidia.com -r requirements.cuda12.txt
 ```
 
 ### Documentation
