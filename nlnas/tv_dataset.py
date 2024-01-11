@@ -21,13 +21,15 @@ type annotation.
 
 DEFAULT_DATALOADER_KWARGS = {
     "batch_size": 256 if torch.cuda.is_available() else 64,
-    "pin_memory": True,
     "num_workers": 8,
     "persistent_workers": True,
+    "pin_memory": True,
+    "shuffle": True,
 }
 """
 Default parameters for [pytorch
 dataloaders](https://pytorch.org/docs/stable/data.html?highlight=dataloader#torch.utils.data.DataLoader).
+Note that for validation, test, and prediction dataloaders, shuffling is always disabled.
 """
 
 DEFAULT_DOWNLOAD_PATH: Path = Path.home() / "torchvision" / "datasets"
@@ -171,7 +173,9 @@ class TorchvisionDataset(pl.LightningDataModule):
                 "`TorchvisionDataset.setup('predict')` before using "
                 "this datamodule."
             )
-        return DataLoader(dataset=self.dataset, **self.dataloader_kwargs)
+        kw = self.dataloader_kwargs.copy()
+        kw["shuffle"] = False
+        return DataLoader(dataset=self.dataset, **kw)
 
     def prepare_data(self) -> None:
         """
@@ -217,7 +221,9 @@ class TorchvisionDataset(pl.LightningDataModule):
                 "`TorchvisionDataset.setup('test')` before using "
                 "this datamodule."
             )
-        return DataLoader(dataset=self.dataset, **self.dataloader_kwargs)
+        kw = self.dataloader_kwargs.copy()
+        kw["shuffle"] = False
+        return DataLoader(dataset=self.dataset, **kw)
 
     def train_dataloader(self) -> DataLoader:
         """
@@ -245,4 +251,6 @@ class TorchvisionDataset(pl.LightningDataModule):
                 "`TorchvisionDataset.setup('fit')` before using "
                 "this datamodule."
             )
-        return DataLoader(dataset=self.val_dataset, **self.dataloader_kwargs)
+        kw = self.dataloader_kwargs.copy()
+        kw["shuffle"] = False
+        return DataLoader(dataset=self.val_dataset, **kw)
