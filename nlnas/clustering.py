@@ -231,19 +231,20 @@ def louvain_loss(
         matching = class_otm_matching(y_true, y_louvain)
     else:
         matching = {int(a): bs for a, bs in matching.items()}
-    _, p2, p3, _ = otm_matching_predicates(y_true, y_louvain, matching)
+    p1, p2, p3, _ = otm_matching_predicates(y_true, y_louvain, matching)
+    p12 = p1 & p2
 
     losses = []
     for a in matching:
-        if not (p2[a].any() and p3[a].any()):
+        if not (p12[a].any() and p3[a].any()):
             continue  # No matched Louvain class for a, or no misses
-        z_lou, z_miss = z[p2[a]], z[p3[a]]  # both non empty
-        z_lou, z_miss = z_lou.flatten(1), z_miss.flatten(1)
-        index = NearestNeighbors(n_neighbors=min(k + 1, z_lou.shape[0]))
-        index.fit(_npf(z_lou))
+        z_match, z_miss = z[p12[a]], z[p3[a]]  # both non empty
+        z_match, z_miss = z_match.flatten(1), z_miss.flatten(1)
+        index = NearestNeighbors(n_neighbors=min(k + 1, z_match.shape[0]))
+        index.fit(_npf(z_match))
         _, idx = index.kneighbors(_npf(z_miss))
         idx = idx[:, 1:]  # exclude self as nearest neighbor
-        targets = z_lou[torch.tensor(idx)].mean(dim=1)
+        targets = z_match[torch.tensor(idx)].mean(dim=1)
         losses.append(torch.norm(z_miss - targets, dim=-1).mean())
     if not losses:
         return torch.tensor(0.0, requires_grad=True).to(z.device)
