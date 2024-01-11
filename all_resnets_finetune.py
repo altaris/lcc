@@ -46,7 +46,7 @@ def main():
     )
     for we, bs in product(weight_exponents, batch_sizes):
         try:
-            exp_name = f"resnet_finetune_l5_b{bs}_1e-{we}"
+            exp_name = f"resnet18_finetune_l5_b{bs}_1e-{we}"
             output_dir = Path("out") / exp_name / "cifar10"
             dataloader_kwargs = DEFAULT_DATALOADER_KWARGS.copy()
             dataloader_kwargs["batch_size"] = 2048
