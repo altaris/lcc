@@ -1,5 +1,6 @@
 """Main module"""
 
+import sys
 import warnings
 from glob import glob
 from pathlib import Path
@@ -442,7 +443,7 @@ def train_and_analyse_all(
         # },
     )
     if model.global_rank != 0:
-        return
+        sys.exit(0)
     version, best_epoch, _ = checkpoint_ves(best_ckpt)
     p = (
         output_dir
