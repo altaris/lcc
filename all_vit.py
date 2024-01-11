@@ -1,27 +1,19 @@
-from itertools import product
 from pathlib import Path
 
 import pytorch_lightning as pl
-import torchvision
 import torchvision.transforms as tvtr
 from loguru import logger as logging
 
-from nlnas import (
-    TorchvisionClassifier,
-    TorchvisionDataset,
-    train_and_analyse_all,
-)
+from nlnas.classifier import TorchvisionClassifier
 from nlnas.logging import setup_logging
+from nlnas.nlnas import train_and_analyse_all
 from nlnas.transforms import EnsuresRGB
-from nlnas.utils import dl_targets
+from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
 
 
 def main():
     pl.seed_everything(0)
-    model_names = [
-        "vit_b_16",
-    ]
-    submodule_names = [
+    analysis_submodules = [
         "model.0.encoder.layers.encoder_layer_0",
         "model.0.encoder.layers.encoder_layer_1",
         "model.0.encoder.layers.encoder_layer_2",
@@ -36,13 +28,6 @@ def main():
         "model.0.encoder.layers.encoder_layer_11",
         "model.0.heads",
     ]
-    dataset_names = [
-        # "mnist",
-        # "kmnist",
-        # "fashionmnist",
-        "cifar10",
-        # "cifar100",
-    ]
     transform = tvtr.Compose(
         [
             tvtr.RandomCrop(32, padding=4),
@@ -56,22 +41,27 @@ def main():
             # EnsuresRGB(),
         ]
     )
-    for m, d in product(model_names, dataset_names):
-        output_dir = Path("out") / m / d
-        ds = TorchvisionDataset(d, transform=transform)
-        model = TorchvisionClassifier(
-            model_name=m,
-            n_classes=ds.n_classes,
-            input_shape=ds.image_shape,
-        )
-        train_and_analyse_all(
-            model=model,
-            submodule_names=submodule_names,
-            dataset=ds,
-            output_dir=output_dir,
-            model_name=m,
-            n_samples=500,
-        )
+    output_dir = Path("out") / "vit_b_16" / "cifar10"
+    dataloader_kwargs = DEFAULT_DATALOADER_KWARGS.copy()
+    dataloader_kwargs["batch_size"] = 2048
+    datamodule = TorchvisionDataset(
+        "cifar10",
+        transform=transform,
+        dataloader_kwargs=dataloader_kwargs,
+    )
+    model = TorchvisionClassifier(
+        model_name="vit_b_16",
+        n_classes=datamodule.n_classes,
+        input_shape=datamodule.image_shape,
+    )
+    train_and_analyse_all(
+        model=model,
+        submodule_names=analysis_submodules,
+        dataset=datamodule,
+        output_dir=output_dir,
+        model_name="vit_b_16",
+        n_samples=1000,
+    )
 
 
 if __name__ == "__main__":

@@ -5,14 +5,11 @@ import pytorch_lightning as pl
 import torchvision.transforms as tvtr
 from loguru import logger as logging
 
-from nlnas import (
-    TorchvisionClassifier,
-    TorchvisionDataset,
-    train_and_analyse_all,
-)
+from nlnas.classifier import TorchvisionClassifier
 from nlnas.logging import setup_logging
-from nlnas.training import train_model, train_model_guarded
-from nlnas.utils import dl_targets
+from nlnas.nlnas import train_and_analyse_all
+from nlnas.training import best_checkpoint_path, train_model_guarded
+from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
 
 
 def main():
@@ -24,7 +21,7 @@ def main():
         # "resnet101",
         # "resnet152",
     ]
-    submodule_names = [
+    analysis_submodules = [
         # "model.0.maxpool",
         "model.0.layer1",
         "model.0.layer2",
@@ -53,15 +50,21 @@ def main():
     )
     for m, d in product(model_names, dataset_names):
         output_dir = Path("out") / m / d
-        ds = TorchvisionDataset(d, transform=transform)
+        dataloader_kwargs = DEFAULT_DATALOADER_KWARGS.copy()
+        dataloader_kwargs["batch_size"] = 2048
+        datamodule = TorchvisionDataset(
+            "cifar10",
+            transform=transform,
+            dataloader_kwargs=dataloader_kwargs,
+        )
         model = TorchvisionClassifier(
             model_name=m,
-            n_classes=ds.n_classes,
-            input_shape=ds.image_shape,
+            n_classes=datamodule.n_classes,
+            input_shape=datamodule.image_shape,
         )
         # train_model(
         #     model,
-        #     ds,
+        #     datamodule,
         #     output_dir / "model",
         #     name=m,
         #     max_epochs=512,
@@ -69,8 +72,8 @@ def main():
         # )
         train_and_analyse_all(
             model=model,
-            submodule_names=submodule_names,
-            dataset=ds,
+            submodule_names=analysis_submodules,
+            dataset=datamodule,
             output_dir=output_dir,
             model_name=m,
         )

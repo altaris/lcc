@@ -2,32 +2,38 @@ from itertools import product
 from pathlib import Path
 
 import pytorch_lightning as pl
-import torch
-import torchvision
 import torchvision.transforms as tvtr
 from loguru import logger as logging
 
-from nlnas import (
-    TorchvisionClassifier,
-    TorchvisionDataset,
-    train_and_analyse_all,
-    DEFAULT_DATALOADER_KWARGS,
-)
-from nlnas.classifier import ClusterCorrectionTorchvisionClassifier
+
+from nlnas.classifier import TorchvisionClassifier
 from nlnas.logging import setup_logging
-from nlnas.training import train_model, train_model_guarded
+from nlnas.nlnas import train_and_analyse_all
+from nlnas.training import (
+    best_checkpoint_path,
+    train_model,
+    train_model_guarded,
+)
 from nlnas.transforms import EnsuresRGB
+from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
 from nlnas.utils import dl_targets
 
 
 def main():
     pl.seed_everything(0)
-    dataset_names = [
-        # "mnist",
-        # "kmnist",
-        # "fashionmnist",
-        "cifar10",
-        # "cifar100",
+    analysis_submodules = [
+        "model.0.layer1",
+        "model.0.layer2",
+        "model.0.layer3",
+        "model.0.layer4",
+        "model.0.fc",
+    ]
+    sep_submodules = [
+        # "model.0.layer1",
+        # "model.0.layer2",
+        # "model.0.layer3",
+        "model.0.layer4",
+        "model.0.fc",
     ]
     transform = tvtr.Compose(
         [
@@ -42,47 +48,45 @@ def main():
             # EnsuresRGB(),
         ]
     )
-    for d in dataset_names:
-        name = "resnet18_bcc_nn5_b4096_1e-5"
-        output_dir = Path("out") / name / d
-        ds = TorchvisionDataset(
-            d,
-            transform=transform,
-            dataloader_kwargs={
-                "drop_last": True,
-                "batch_size": 4096,
-                "pin_memory": True,
-                "num_workers": 8,
-                "persistent_workers": True,
-            },
-        )
-        model = TorchvisionClassifier(
-            model_name="resnet18",
-            input_shape=ds.image_shape,
-            n_classes=ds.n_classes,
-            sep_submodules=[
-                # "model.0.layer1",
-                # "model.0.layer2",
-                # "model.0.layer3",
-                "model.0.layer4",
-                "model.0.fc",
-            ],
-            sep_score="louvain",
-            sep_weight=1e-5,
-        )
-        train_and_analyse_all(
-            model=model,
-            submodule_names=[
-                "model.0.layer1",
-                "model.0.layer2",
-                "model.0.layer3",
-                "model.0.layer4",
-                "model.0.fc",
-            ],
-            dataset=ds,
-            output_dir=output_dir,
-            model_name=name,
-        )
+    weight_exponents = [1, 2, 3, 4, 5]
+    batch_sizes = [2048]
+    for we, bs in product(weight_exponents, batch_sizes):
+        try:
+            exp_name = f"resnet18_l5_b{bs}_1e-{we}"
+            output_dir = Path("out") / exp_name / "cifar10"
+            dataloader_kwargs = DEFAULT_DATALOADER_KWARGS.copy()
+            dataloader_kwargs["batch_size"] = 2048
+            datamodule = TorchvisionDataset(
+                "cifar10",
+                transform=transform,
+                dataloader_kwargs=dataloader_kwargs,
+            )
+            model = TorchvisionClassifier(
+                model_name="resnet18",
+                input_shape=datamodule.image_shape,
+                n_classes=datamodule.n_classes,
+                sep_submodules=sep_submodules,
+                sep_score="louvain",
+                sep_weight=10 ** (-we),
+            )
+            train_model_guarded(
+                model,
+                datamodule,
+                output_dir / "model",
+                name=exp_name,
+                max_epochs=512,
+            )
+            # train_and_analyse_all(
+            #     model=model,
+            #     submodule_names=analysis_submodules,
+            #     dataset=datamodule,
+            #     output_dir=output_dir,
+            #     model_name=name,
+            # )
+        except KeyboardInterrupt:
+            break
+        except:
+            logging.exception(":sad trombone:")
 
 
 if __name__ == "__main__":
