@@ -7,7 +7,7 @@ from loguru import logger as logging
 from nlnas.classifier import TorchvisionClassifier
 from nlnas.logging import setup_logging
 from nlnas.nlnas import train_and_analyse_all
-from nlnas.transforms import EnsuresRGB
+from nlnas.transforms import cifar10_normalization
 from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
 
 
@@ -33,10 +33,7 @@ def main():
             tvtr.RandomCrop(32, padding=4),
             tvtr.RandomHorizontalFlip(),
             tvtr.ToTensor(),
-            tvtr.Normalize(  # Taken from pl_bolts cifar10_normalization
-                mean=[x / 255.0 for x in [125.3, 123.0, 113.9]],
-                std=[x / 255.0 for x in [63.0, 62.1, 66.7]],
-            ),
+            cifar10_normalization(),
             tvtr.Resize([224, 224], antialias=True),
             # EnsuresRGB(),
         ]

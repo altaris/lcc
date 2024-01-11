@@ -7,16 +7,11 @@ from typing import Any, Callable
 import pytorch_lightning as pl
 import torch
 import torchvision
+
 from torch.utils.data import DataLoader, Dataset, random_split
 
 from .transforms import EnsuresRGB
 from .utils import dl_targets
-
-ImageTransform_t = Callable[[torch.Tensor], torch.Tensor]
-"""
-Convenience alias representing the type of an image transform. This is just for
-type annotation.
-"""
 
 
 DEFAULT_DATALOADER_KWARGS = {

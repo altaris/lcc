@@ -9,6 +9,7 @@ from nlnas.classifier import TorchvisionClassifier
 from nlnas.logging import setup_logging
 from nlnas.nlnas import train_and_analyse_all
 from nlnas.training import best_checkpoint_path, train_model_guarded
+from nlnas.transforms import cifar10_normalization
 from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
 
 
@@ -23,7 +24,7 @@ def main():
         "model.0.fc",
     ]
     sep_submodules = [
-        "model.0.layer3",
+        # "model.0.layer3",
         "model.0.layer4",
         "model.0.fc",
     ]
@@ -32,16 +33,13 @@ def main():
             tvtr.RandomCrop(32, padding=4),
             tvtr.RandomHorizontalFlip(),
             tvtr.ToTensor(),
-            tvtr.Normalize(  # Taken from pl_bolts cifar10_normalization
-                mean=[x / 255.0 for x in [125.3, 123.0, 113.9]],
-                std=[x / 255.0 for x in [63.0, 62.1, 66.7]],
-            ),
+            cifar10_normalization(),
             tvtr.Resize([64, 64], antialias=True),
             # EnsuresRGB(),
         ]
     )
-    weight_exponents = [1, 2, 3, 4, 5]
-    batch_sizes = [1024, 2048, 4096]
+    weight_exponents = [0, 1, 2, 3, 5, 10]
+    batch_sizes = [2048]
     bcp, _ = best_checkpoint_path(
         "out/resnet18/cifar10/model/tb_logs/resnet18/version_0/checkpoints/",
         "out/resnet18/cifar10/model/csv_logs/resnet18/version_0/metrics.csv",
