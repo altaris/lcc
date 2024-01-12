@@ -36,7 +36,7 @@ def main():
         "cifar10",
         "cifar100",
     ]
-    sep_submodules = [
+    cor_submodules = [
         "model.0.classifier.1",
         "model.0.classifier.4",
         "model.0.classifier.6",
@@ -51,7 +51,7 @@ def main():
             # EnsuresRGB(),
         ]
     )
-    weight_exponents = [0, 1, 2, 3, 5, 10]
+    weight_exponents = [3, 5, 10, 11, 12, 15]
     batch_sizes = [2048]
     for m, d, we, bs in product(
         model_names, dataset_names, weight_exponents, batch_sizes
@@ -73,6 +73,8 @@ def main():
             model = TorchvisionClassifier.load_from_checkpoint(str(bcp))
             model = model.to(best_device())
             model.cor_type = "louvain"
+            model.cor_weight = 10 ** (-we)
+            model.cor_submodules = cor_submodules
             # train_model_guarded(
             #     model,
             #     datamodule,

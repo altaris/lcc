@@ -253,7 +253,7 @@ def train_model(
 
     # https://stackoverflow.com/questions/48250053/pytorchs-dataloader-too-many-open-files-error-when-no-files-should-be-open
     # https://github.com/pytorch/pytorch/issues/11201
-    torch.multiprocessing.set_sharing_strategy("file_system")
+    # torch.multiprocessing.set_sharing_strategy("file_system")
 
     additional_callbacks = additional_callbacks or []
     early_stopping_kwargs = early_stopping_kwargs or {

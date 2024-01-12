@@ -22,7 +22,7 @@ def main():
         "model.0.layer4",
         "model.0.fc",
     ]
-    sep_submodules = [
+    cor_submodules = [
         # "model.0.layer1",
         # "model.0.layer2",
         # "model.0.layer3",
@@ -56,9 +56,9 @@ def main():
                 model_name="resnet18",
                 input_shape=datamodule.image_shape,
                 n_classes=datamodule.n_classes,
-                sep_submodules=sep_submodules,
-                sep_score="louvain",
-                sep_weight=10 ** (-we),
+                cor_submodules=cor_submodules,
+                cor_type="louvain",
+                cor_weight=10 ** (-we),
             )
             model = model.to(best_device())
             train_model_guarded(

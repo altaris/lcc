@@ -37,38 +37,40 @@ class Classifier(pl.LightningModule):
     """Classifier model with some extra features"""
 
     n_classes: int
-    sep_submodules: list[str]
-    sep_score: Literal["gdv", "lv", "ggd", "louvain"] | None
-    sep_weight: float
+    cor_submodules: list[str]
+    cor_type: Literal["gdv", "lv", "ggd", "louvain"] | None
+    cor_weight: float
 
     def __init__(
         self,
         n_classes: int,
-        sep_submodules: list[str] | None = None,
-        sep_score: Literal["gdv", "lv", "ggd", "louvain"] | None = None,
-        sep_weight: float = 1e-1,
+        cor_submodules: list[str] | None = None,
+        cor_type: Literal["gdv", "lv", "ggd", "louvain"] | None = None,
+        cor_weight: float = 1e-1,
         **kwargs: Any,
     ) -> None:
         """
         Args:
             n_classes (int):
-            sep_submodules (list[str] | None, optional): Submodules to consider
-                for the latent separation score
-            sep_score (Literal["gdv", "lv", "gdd"], optional): Type of
-                separation score, either
+            cor_submodules (list[str] | None, optional): Submodules to consider
+                for the latent correction loss
+            cor_type (Literal["gdv", "lv", "gdd"], optional): Type of
+                correction, either
                 - `gdv` for the Generalized Discrimination Value (see
                   `nlnas.separability.gdv`),
                 - `lv` for Label Variation (see `nlnas.separability.lv`),
-                - or `ggd` for Geodesic Grassmanian Distance
-                  (see `nlnas.separability.ggd`).
-            sep_weight (float, optional): Weight of the separation score.
-                Ignored if `sep_submodules` is left to `None`
+                - `ggd` for Geodesic Grassmanian Distance
+                  (see `nlnas.separability.ggd`),
+                - `louvain` for the Louvain/Leiden clustering loss (see
+                  `nlnas.clustering.louvain_loss`).
+            cor_weight (float, optional): Weight of the correction loss.
+                Ignored if `cor_submodules` is left to `None` or is `[]`
         """
         super().__init__(**kwargs)
         self.save_hyperparameters()
         self.n_classes = n_classes
-        self.sep_submodules = sep_submodules or []
-        self.sep_score, self.sep_weight = sep_score, sep_weight
+        self.cor_submodules = cor_submodules or []
+        self.cor_type, self.cor_weight = cor_type, cor_weight
 
     def _evaluate(self, batch, stage: str | None = None) -> Tensor:
         """Self-explanatory"""
@@ -77,45 +79,45 @@ class Classifier(pl.LightningModule):
 
         out: dict[str, Tensor] = {}
         logits = self.forward_intermediate(
-            x, self.sep_submodules, out, keep_gradients=True
+            x, self.cor_submodules, out, keep_gradients=True
         )
         loss_ce = nn.functional.cross_entropy(logits, y.long())
 
-        compute_sep_loss = (
-            stage == "train" and self.sep_score and self.sep_submodules
+        compute_cor_loss = (
+            stage == "train" and self.cor_type and self.cor_submodules
         )
-        if compute_sep_loss:
-            if self.sep_score == "gdv":
+        if compute_cor_loss:
+            if self.cor_type == "gdv":
                 loss_sep = torch.stack(
                     [gdv(v, y) for v in out.values()]
                 ).mean()
-            elif self.sep_score == "lv":
+            elif self.cor_type == "lv":
                 loss_sep = torch.stack(
                     [
                         label_variation(v, y, k=10, n_classes=self.n_classes)
                         for v in out.values()
                     ]
                 ).mean()
-            elif self.sep_score == "ggd":
+            elif self.cor_type == "ggd":
                 loss_sep = -torch.stack(
                     [mean_ggd(v.flatten(1), y) for v in out.values()]
                 ).mean()
-            elif self.sep_score == "louvain":
+            elif self.cor_type == "louvain":
                 loss_sep = torch.stack(
                     [louvain_loss(v, y) for v in out.values()]
                 ).mean()
             else:
                 raise RuntimeError(
-                    f"Unknown separation score type '{self.sep_score}'."
+                    f"Unknown correction type '{self.cor_type}'."
                 )
         else:
             loss_sep = torch.tensor(0.0)
 
         if stage:
             self.log(f"{stage}/loss", loss_ce, prog_bar=True, sync_dist=True)
-        if compute_sep_loss:
+        if compute_cor_loss:
             self.log(
-                f"{stage}/{self.sep_score}",
+                f"{stage}/{self.cor_type}",
                 loss_sep,
                 prog_bar=True,
                 sync_dist=True,
@@ -138,7 +140,7 @@ class Classifier(pl.LightningModule):
                 top_k=1,
             )
             self.log(f"{stage}/acc", acc, prog_bar=True, sync_dist=True)
-        return loss_ce + self.sep_weight * loss_sep
+        return loss_ce + self.cor_weight * loss_sep
 
     def configure_optimizers(self):
         """Override"""
@@ -169,7 +171,7 @@ class Classifier(pl.LightningModule):
 
         def create_hook(key: str):
             def hook(_model: nn.Module, _args: Any, output: Tensor) -> None:
-                x = output if keep_gradients else output.detach().cpu()
+                x = output if keep_gradients else output.cpu().detach()
                 output_dict[key] = x
 
             return hook
@@ -178,7 +180,7 @@ class Classifier(pl.LightningModule):
         for name in submodules:
             submodule = self.get_submodule(name)
             handles.append(submodule.register_forward_hook(create_hook(name)))
-        y = self(x)
+        y = self.forward(x)
         for h in handles:
             h.remove()
         return y

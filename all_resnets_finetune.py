@@ -31,7 +31,7 @@ def main():
         "model.0.layer4",
         "model.0.fc",
     ]
-    sep_submodules = [
+    cor_submodules = [
         # "model.0.layer3",
         "model.0.layer4",
         "model.0.fc",
@@ -53,7 +53,7 @@ def main():
             # EnsuresRGB(),
         ]
     )
-    weight_exponents = [0, 1, 2, 3, 5, 10]
+    weight_exponents = [1, 3, 5, 10]
     batch_sizes = [2048]
     for m, d, we, bs in product(
         model_names, dataset_names, weight_exponents, batch_sizes
@@ -75,6 +75,22 @@ def main():
             model = TorchvisionClassifier.load_from_checkpoint(str(bcp))
             model = model.to(best_device())
             model.cor_type = "louvain"
+            model.cor_weight = 10 ** (-we)
+            model.cor_submodules = cor_submodules
+            train_model_guarded(
+                model,
+                datamodule,
+                output_dir / "model",
+                name=exp_name,
+                max_epochs=512,
+            )
+            # train_and_analyse_all(
+            #     model=model,
+            #     submodule_names=analysis_submodules,
+            #     dataset=datamodule,
+            #     output_dir=output_dir,
+            #     model_name=exp_name,
+            # )
         except KeyboardInterrupt:
             return
         except:

@@ -29,7 +29,7 @@ def main():
         # "model.0.classifier",
         # "model"
     ]
-    sep_submodules = [
+    cor_submodules = [
         "model.0.classifier.1",
         "model.0.classifier.4",
         "model.0.classifier.6",
@@ -61,9 +61,9 @@ def main():
                 model_name="alexnet",
                 input_shape=datamodule.image_shape,
                 n_classes=datamodule.n_classes,
-                sep_submodules=sep_submodules,
-                sep_score="louvain",
-                sep_weight=10 ** (-we),
+                cor_submodules=cor_submodules,
+                cor_type="louvain",
+                cor_weight=10 ** (-we),
             )
             model = model.to(best_device())
             train_model_guarded(
