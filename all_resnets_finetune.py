@@ -15,6 +15,13 @@ from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
 
 def main():
     pl.seed_everything(0)
+    model_names = [
+        "resnet18",
+        # "resnet34",
+        # "resnet50",
+        # "resnet101",
+        # "resnet152",
+    ]
     analysis_submodules = [
         # "model.0.maxpool",
         "model.0.layer1",
@@ -28,6 +35,13 @@ def main():
         "model.0.layer4",
         "model.0.fc",
     ]
+    dataset_names = [
+        # "mnist",
+        # "kmnist",
+        # "fashionmnist",
+        "cifar10",
+        "cifar100",
+    ]
     transform = tvtr.Compose(
         [
             tvtr.RandomCrop(32, padding=4),
@@ -40,18 +54,20 @@ def main():
     )
     weight_exponents = [0, 1, 2, 3, 5, 10]
     batch_sizes = [2048]
-    bcp, _ = best_checkpoint_path(
-        "out/resnet18/cifar10/model/tb_logs/resnet18/version_0/checkpoints/",
-        "out/resnet18/cifar10/model/csv_logs/resnet18/version_0/metrics.csv",
-    )
-    for we, bs in product(weight_exponents, batch_sizes):
+    for m, d, we, bs in product(
+        model_names, dataset_names, weight_exponents, batch_sizes
+    ):
         try:
-            exp_name = f"resnet18_finetune_l5_b{bs}_1e-{we}"
-            output_dir = Path("out") / exp_name / "cifar10"
+            bcp, _ = best_checkpoint_path(
+                f"out/{m}/{d}/model/tb_logs/{m}/version_0/checkpoints/",
+                f"out/{m}/{d}/model/csv_logs/{m}/version_0/metrics.csv",
+            )
+            exp_name = f"{m}_finetune_l5_b{bs}_1e-{we}"
+            output_dir = Path("out") / exp_name / d
             dataloader_kwargs = DEFAULT_DATALOADER_KWARGS.copy()
             dataloader_kwargs["batch_size"] = 2048
             datamodule = TorchvisionDataset(
-                "cifar10",
+                d,
                 transform=transform,
                 dataloader_kwargs=dataloader_kwargs,
             )
@@ -74,7 +90,7 @@ def main():
                 model_name=exp_name,
             )
         except KeyboardInterrupt:
-            pass
+            return
         except:
             logging.exception(":sad trombone:")
 

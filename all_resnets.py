@@ -34,7 +34,7 @@ def main():
         # "kmnist",
         # "fashionmnist",
         "cifar10",
-        # "cifar100",
+        "cifar100",
     ]
     transform = tvtr.Compose(
         [
@@ -46,41 +46,41 @@ def main():
         ]
     )
     for m, d in product(model_names, dataset_names):
-        output_dir = Path("out") / m / d
-        dataloader_kwargs = DEFAULT_DATALOADER_KWARGS.copy()
-        dataloader_kwargs["batch_size"] = 2048
-        datamodule = TorchvisionDataset(
-            "cifar10",
-            transform=transform,
-            dataloader_kwargs=dataloader_kwargs,
-        )
-        model = TorchvisionClassifier(
-            model_name=m,
-            n_classes=datamodule.n_classes,
-            input_shape=datamodule.image_shape,
-        )
-        # train_model(
-        #     model,
-        #     datamodule,
-        #     output_dir / "model",
-        #     name=m,
-        #     max_epochs=512,
-        #     # strategy="ddp_find_unused_parameters_true",
-        # )
-        train_and_analyse_all(
-            model=model,
-            submodule_names=analysis_submodules,
-            dataset=datamodule,
-            output_dir=output_dir,
-            model_name=m,
-        )
+        try:
+            output_dir = Path("out") / m / d
+            dataloader_kwargs = DEFAULT_DATALOADER_KWARGS.copy()
+            dataloader_kwargs["batch_size"] = 2048
+            datamodule = TorchvisionDataset(
+                d,
+                transform=transform,
+                dataloader_kwargs=dataloader_kwargs,
+            )
+            model = TorchvisionClassifier(
+                model_name=m,
+                n_classes=datamodule.n_classes,
+                input_shape=datamodule.image_shape,
+            )
+            # train_model(
+            #     model,
+            #     datamodule,
+            #     output_dir / "model",
+            #     name=m,
+            #     max_epochs=512,
+            #     # strategy="ddp_find_unused_parameters_true",
+            # )
+            train_and_analyse_all(
+                model=model,
+                submodule_names=analysis_submodules,
+                dataset=datamodule,
+                output_dir=output_dir,
+                model_name=m,
+            )
+        except KeyboardInterrupt:
+            return
+        except:
+            logging.exception(":sad trombone:")
 
 
 if __name__ == "__main__":
     setup_logging()
-    try:
-        main()
-    except KeyboardInterrupt:
-        pass
-    except:
-        logging.exception(":sad trombone:")
+    main()
