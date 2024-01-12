@@ -11,6 +11,7 @@ from nlnas.nlnas import train_and_analyse_all
 from nlnas.training import best_checkpoint_path, train_model_guarded
 from nlnas.transforms import cifar10_normalization
 from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
+from nlnas.utils import best_device
 
 
 def main():
@@ -72,23 +73,8 @@ def main():
                 dataloader_kwargs=dataloader_kwargs,
             )
             model = TorchvisionClassifier.load_from_checkpoint(str(bcp))
-            model.sep_score = "louvain"
-            model.sep_weight = 10 ** (-we)
-            model.sep_submodules = sep_submodules
-            # train_model_guarded(
-            #     model,
-            #     datamodule,
-            #     output_dir / "model",
-            #     name=exp_name,
-            #     max_epochs=512,
-            # )
-            train_and_analyse_all(
-                model=model,
-                submodule_names=analysis_submodules,
-                dataset=datamodule,
-                output_dir=output_dir,
-                model_name=exp_name,
-            )
+            model = model.to(best_device())
+            model.cor_type = "louvain"
         except KeyboardInterrupt:
             return
         except:

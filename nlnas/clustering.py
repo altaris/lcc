@@ -10,10 +10,10 @@ import torch
 from sklearn.base import TransformerMixin
 from torch import Tensor
 
-try:
+if torch.cuda.is_available():
     from cuml.neighbors import NearestNeighbors
     from cuml.preprocessing import MinMaxScaler, StandardScaler
-except ModuleNotFoundError:
+else:
     # pylint: disable=ungrouped-imports
     from sklearn.neighbors import NearestNeighbors
     from sklearn.preprocessing import MinMaxScaler, StandardScaler

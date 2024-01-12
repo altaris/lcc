@@ -10,6 +10,7 @@ from nlnas.logging import setup_logging
 from nlnas.nlnas import train_and_analyse_all
 from nlnas.transforms import cifar10_normalization
 from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
+from nlnas.utils import best_device
 
 
 def main():
@@ -33,7 +34,7 @@ def main():
         # "mnist",
         # "kmnist",
         # "fashionmnist",
-        "cifar10",
+        # "cifar10",
         "cifar100",
     ]
     transform = tvtr.Compose(
@@ -60,6 +61,7 @@ def main():
                 n_classes=datamodule.n_classes,
                 input_shape=datamodule.image_shape,
             )
+            model = model.to(best_device())
             # train_model(
             #     model,
             #     datamodule,

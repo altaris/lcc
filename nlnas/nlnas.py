@@ -15,6 +15,7 @@ import pandas as pd
 import pytorch_lightning as pl
 import regex as re
 import seaborn as sns
+import torch
 import turbo_broccoli as tb
 from bokeh.io import export_png
 from loguru import logger as logging
@@ -22,9 +23,9 @@ from sklearn.metrics import log_loss
 from torch import Tensor
 from tqdm import tqdm
 
-try:
+if torch.cuda.is_available():
     from cuml import UMAP
-except ModuleNotFoundError:
+else:
     from umap import UMAP
 
 from .classifier import Classifier

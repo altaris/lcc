@@ -9,8 +9,9 @@ from nlnas.classifier import TorchvisionClassifier
 from nlnas.logging import setup_logging
 from nlnas.nlnas import train_and_analyse_all
 from nlnas.training import best_checkpoint_path, train_model_guarded
-from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
 from nlnas.transforms import cifar10_normalization
+from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
+from nlnas.utils import best_device
 
 
 def main():
@@ -59,6 +60,7 @@ def main():
                 n_classes=datamodule.n_classes,
                 input_shape=datamodule.image_shape,
             )
+            model = model.to(best_device())
             train_and_analyse_all(
                 model=model,
                 submodule_names=analysis_submodules,

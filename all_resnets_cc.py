@@ -10,6 +10,7 @@ from nlnas.logging import setup_logging
 from nlnas.training import train_model_guarded
 from nlnas.transforms import cifar10_normalization
 from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
+from nlnas.utils import best_device
 
 
 def main():
@@ -59,6 +60,7 @@ def main():
                 sep_score="louvain",
                 sep_weight=10 ** (-we),
             )
+            model = model.to(best_device())
             train_model_guarded(
                 model,
                 datamodule,
