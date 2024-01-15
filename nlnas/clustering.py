@@ -1,3 +1,4 @@
+# pylint: disable=ungrouped-imports
 """Clustering of latent representations"""
 
 from itertools import product
@@ -14,7 +15,6 @@ if torch.cuda.is_available():
     from cuml.neighbors import NearestNeighbors
     from cuml.preprocessing import MinMaxScaler, StandardScaler
 else:
-    # pylint: disable=ungrouped-imports
     from sklearn.neighbors import NearestNeighbors
     from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
@@ -130,6 +130,65 @@ def class_otm_matching(
     }
 
 
+def clustering_loss(
+    z: Tensor,
+    y_true: np.ndarray | Tensor,
+    y_cl: np.ndarray | Tensor,
+    matching: dict[int, set[int]] | dict[str, set[int]],
+    k: int = 5,
+) -> Tensor:
+    """
+    Mean distance between every missed point and the average distance to their
+    correctly clustered k-nearest neighbors in the same class.
+
+    In more details, let $a_i$ be the true class of $z_i$, and $\\\\{ b_{i, 1},
+    \\\\ldots \\\\}$ be the cluster classes matched to the true class $a_i$. If
+    $z_i$ is a "missed points", i.e. if the cluster class of $z_i$ is not among
+    $\\\\{ b_{i, 1}, \\\\ldots \\\\}$, then it will contribute a term to the
+    clustering loss, equal to the mean distance between $z_i$ and its k-nearest
+    neighbors in class $a_i$ and that also belong to one of the matched cluster
+    classes $b_{i, j}$ (i.e. k-nearest neighbors in the same class that are
+    furthermore correctly clustered)
+
+    The clustering loss is the average of these terms, divided by
+    $\\\\sqrt{d}$, where $d$ is the dimension of the latent space.
+
+    Args:
+        z (Tensor):
+        y_true (np.ndarray | Tensor):
+        y_cl (np.ndarray | None, optional):
+        matching (dict[int, set[int]] | dict[str, set[int]]):
+        k (int, optional):
+    """
+
+    def _npf(a: Tensor) -> np.ndarray:
+        return a.cpu().detach().flatten(1).numpy()
+
+    if isinstance(y_true, Tensor):
+        y_true = y_true.cpu().detach().numpy()
+    if isinstance(y_cl, Tensor):
+        y_cl = y_cl.cpu().detach().numpy()
+    assert isinstance(y_true, np.ndarray)  # For typechecking
+    assert isinstance(y_cl, np.ndarray)  # For typechecking
+    matching = {int(a): bs for a, bs in matching.items()}
+    p1, p2, p3, _ = otm_matching_predicates(y_true, y_cl, matching)
+    p12, losses = p1 & p2, []
+    for a in matching:
+        if not (p12[a].any() and p3[a].any()):
+            continue  # No matched Louvain class for a, or no misses
+        z_match, z_miss = z[p12[a]], z[p3[a]]  # both non empty
+        z_match, z_miss = z_match.flatten(1), z_miss.flatten(1)
+        index = NearestNeighbors(n_neighbors=min(k + 1, z_match.shape[0]))
+        index.fit(_npf(z_match))
+        _, idx = index.kneighbors(_npf(z_miss))
+        idx = idx[:, 1:]  # exclude self as nearest neighbor
+        targets = z_match[torch.tensor(idx)].mean(dim=1)
+        losses.append(torch.norm(z_miss - targets, dim=-1).mean())
+    if not losses:
+        return torch.tensor(0.0, requires_grad=True).to(z.device)
+    return torch.stack(losses).mean() / sqrt(z.shape[-1])
+
+
 def louvain_communities(
     z: np.ndarray | Tensor,
     k: int = 50,
@@ -197,58 +256,16 @@ def louvain_communities(
     return communities, np.array(y_louvain)
 
 
-def louvain_loss(
-    z: Tensor,
-    y_true: np.ndarray | Tensor,
-    y_louvain: np.ndarray | None = None,
-    matching: dict[int, set[int]] | dict[str, set[int]] | None = None,
-    k: int = 5,
-) -> Tensor:
+def louvain_loss(z: Tensor, y_true: np.ndarray | Tensor, k: int = 5) -> Tensor:
     """
-    Mean distance between every missed point and the closest centroid of
-    their marched Louvain communities.
-
-    In more details, let $a_i$ be the true class of $z_i$, and $\\\\{ b_{i, 1},
-    \\\\ldots \\\\}$ be the Louvain classes matched to the true class $a_i$. If
-    $z_i$ is a "missed points", i.e. if the Louvain class of $z_i$ is not among
-    $\\\\{ b_{i, 1}, \\\\ldots \\\\}$, then it will contribute a term to the
-    Louvain loss, equal to the distance between $z_i$ and the mean of the $k$
-    closest samples in the Louvain clusters $b_{i, 1}, \\\\ldots$.
-
-    The Louvain loss is the average of these terms, divided by $\\\\sqrt{d}$,
-    where $d$ is the dimension of the latent space.
+    Calls `nlnas.clustering.clustering_loss` with the Louvain clustering data.
     """
-
-    def _npf(a: Tensor) -> np.ndarray:
-        return a.cpu().detach().flatten(1).numpy()
-
     if isinstance(y_true, Tensor):
         y_true = y_true.cpu().detach().numpy()
     assert isinstance(y_true, np.ndarray)  # For typechecking
-    if y_louvain is None:
-        _, y_louvain = louvain_communities(z)
-    if matching is None:
-        matching = class_otm_matching(y_true, y_louvain)
-    else:
-        matching = {int(a): bs for a, bs in matching.items()}
-    p1, p2, p3, _ = otm_matching_predicates(y_true, y_louvain, matching)
-    p12 = p1 & p2
-
-    losses = []
-    for a in matching:
-        if not (p12[a].any() and p3[a].any()):
-            continue  # No matched Louvain class for a, or no misses
-        z_match, z_miss = z[p12[a]], z[p3[a]]  # both non empty
-        z_match, z_miss = z_match.flatten(1), z_miss.flatten(1)
-        index = NearestNeighbors(n_neighbors=min(k + 1, z_match.shape[0]))
-        index.fit(_npf(z_match))
-        _, idx = index.kneighbors(_npf(z_miss))
-        idx = idx[:, 1:]  # exclude self as nearest neighbor
-        targets = z_match[torch.tensor(idx)].mean(dim=1)
-        losses.append(torch.norm(z_miss - targets, dim=-1).mean())
-    if not losses:
-        return torch.tensor(0.0, requires_grad=True).to(z.device)
-    return torch.stack(losses).mean() / sqrt(z.shape[-1])
+    _, y_louvain = louvain_communities(z)
+    matching = class_otm_matching(y_true, y_louvain)
+    return clustering_loss(z, y_true, y_louvain, matching, k)
 
 
 def otm_matching_predicates(

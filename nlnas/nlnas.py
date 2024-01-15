@@ -23,11 +23,6 @@ from sklearn.metrics import log_loss
 from torch import Tensor
 from tqdm import tqdm
 
-if torch.cuda.is_available():
-    from cuml import UMAP
-else:
-    from umap import UMAP
-
 from .classifier import Classifier
 from .clustering import (
     class_otm_matching,
@@ -38,6 +33,11 @@ from .plotting import class_matching_plot, class_scatter, make_same_xy_range
 from .training import all_checkpoint_paths, checkpoint_ves, train_model_guarded
 from .tv_dataset import TorchvisionDataset
 from .utils import dl_head
+
+if torch.cuda.is_available():
+    from cuml import UMAP
+else:
+    from umap import UMAP
 
 
 def _ce(y_true: np.ndarray, y_pred: np.ndarray, n_classes: int = 10) -> float:
@@ -454,7 +454,7 @@ def train_and_analyse_all(
         / f"version_{version}"
         / "checkpoints"
     )
-    logging.info("Analyzing epochs")
+    logging.info("{}: Analyzing epochs", model_name)
     progress = tqdm(all_checkpoint_paths(p), leave=False)
     # progress = tqdm([], leave=False)
     for i, ckpt in enumerate(progress):
@@ -466,7 +466,7 @@ def train_and_analyse_all(
             output_dir=output_dir / f"version_{version}" / str(i),
             n_samples=n_samples,
         )
-    logging.info("Analyzing training")
+    logging.info("{}: Analyzing training", model_name)
     analyse_training(
         output_dir / f"version_{version}",
         last_epoch=best_epoch,
