@@ -40,7 +40,7 @@ else:
     from umap import UMAP
 
 
-def _ce(y_true: np.ndarray, y_pred: np.ndarray, n_classes: int = 10) -> float:
+def _ce(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """
     Compute the cross entropy between two label vectors. Basically just calls
     [`sklearn.metrics.log_loss`](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.log_loss.html)
@@ -49,7 +49,7 @@ def _ce(y_true: np.ndarray, y_pred: np.ndarray, n_classes: int = 10) -> float:
     """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        return log_loss(y_true, y_pred, labels=np.arange(n_classes))
+        return log_loss(y_true, y_pred)
 
 
 def _is_ckpt_analysis_dir(p: Path | str) -> bool:
