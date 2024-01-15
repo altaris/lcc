@@ -264,6 +264,10 @@ def louvain_loss(z: Tensor, y_true: np.ndarray | Tensor, k: int = 5) -> Tensor:
         y_true = y_true.cpu().detach().numpy()
     assert isinstance(y_true, np.ndarray)  # For typechecking
     _, y_louvain = louvain_communities(z)
+    y_louvain = y_louvain[: len(y_true)]
+    # TODO: Why is y_louvain sometimes longer than y_true?
+    # This seems to only happen if z has nan's, in which case
+    # len(y_louvain) = len(y_true) + 1
     matching = class_otm_matching(y_true, y_louvain)
     return clustering_loss(z, y_true, y_louvain, matching, k)
 
