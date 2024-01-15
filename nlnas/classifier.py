@@ -47,6 +47,10 @@ class Classifier(pl.LightningModule):
         cor_submodules: list[str] | None = None,
         cor_type: Literal["gdv", "lv", "ggd", "louvain"] | None = None,
         cor_weight: float = 1e-1,
+        sep_submodules: list[str] | None = None,  # Don't use
+        sep_score: Literal["gdv", "lv", "ggd", "louvain"]
+        | None = None,  # Don't use
+        sep_weight: float | None = None,  # Don't use
         **kwargs: Any,
     ) -> None:
         """
@@ -65,12 +69,25 @@ class Classifier(pl.LightningModule):
                   `nlnas.clustering.louvain_loss`).
             cor_weight (float, optional): Weight of the correction loss.
                 Ignored if `cor_submodules` is left to `None` or is `[]`
+            sep_submodules: For backward compatibility with old model
+                checkpoints, do not use.
+            sep_score: For backward compatibility with old model checkpoints,
+                do not use.
+            sep_weight: For backward compatibility with old model checkpoints,
+                do not use.
         """
         super().__init__(**kwargs)
-        self.save_hyperparameters()
+        self.save_hyperparameters(
+            ignore=["sep_submodules", "sep_score", "sep_weight"]
+        )
         self.n_classes = n_classes
-        self.cor_submodules = cor_submodules or []
-        self.cor_type, self.cor_weight = cor_type, cor_weight
+        self.cor_submodules = (
+            (cor_submodules or [])
+            if sep_submodules is None
+            else sep_submodules
+        )
+        self.cor_type = cor_type if sep_score is None else sep_score
+        self.cor_weight = cor_weight if sep_weight is None else sep_weight
 
     def _evaluate(self, batch, stage: str | None = None) -> Tensor:
         """Self-explanatory"""
