@@ -80,7 +80,7 @@ def main():
             #     output_dir=output_dir,
             #     model_name=name,
             # )
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, SystemExit):
             break
         except:
             logging.exception(":sad trombone:")
@@ -88,9 +88,4 @@ def main():
 
 if __name__ == "__main__":
     setup_logging()
-    try:
-        main()
-    except KeyboardInterrupt:
-        pass
-    except:
-        logging.exception(":sad trombone:")
+    main()

@@ -88,7 +88,7 @@ if __name__ == "__main__":
     setup_logging()
     try:
         main()
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         pass
     except:
         logging.exception(":sad trombone:")

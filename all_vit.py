@@ -48,8 +48,7 @@ def main():
         try:
             output_dir = Path("out") / m / d
             dataloader_kwargs = DEFAULT_DATALOADER_KWARGS.copy()
-            dataloader_kwargs["batch_size"] = 512
-            dataloader_kwargs["pin_memory"] = False
+            dataloader_kwargs["batch_size"] = 2048
             datamodule = TorchvisionDataset(
                 d,
                 transform=transform,
@@ -69,7 +68,7 @@ def main():
                 model_name=m,
                 n_samples=1000,
             )
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, SystemExit):
             return
         # except:
         #     logging.exception(":sad trombone:")
@@ -78,9 +77,3 @@ def main():
 if __name__ == "__main__":
     setup_logging()
     main()
-    # try:
-    #     main()
-    # except KeyboardInterrupt:
-    #     pass
-    # except:
-    #     logging.exception(":sad trombone:")

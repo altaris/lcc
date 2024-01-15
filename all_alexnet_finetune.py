@@ -33,7 +33,7 @@ def main():
         # "mnist",
         # "kmnist",
         # "fashionmnist",
-        "cifar10",
+        # "cifar10",
         "cifar100",
     ]
     cor_submodules = [
@@ -89,7 +89,7 @@ def main():
                 output_dir=output_dir,
                 model_name=exp_name,
             )
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, SystemExit):
             return
         except:
             logging.exception(":sad trombone:")

@@ -77,7 +77,7 @@ def main():
                 output_dir=output_dir,
                 model_name=m,
             )
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, SystemExit):
             return
         except:
             logging.exception(":sad trombone:")
