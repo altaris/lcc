@@ -6,11 +6,6 @@ import torchvision.transforms as tvtr
 from loguru import logger as logging
 from torch import Tensor
 
-from nlnas import (
-    TorchvisionClassifier,
-    TorchvisionDataset,
-    train_and_analyse_all,
-)
 from nlnas.classifier import TorchvisionClassifier
 from nlnas.logging import setup_logging
 from nlnas.nlnas import train_and_analyse_all
@@ -29,7 +24,7 @@ def main():
     model_names = [
         "googlenet",
     ]
-    submodule_names = [
+    analysis_submodules = [
         "model.0.conv1",
         "model.0.conv2",
         "model.0.conv3",
@@ -47,7 +42,7 @@ def main():
         # "kmnist",
         # "fashionmnist",
         "cifar10",
-        # "cifar100",
+        "cifar100",
     ]
     transform = tvtr.Compose(
         [
@@ -59,36 +54,36 @@ def main():
         ]
     )
     for m, d in product(model_names, dataset_names):
-        output_dir = Path("out") / m / d
-        dataloader_kwargs = DEFAULT_DATALOADER_KWARGS.copy()
-        dataloader_kwargs["batch_size"] = 2048
-        datamodule = TorchvisionDataset(
-            "cifar10",
-            transform=transform,
-            dataloader_kwargs=dataloader_kwargs,
-        )
-        model = TorchvisionClassifier(
-            model_name=m,
-            n_classes=datamodule.n_classes,
-            input_shape=datamodule.image_shape,
-        )
-        model = model.to(best_device())
-        model.model[0].register_forward_hook(extract_logits)
-        train_and_analyse_all(
-            model=model,
-            submodule_names=submodule_names,
-            dataset=datamodule,
-            output_dir=output_dir,
-            model_name=m,
-            strategy="ddp_find_unused_parameters_true",
-        )
+        try:
+            output_dir = Path("out") / m / d
+            dataloader_kwargs = DEFAULT_DATALOADER_KWARGS.copy()
+            dataloader_kwargs["batch_size"] = 2048
+            datamodule = TorchvisionDataset(
+                d,
+                transform=transform,
+                dataloader_kwargs=dataloader_kwargs,
+            )
+            model = TorchvisionClassifier(
+                model_name=m,
+                n_classes=datamodule.n_classes,
+                input_shape=datamodule.image_shape,
+            )
+            model = model.to(best_device())
+            model.model[0].register_forward_hook(extract_logits)
+            train_and_analyse_all(
+                model=model,
+                submodule_names=analysis_submodules,
+                dataset=datamodule,
+                output_dir=output_dir,
+                model_name=m,
+                strategy="ddp_find_unused_parameters_true",
+            )
+        except (KeyboardInterrupt, SystemExit):
+            pass
+        except:
+            logging.exception(":sad trombone:")
 
 
 if __name__ == "__main__":
     setup_logging()
-    try:
-        main()
-    except (KeyboardInterrupt, SystemExit):
-        pass
-    except:
-        logging.exception(":sad trombone:")
+    main()

@@ -33,7 +33,7 @@ def main():
         # "mnist",
         # "kmnist",
         # "fashionmnist",
-        # "cifar10",
+        "cifar10",
         "cifar100",
     ]
     cor_submodules = [
@@ -51,7 +51,7 @@ def main():
             # EnsuresRGB(),
         ]
     )
-    weight_exponents = [3, 5, 10, 11, 12, 15]
+    weight_exponents = [0, 3, 5, 10]
     batch_sizes = [2048]
     for m, d, we, bs in product(
         model_names, dataset_names, weight_exponents, batch_sizes

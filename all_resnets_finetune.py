@@ -32,9 +32,9 @@ def main():
         "model.0.fc",
     ]
     cor_submodules = [
-        # "model.0.layer3",
+        "model.0.layer3",
         "model.0.layer4",
-        "model.0.fc",
+        # "model.0.fc",
     ]
     dataset_names = [
         # "mnist",
@@ -63,7 +63,7 @@ def main():
                 f"out/{m}/{d}/model/tb_logs/{m}/version_0/checkpoints/",
                 f"out/{m}/{d}/model/csv_logs/{m}/version_0/metrics.csv",
             )
-            exp_name = f"{m}_finetune_l5_b{bs}_1e-{we}"
+            exp_name = f"{m}_finetune_l5_l3l4_b{bs}_1e-{we}"
             output_dir = Path("out") / exp_name / d
             dataloader_kwargs = DEFAULT_DATALOADER_KWARGS.copy()
             dataloader_kwargs["batch_size"] = 2048
@@ -77,20 +77,20 @@ def main():
             model.cor_type = "louvain"
             model.cor_weight = 10 ** (-we)
             model.cor_submodules = cor_submodules
-            train_model_guarded(
-                model,
-                datamodule,
-                output_dir / "model",
-                name=exp_name,
-                max_epochs=512,
-            )
-            # train_and_analyse_all(
-            #     model=model,
-            #     submodule_names=analysis_submodules,
-            #     dataset=datamodule,
-            #     output_dir=output_dir,
-            #     model_name=exp_name,
+            # train_model_guarded(
+            #     model,
+            #     datamodule,
+            #     output_dir / "model",
+            #     name=exp_name,
+            #     max_epochs=512,
             # )
+            train_and_analyse_all(
+                model=model,
+                submodule_names=analysis_submodules,
+                dataset=datamodule,
+                output_dir=output_dir,
+                model_name=exp_name,
+            )
         except (KeyboardInterrupt, SystemExit):
             return
         except:
