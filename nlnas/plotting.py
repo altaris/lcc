@@ -55,14 +55,14 @@ def class_scatter(
     Raises:
         `ValueError` if the palette is unknown
     """
-    n_classes = len(np.unique(y[y >= 0]))
+    n_classes = min(len(np.unique(y[y >= 0])), 256)
     if palette is None:
         palette = bkp.viridis(n_classes)
     if isinstance(palette, str):
         if palette not in BK_PALETTE_FUNCTIONS:
             raise ValueError(f"Unknown palette '{palette}'")
         palette = BK_PALETTE_FUNCTIONS[palette](n_classes)
-    for i, j in enumerate(np.unique(y[y >= 0])):
+    for i, j in enumerate(np.unique(y[y >= 0])[:n_classes]):
         a = x[y == j]
         plot.scatter(
             a[:, 0],
