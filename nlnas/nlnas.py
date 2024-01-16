@@ -49,7 +49,7 @@ def _ce(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        return log_loss(y_true, y_pred)
+        return log_loss(y_true, y_pred, labels=np.arange(y_pred.shape[-1]))
 
 
 def _is_ckpt_analysis_dir(p: Path | str) -> bool:
