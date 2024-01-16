@@ -9,6 +9,7 @@ from torch import Tensor
 from nlnas.classifier import TorchvisionClassifier
 from nlnas.logging import setup_logging
 from nlnas.nlnas import train_and_analyse_all
+from nlnas.training import best_checkpoint_path, train_model_guarded
 from nlnas.transforms import cifar10_normalization
 from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
 from nlnas.utils import best_device
@@ -42,6 +43,10 @@ def main():
         "cifar10",
         "cifar100",
     ]
+    cor_submodules = [
+        "model.0.inception5a",
+        "model.0.inception5b",
+    ]
     transform = tvtr.Compose(
         [
             tvtr.RandomCrop(32, padding=4),
@@ -49,25 +54,41 @@ def main():
             tvtr.ToTensor(),
             cifar10_normalization(),
             tvtr.Resize([64, 64], antialias=True),
+            # EnsuresRGB(),
         ]
     )
-    for m, d in product(model_names, dataset_names):
+    weight_exponents = [0, 3, 5, 10]
+    batch_sizes = [2048]
+    for m, d, we, bs in product(
+        model_names, dataset_names, weight_exponents, batch_sizes
+    ):
         try:
-            output_dir = Path("out") / m / d
+            bcp, _ = best_checkpoint_path(
+                f"out/{m}/{d}/model/tb_logs/{m}/version_0/checkpoints/",
+                f"out/{m}/{d}/model/csv_logs/{m}/version_0/metrics.csv",
+            )
+            exp_name = f"{m}_finetune_l5_b{bs}_1e-{we}"
+            output_dir = Path("out") / exp_name / d
             dataloader_kwargs = DEFAULT_DATALOADER_KWARGS.copy()
-            dataloader_kwargs["batch_size"] = 2048
+            dataloader_kwargs["batch_size"] = bs
             datamodule = TorchvisionDataset(
                 d,
                 transform=transform,
                 dataloader_kwargs=dataloader_kwargs,
             )
-            model = TorchvisionClassifier(
-                model_name=m,
-                n_classes=datamodule.n_classes,
-                input_shape=datamodule.image_shape,
-            )
+            model = TorchvisionClassifier.load_from_checkpoint(str(bcp))
             model = model.to(best_device())
             model.model[0].register_forward_hook(extract_logits)
+            model.cor_type = "louvain"
+            model.cor_weight = 10 ** (-we)
+            model.cor_submodules = cor_submodules
+            # train_model_guarded(
+            #     model,
+            #     datamodule,
+            #     output_dir / "model",
+            #     name=exp_name,
+            #     max_epochs=512,
+            # )
             train_and_analyse_all(
                 model=model,
                 submodule_names=analysis_submodules,
@@ -77,7 +98,7 @@ def main():
                 strategy="ddp_find_unused_parameters_true",
             )
         except (KeyboardInterrupt, SystemExit):
-            pass
+            return
         except:
             logging.exception(":sad trombone:")
 
