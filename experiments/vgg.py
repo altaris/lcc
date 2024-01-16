@@ -19,7 +19,7 @@ def main():
     model_names = ["vgg16"]
     analysis_submodules = [
         # "model.0.features.0",
-        "model.0.features.2",
+        # "model.0.features.2",
         # "model.0.features.5",
         # "model.0.features.7",
         # "model.0.features.10",
@@ -27,8 +27,8 @@ def main():
         # "model.0.features.14",
         # "model.0.features.17",
         # "model.0.features.19",
-        # "model.0.features.21",
-        "model.0.features.24",
+        "model.0.features.21",
+        # "model.0.features.24",
         # "model.0.features.26",
         # "model.0.features.28",
         "model.0.classifier.0",
@@ -73,6 +73,7 @@ def main():
                 dataset=datamodule,
                 output_dir=output_dir,
                 model_name=m,
+                n_samples=3500,
             )
         except (KeyboardInterrupt, SystemExit):
             return

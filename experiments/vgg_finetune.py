@@ -16,23 +16,23 @@ from nlnas.utils import best_device
 
 def main():
     pl.seed_everything(0)
-    model_names = ["alexnet"]
+    model_names = ["vgg16"]
     analysis_submodules = [
         # "model.0.features.0",
-        "model.0.features.2",
+        # "model.0.features.2",
         # "model.0.features.5",
         # "model.0.features.7",
         # "model.0.features.10",
-        "model.0.features.12",
-        # "model.0.features.14",
+        # "model.0.features.12",
+        "model.0.features.14",
         # "model.0.features.17",
         # "model.0.features.19",
-        "model.0.features.21",
-        # "model.0.features.24",
+        # "model.0.features.21",
+        "model.0.features.24",
         # "model.0.features.26",
-        "model.0.features.28",
+        # "model.0.features.28",
         "model.0.classifier.0",
-        "model.0.classifier.3",
+        # "model.0.classifier.3",
         "model.0.classifier.6",
     ]
     dataset_names = [
@@ -40,7 +40,7 @@ def main():
         # "kmnist",
         # "fashionmnist",
         "cifar10",
-        "cifar100",
+        # "cifar100",
     ]
     cor_submodules = [
         "model.0.classifier.0",
