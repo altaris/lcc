@@ -57,7 +57,7 @@ def main():
             # EnsuresRGB(),
         ]
     )
-    weight_exponents = [0, 3, 5, 10]
+    weight_exponents = [0, 1, 3, 5, 10]
     batch_sizes = [2048]
     ks = [5, 50]
     for m, d, we, bs, k in product(
@@ -84,21 +84,21 @@ def main():
             model.cor_weight = 10 ** (-we)
             model.cor_submodules = cor_submodules
             model.cor_kwargs = {"k": k}
-            # train_model_guarded(
-            #     model,
-            #     datamodule,
-            #     output_dir / "model",
-            #     name=exp_name,
-            #     max_epochs=512,
-            # )
-            train_and_analyse_all(
-                model=model,
-                submodule_names=analysis_submodules,
-                dataset=datamodule,
-                output_dir=output_dir,
-                model_name=m,
-                strategy="ddp_find_unused_parameters_true",
+            train_model_guarded(
+                model,
+                datamodule,
+                output_dir / "model",
+                name=exp_name,
+                max_epochs=512,
             )
+            # train_and_analyse_all(
+            #     model=model,
+            #     submodule_names=analysis_submodules,
+            #     dataset=datamodule,
+            #     output_dir=output_dir,
+            #     model_name=m,
+            #     strategy="ddp_find_unused_parameters_true",
+            # )
         except (KeyboardInterrupt, SystemExit):
             return
         except:

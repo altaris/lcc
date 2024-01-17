@@ -56,7 +56,7 @@ def main():
             # EnsuresRGB(),
         ]
     )
-    weight_exponents = [0, 3, 5, 10]
+    weight_exponents = [0, 1, 3, 5, 10]
     batch_sizes = [2048]
     ks = [5, 50]
     for m, d, we, bs, k in product(
