@@ -40,6 +40,7 @@ class Classifier(pl.LightningModule):
     cor_submodules: list[str]
     cor_type: Literal["gdv", "lv", "ggd", "louvain"] | None
     cor_weight: float
+    cor_kwargs: dict[str, Any]
 
     def __init__(
         self,
@@ -47,6 +48,7 @@ class Classifier(pl.LightningModule):
         cor_submodules: list[str] | None = None,
         cor_type: Literal["gdv", "lv", "ggd", "louvain"] | None = None,
         cor_weight: float = 1e-1,
+        cor_kwargs: dict[str, Any] | None = None,
         sep_submodules: list[str] | None = None,  # Don't use
         sep_score: Literal["gdv", "lv", "ggd", "louvain"]
         | None = None,  # Don't use
@@ -69,6 +71,7 @@ class Classifier(pl.LightningModule):
                   `nlnas.clustering.louvain_loss`).
             cor_weight (float, optional): Weight of the correction loss.
                 Ignored if `cor_submodules` is left to `None` or is `[]`
+            cor_kwargs (dict, optional): Passed to the correction loss function
             sep_submodules: For backward compatibility with old model
                 checkpoints, do not use.
             sep_score: For backward compatibility with old model checkpoints,
@@ -88,6 +91,7 @@ class Classifier(pl.LightningModule):
         )
         self.cor_type = cor_type if sep_score is None else sep_score
         self.cor_weight = cor_weight if sep_weight is None else sep_weight
+        self.cov_kwargs = cor_kwargs or {}
 
     def _evaluate(self, batch, stage: str | None = None) -> Tensor:
         """Self-explanatory"""
@@ -106,22 +110,34 @@ class Classifier(pl.LightningModule):
         if compute_cor_loss:
             if self.cor_type == "gdv":
                 loss_sep = torch.stack(
-                    [gdv(v, y) for v in out.values()]
+                    [gdv(v, y, **self.cor_kwargs) for v in out.values()]
                 ).mean()
             elif self.cor_type == "lv":
                 loss_sep = torch.stack(
                     [
-                        label_variation(v, y, k=10, n_classes=self.n_classes)
+                        label_variation(
+                            v,
+                            y,
+                            k=10,
+                            n_classes=self.n_classes,
+                            **self.cor_kwargs,
+                        )
                         for v in out.values()
                     ]
                 ).mean()
             elif self.cor_type == "ggd":
                 loss_sep = -torch.stack(
-                    [mean_ggd(v.flatten(1), y) for v in out.values()]
+                    [
+                        mean_ggd(v.flatten(1), y, **self.cor_kwargs)
+                        for v in out.values()
+                    ]
                 ).mean()
             elif self.cor_type == "louvain":
                 loss_sep = torch.stack(
-                    [louvain_loss(v, y) for v in out.values()]
+                    [
+                        louvain_loss(v, y, **self.cor_kwargs)
+                        for v in out.values()
+                    ]
                 ).mean()
             else:
                 raise RuntimeError(

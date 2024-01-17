@@ -34,7 +34,7 @@ def main():
     cor_submodules = [
         "model.0.layer3",
         "model.0.layer4",
-        # "model.0.fc",
+        "model.0.fc",
     ]
     dataset_names = [
         # "mnist",
@@ -55,15 +55,16 @@ def main():
     )
     weight_exponents = [1, 3, 5, 10]
     batch_sizes = [2048]
-    for m, d, we, bs in product(
-        model_names, dataset_names, weight_exponents, batch_sizes
+    ks = [5, 50]
+    for m, d, we, bs, k in product(
+        model_names, dataset_names, weight_exponents, batch_sizes, ks
     ):
         try:
             bcp, _ = best_checkpoint_path(
                 f"out/{m}/{d}/model/tb_logs/{m}/version_0/checkpoints/",
                 f"out/{m}/{d}/model/csv_logs/{m}/version_0/metrics.csv",
             )
-            exp_name = f"{m}_finetune_l5_l3l4_b{bs}_1e-{we}"
+            exp_name = f"{m}_finetune_l{k}_b{bs}_1e-{we}"
             output_dir = Path("out") / exp_name / d
             dataloader_kwargs = DEFAULT_DATALOADER_KWARGS.copy()
             dataloader_kwargs["batch_size"] = 2048
@@ -77,6 +78,7 @@ def main():
             model.cor_type = "louvain"
             model.cor_weight = 10 ** (-we)
             model.cor_submodules = cor_submodules
+            model.cor_kwargs = {"k": k}
             # train_model_guarded(
             #     model,
             #     datamodule,
