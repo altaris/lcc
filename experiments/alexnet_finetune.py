@@ -74,7 +74,7 @@ def main():
     batch_sizes = [2048]
     ks = [5, 25, 50]
     for m, (d, t), we, bs, k in product(
-        model_names, datasets, weight_exponents, batch_sizes, ks
+        model_names, datasets.items(), weight_exponents, batch_sizes, ks
     ):
         try:
             bcp, _ = best_checkpoint_path(

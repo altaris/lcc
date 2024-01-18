@@ -65,7 +65,7 @@ def main():
             ]
         ),
     }
-    for m, (d, t) in product(model_names, datasets):
+    for m, (d, t) in product(model_names, datasets.items()):
         try:
             output_dir = Path("out") / m / d
             dataloader_kwargs = DEFAULT_DATALOADER_KWARGS.copy()
