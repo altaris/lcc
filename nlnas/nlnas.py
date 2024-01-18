@@ -19,7 +19,7 @@ import torch
 import turbo_broccoli as tb
 from bokeh.io import export_png
 from loguru import logger as logging
-from sklearn.metrics import log_loss
+from sklearn.metrics import accuracy_score, log_loss
 from torch import Tensor
 from tqdm import tqdm
 
@@ -50,6 +50,10 @@ def _ce(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return log_loss(y_true, y_pred, labels=np.arange(y_pred.shape[-1]))
+
+
+def _acc(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    return accuracy_score(y_true, y_pred.argmax(axis=-1))
 
 
 def _is_ckpt_analysis_dir(p: Path | str) -> bool:
@@ -344,17 +348,30 @@ def analyse_training(output_dir: str | Path, last_epoch: int | None = None):
         sleep(5)
         export_png(figure, filename=umap_all_path)
 
-    # CLUSTERING & CE
-    h = tb.GuardedBlockHandler(output_dir / "cluster_ce.csv")
+    # METRICS OF MISS/MATCH GROUPS
+    h = tb.GuardedBlockHandler(output_dir / "metrics.csv")
     for _ in h.guard():
-        df = pd.DataFrame(columns=["epoch", "layer", "all", "match", "miss"])
-        progress = tqdm(ckpt_analysis_dirs, desc="Clustering", leave=False)
+        df = pd.DataFrame(
+            columns=[
+                "epoch",
+                "layer",
+                "ce_all",
+                "ce_match",
+                "ce_miss",
+                "acc_all",
+                "acc_match",
+                "acc_miss",
+            ]
+        )
+        progress = tqdm(
+            ckpt_analysis_dirs, desc="Collecting metrics", leave=False
+        )
         for epoch, path in enumerate(progress):
             progress.set_postfix({"epoch": epoch})
             evaluations = tb.load_json(path / "eval" / "eval.json")
             y_true = evaluations["y_true"].numpy()
             y_pred = evaluations["y_pred"].numpy()
-            ce_all = _ce(y_true, y_pred)
+            ce_all, acc_all = _ce(y_true, y_pred), _acc(y_true, y_pred)
             for layer in evaluations["z"]:
                 progress.set_postfix({"epoch": epoch, "layer": layer})
                 clustering = tb.load_json(
@@ -367,28 +384,49 @@ def analyse_training(output_dir: str | Path, last_epoch: int | None = None):
                 df.loc[len(df)] = {
                     "epoch": epoch,
                     "layer": layer,
-                    "all": ce_all,
-                    "match": _ce(y_true[p_match], y_pred[p_match]),
-                    "miss": _ce(y_true[~p_match], y_pred[~p_match]),
+                    "ce_all": ce_all,
+                    "ce_match": _ce(y_true[p_match], y_pred[p_match]),
+                    "ce_miss": _ce(y_true[~p_match], y_pred[~p_match]),
+                    "acc_all": acc_all,
+                    "acc_match": _acc(y_true[p_match], y_pred[p_match]),
+                    "acc_miss": _acc(y_true[~p_match], y_pred[~p_match]),
                 }
-        h.result = df.melt(
-            id_vars=["epoch", "layer"], var_name="subset", value_name="ce_loss"
-        )
+        h.result = df
 
         # PLOTTING
-        figure = sns.relplot(
-            data=h.result,
-            x="epoch",
-            y="ce_loss",
-            hue="subset",
-            palette={"all": "black", "match": "blue", "miss": "red"},
-            style="subset",
-            dashes={"all": (1, 1), "match": "", "miss": ""},
-            col="layer",
-            kind="line",
-        )
-        figure.fig.savefig(output_dir / "cluster_ce.png")
-        plt.clf()
+        for prefix in ["ce", "acc"]:
+            data = df[
+                ["epoch", "layer"]
+                + [f"{prefix}_all", f"{prefix}_match", f"{prefix}_miss"]
+            ].copy()
+            data.rename(
+                columns={
+                    "epoch": "epoch",
+                    "layer": "layer",
+                    f"{prefix}_all": "all",
+                    f"{prefix}_match": "match",
+                    f"{prefix}_miss": "miss",
+                },
+                inplace=True,
+            )
+            data = data.melt(
+                id_vars=["epoch", "layer"],
+                var_name="subset",
+                value_name=prefix,
+            )
+            figure = sns.relplot(
+                data=data,
+                x="epoch",
+                y=prefix,
+                hue="subset",
+                palette={"all": "black", "match": "blue", "miss": "red"},
+                style="subset",
+                dashes={"all": (1, 1), "match": "", "miss": ""},
+                col="layer",
+                kind="line",
+            )
+            figure.fig.savefig(output_dir / f"metrics_{prefix}.png")
+            plt.clf()
 
 
 def train_and_analyse_all(
@@ -456,7 +494,7 @@ def train_and_analyse_all(
     )
     logging.info("{}: Analyzing epochs", model_name)
     progress = tqdm(all_checkpoint_paths(p), leave=False)
-    # progress = tqdm([], leave=False)
+    progress = tqdm([], leave=False)
     for i, ckpt in enumerate(progress):
         analyse_ckpt(
             model=ckpt,
