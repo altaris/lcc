@@ -6,7 +6,7 @@ from torch import Tensor
 from torchvision import transforms
 
 
-class EnsuresRGB:
+class EnsureRGB:
     """
     Makes sures that the images (in the form of tensors) have 3 channels:
 
@@ -30,48 +30,80 @@ class EnsuresRGB:
 
 def cifar10_normalization() -> Callable:
     """
-    Normalization transform for the cifar10 dataset. Shamelessly stolen from
-    [Lightning-Universe/lightning-bolts](https://github.com/Lightning-Universe/lightning-bolts/blob/master/src/pl_bolts/transforms/dataset_normalizations.py).
+    Normalization transform for the cifar10 dataset. Inspired from
+    [Lightning-Universe/lightning-bolts](https://github.com/Lightning-Universe/lightning-bolts/blob/master/src/pl_bolts/transforms/dataset_normalizations.py)
+    but the constants were slightly adjusted:
+
+        from nlnas.tv_dataset import TorchvisionDataset
+
+        ds = TorchvisionDataset("cifar10")
+        ds.setup("fit")
+        ds.setup("test")
+        x = torch.concat(
+            [a for a, _ in ds.train_dataloader()]
+            + [a for a, _ in ds.test_dataloader()]
+        )
+        mean = [float(x[:,i].mean()) for i in range(x.shape[1])]
+        std = [float(x[:,i].std()) for i in range(x.shape[1])]
+
+        print(mean, std)
     """
     return transforms.Normalize(
-        mean=[x / 255.0 for x in [125.3, 123.0, 113.9]],
-        std=[x / 255.0 for x in [63.0, 62.1, 66.7]],
+        mean=[0.491, 0.482, 0.446], std=[0.247, 0.243, 0.261]
     )
 
 
-def emnist_normalization(
-    split: Literal[
-        "balanced", "byclass", "bymerge", "digits", "letters", "mnist"
-    ]
-) -> Callable:
+def fashionmnist_normalization() -> Callable:
     """
-    Normalization transform for the emnist dataset. Shamelessly stolen from
+    Normalization transform for the mnist dataset. Inspired from
     [Lightning-Universe/lightning-bolts](https://github.com/Lightning-Universe/lightning-bolts/blob/master/src/pl_bolts/transforms/dataset_normalizations.py).
+    but the constants were slightly adjusted:
 
-    Args:
-        split (str): Either `balanced`, `byclass`, `bymerge`, `digits`,
-        `letters`, or `mnist`.
+        from nlnas.tv_dataset import TorchvisionDataset
 
-    See also:
-        [`torchvision.datasets.EMNIST`](https://pytorch.org/vision/stable/generated/torchvision.datasets.EMNIST.html#torchvision.datasets.EMNIST)
+        ds = TorchvisionDataset("fashionmnist")
+        ds.setup("fit")
+        ds.setup("test")
+        x = torch.concat(
+            [a for a, _ in ds.train_dataloader()]
+            + [a for a, _ in ds.test_dataloader()]
+        )
+        mean = float(x.mean())
+        std = float(x.std())
+
+        print(mean, std)
     """
-    stats = {
-        "balanced": (0.175, 0.333),
-        "byclass": (0.174, 0.332),
-        "bymerge": (0.174, 0.332),
-        "digits": (0.173, 0.332),
-        "letters": (0.172, 0.331),
-        "mnist": (0.173, 0.332),
-    }
-
-    return transforms.Normalize(mean=stats[split][0], std=stats[split][1])
+    return transforms.Normalize(mean=[0.286], std=[0.353])
 
 
 def imagenet_normalization() -> Callable:
     """
-    Normalization transform for the imagenet dataset. Shamelessly stolen from
+    Normalization transform for the imagenet dataset. Inspired from
     [Lightning-Universe/lightning-bolts](https://github.com/Lightning-Universe/lightning-bolts/blob/master/src/pl_bolts/transforms/dataset_normalizations.py).
     """
     return transforms.Normalize(
         mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
     )
+
+
+def mnist_normalization() -> Callable:
+    """
+    Normalization transform for the mnist dataset. Shamelessly stolen from
+    [Lightning-Universe/lightning-bolts](https://github.com/Lightning-Universe/lightning-bolts/blob/master/src/pl_bolts/transforms/dataset_normalizations.py).
+    but the constants were slightly adjusted:
+
+        from nlnas.tv_dataset import TorchvisionDataset
+
+        ds = TorchvisionDataset("mnist")
+        ds.setup("fit")
+        ds.setup("test")
+        x = torch.concat(
+            [a for a, _ in ds.train_dataloader()]
+            + [a for a, _ in ds.test_dataloader()]
+        )
+        mean = float(x.mean())
+        std = float(x.std())
+
+        print(mean, std)
+    """
+    return transforms.Normalize(mean=[0.130], std=[0.308])

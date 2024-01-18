@@ -9,7 +9,7 @@ from nlnas.classifier import TorchvisionClassifier
 from nlnas.logging import setup_logging
 from nlnas.nlnas import train_and_analyse_all
 from nlnas.training import train_model_guarded
-from nlnas.transforms import cifar10_normalization
+from nlnas.transforms import *
 from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
 from nlnas.utils import best_device
 
@@ -35,23 +35,43 @@ def main():
         "model.0.classifier.3",
         "model.0.classifier.6",
     ]
-    dataset_names = [
-        # "mnist",
-        # "kmnist",
-        # "fashionmnist",
-        "cifar10",
-        "cifar100",
-    ]
-    transform = tvtr.Compose(
-        [
-            tvtr.RandomCrop(32, padding=4),
-            tvtr.RandomHorizontalFlip(),
-            tvtr.ToTensor(),
-            cifar10_normalization(),
-            tvtr.Resize([64, 64], antialias=True),
-        ]
-    )
-    for m, d in product(model_names, dataset_names):
+    datasets = {
+        "mnist": tvtr.Compose(
+            [
+                tvtr.ToTensor(),
+                EnsureRGB(),
+                mnist_normalization(),
+                tvtr.Resize([64, 64], antialias=True),
+            ]
+        ),
+        "fashionmnist": tvtr.Compose(
+            [
+                tvtr.ToTensor(),
+                EnsureRGB(),
+                fashionmnist_normalization(),
+                tvtr.Resize([64, 64], antialias=True),
+            ]
+        ),
+        "cifar10": tvtr.Compose(
+            [
+                tvtr.RandomCrop(32, padding=4),
+                tvtr.RandomHorizontalFlip(),
+                tvtr.ToTensor(),
+                cifar10_normalization(),
+                tvtr.Resize([64, 64], antialias=True),
+            ]
+        ),
+        "cifar100": tvtr.Compose(
+            [
+                tvtr.RandomCrop(32, padding=4),
+                tvtr.RandomHorizontalFlip(),
+                tvtr.ToTensor(),
+                cifar10_normalization(),
+                tvtr.Resize([64, 64], antialias=True),
+            ]
+        ),
+    }
+    for m, (d, t) in product(model_names, datasets):
         try:
             output_dir = Path("out") / m / d
             dataloader_kwargs = DEFAULT_DATALOADER_KWARGS.copy()

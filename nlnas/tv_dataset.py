@@ -10,7 +10,7 @@ import torchvision
 
 from torch.utils.data import DataLoader, Dataset, random_split
 
-from .transforms import EnsuresRGB
+from .transforms import EnsureRGB
 from .utils import dl_targets
 
 
@@ -126,7 +126,7 @@ class TorchvisionDataset(pl.LightningDataModule):
         self.transform = transform or torchvision.transforms.Compose(
             [
                 torchvision.transforms.ToTensor(),
-                EnsuresRGB(),
+                EnsureRGB(),
             ]
         )
         self.download_path = download_path

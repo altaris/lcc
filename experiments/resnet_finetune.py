@@ -9,7 +9,7 @@ from nlnas.classifier import TorchvisionClassifier
 from nlnas.logging import setup_logging
 from nlnas.nlnas import train_and_analyse_all
 from nlnas.training import best_checkpoint_path, train_model_guarded
-from nlnas.transforms import cifar10_normalization
+from nlnas.transforms import *
 from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
 from nlnas.utils import best_device
 
@@ -36,28 +36,47 @@ def main():
         "model.0.layer4",
         "model.0.fc",
     ]
-    dataset_names = [
-        # "mnist",
-        # "kmnist",
-        # "fashionmnist",
-        "cifar10",
-        "cifar100",
-    ]
-    transform = tvtr.Compose(
-        [
-            tvtr.RandomCrop(32, padding=4),
-            tvtr.RandomHorizontalFlip(),
-            tvtr.ToTensor(),
-            cifar10_normalization(),
-            tvtr.Resize([64, 64], antialias=True),
-            # EnsuresRGB(),
-        ]
-    )
+    datasets = {
+        "mnist": tvtr.Compose(
+            [
+                tvtr.ToTensor(),
+                EnsureRGB(),
+                mnist_normalization(),
+                tvtr.Resize([64, 64], antialias=True),
+            ]
+        ),
+        "fashionmnist": tvtr.Compose(
+            [
+                tvtr.ToTensor(),
+                EnsureRGB(),
+                fashionmnist_normalization(),
+                tvtr.Resize([64, 64], antialias=True),
+            ]
+        ),
+        "cifar10": tvtr.Compose(
+            [
+                tvtr.RandomCrop(32, padding=4),
+                tvtr.RandomHorizontalFlip(),
+                tvtr.ToTensor(),
+                cifar10_normalization(),
+                tvtr.Resize([64, 64], antialias=True),
+            ]
+        ),
+        "cifar100": tvtr.Compose(
+            [
+                tvtr.RandomCrop(32, padding=4),
+                tvtr.RandomHorizontalFlip(),
+                tvtr.ToTensor(),
+                cifar10_normalization(),
+                tvtr.Resize([64, 64], antialias=True),
+            ]
+        ),
+    }
     weight_exponents = [0, 1, 3, 5, 10]
     batch_sizes = [2048]
     ks = [5, 25, 50]
-    for m, d, we, bs, k in product(
-        model_names, dataset_names, weight_exponents, batch_sizes, ks
+    for m, (d, t), we, bs, k in product(
+        model_names, datasets, weight_exponents, batch_sizes, ks
     ):
         try:
             bcp, _ = best_checkpoint_path(
@@ -70,7 +89,7 @@ def main():
             dataloader_kwargs["batch_size"] = 2048
             datamodule = TorchvisionDataset(
                 d,
-                transform=transform,
+                transform=t,
                 dataloader_kwargs=dataloader_kwargs,
             )
             model = TorchvisionClassifier.load_from_checkpoint(str(bcp))
