@@ -55,7 +55,7 @@ def main():
     )
     weight_exponents = [0, 1, 3, 5, 10]
     batch_sizes = [2048]
-    ks = [5, 50]
+    ks = [5, 25, 50]
     for m, d, we, bs, k in product(
         model_names, dataset_names, weight_exponents, batch_sizes, ks
     ):

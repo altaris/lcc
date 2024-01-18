@@ -34,7 +34,7 @@ def main():
         # "mnist",
         # "kmnist",
         # "fashionmnist",
-        # "cifar10",
+        "cifar10",
         "cifar100",
     ]
     transform = tvtr.Compose(
