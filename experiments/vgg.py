@@ -78,7 +78,7 @@ def main():
             dataloader_kwargs["batch_size"] = 2048
             datamodule = TorchvisionDataset(
                 d,
-                transform=transform,
+                transform=t,
                 dataloader_kwargs=dataloader_kwargs,
             )
             model = TorchvisionClassifier(
