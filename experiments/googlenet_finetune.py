@@ -109,6 +109,7 @@ def main():
                 output_dir / "model",
                 name=exp_name,
                 max_epochs=512,
+                strategy="ddp_find_unused_parameters_true",
             )
             # train_and_analyse_all(
             #     model=model,

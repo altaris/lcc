@@ -88,14 +88,22 @@ def main():
             )
             model = model.to(best_device())
             model.model[0].register_forward_hook(extract_logits)
-            train_and_analyse_all(
-                model=model,
-                submodule_names=analysis_submodules,
-                dataset=datamodule,
-                output_dir=output_dir,
-                model_name=m,
+            train_model_guarded(
+                model,
+                datamodule,
+                output_dir / "model",
+                name=m,
+                max_epochs=512,
                 strategy="ddp_find_unused_parameters_true",
             )
+            # train_and_analyse_all(
+            #     model=model,
+            #     submodule_names=analysis_submodules,
+            #     dataset=datamodule,
+            #     output_dir=output_dir,
+            #     model_name=m,
+            #     strategy="ddp_find_unused_parameters_true",
+            # )
         except (KeyboardInterrupt, SystemExit):
             pass
         except:

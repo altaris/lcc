@@ -87,14 +87,21 @@ def main():
                 input_shape=datamodule.image_shape,
             )
             model = model.to(best_device())
-            train_and_analyse_all(
-                model=model,
-                submodule_names=analysis_submodules,
-                dataset=datamodule,
-                output_dir=output_dir,
-                model_name=m,
-                n_samples=3500,
+            train_model_guarded(
+                model,
+                datamodule,
+                output_dir / "model",
+                name=m,
+                max_epochs=512,
             )
+            # train_and_analyse_all(
+            #     model=model,
+            #     submodule_names=analysis_submodules,
+            #     dataset=datamodule,
+            #     output_dir=output_dir,
+            #     model_name=m,
+            #     n_samples=3500,
+            # )
         except (KeyboardInterrupt, SystemExit):
             return
         except:
