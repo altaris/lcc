@@ -64,6 +64,26 @@ def main():
                 tvtr.Resize([64, 64], antialias=True),
             ]
         ),
+        "stl10": tvtr.Compose(
+            [
+                tvtr.RandomHorizontalFlip(),
+                tvtr.ToTensor(),
+                dataset_normalization("stl10"),
+            ]
+        ),
+        "pcam": tvtr.Compose(
+            [
+                tvtr.ToTensor(),
+                dataset_normalization("pcam"),
+            ]
+        ),
+        "flowers102": tvtr.Compose(
+            [
+                tvtr.Resize([128, 128], antialias=True),
+                tvtr.ToTensor(),
+                dataset_normalization("flowers102"),
+            ]
+        ),
     }
     cor_submodules = [
         "model.0.classifier.1",

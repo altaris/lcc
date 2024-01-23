@@ -67,6 +67,8 @@ def dataset_normalization(dataset_name: str) -> Callable:
         "flowers102": ([0.432, 0.381, 0.296], [0.294, 0.246, 0.273]),
         "imagenet": ([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
         "mnist": ([0.130], [0.308]),
+        "pcam": ([0.700, 0.538, 0.691], [0.234, 0.277, 0.212]),
+        "stl10": ([0.446, 0.439, 0.406], [0.260, 0.256, 0.271]),
     }
     if dataset_name not in parameters:
         raise ValueError(
