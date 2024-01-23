@@ -6,10 +6,12 @@ from torchvision.models import AlexNet_Weights, ResNet18_Weights
 
 from nlnas.classifier import TorchvisionClassifier
 from nlnas.logging import setup_logging
-from nlnas.nlnas import train_and_analyse_all
 from nlnas.training import train_model_guarded
-from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
+from nlnas.imagenet import ImageNet
 from nlnas.utils import best_device
+
+IMAGENET_DOWNLOAD_PATH = Path.home() / "torchvision" / "datasets" / "imagenet"
+# IMAGENET_DOWNLOAD_PATH = Path.home() / "torchvision" / "imagenet"
 
 
 def main():
@@ -61,12 +63,9 @@ def main():
                 + f"_finetune_l{k}_b{batch_size}_1e-{weight_exponent}"
             )
             output_dir = Path("out") / exp_name / "imagenet"
-            dataloader_kwargs = DEFAULT_DATALOADER_KWARGS.copy()
-            dataloader_kwargs["batch_size"] = batch_size
-            datamodule = TorchvisionDataset(
-                "imagenet",
+            datamodule = ImageNet(
                 transform=exp["weights"].transforms,
-                dataloader_kwargs=dataloader_kwargs,
+                download_path=IMAGENET_DOWNLOAD_PATH,
             )
             model = TorchvisionClassifier(
                 exp["model_name"],
@@ -85,13 +84,6 @@ def main():
                 name=exp_name,
                 max_epochs=512,
             )
-            # train_and_analyse_all(
-            #     model=model,
-            #     submodule_names=analysis_submodules,
-            #     dataset=datamodule,
-            #     output_dir=output_dir,
-            #     model_name=exp_name,
-            # )
         except (KeyboardInterrupt, SystemExit):
             return
         except:

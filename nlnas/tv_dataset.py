@@ -7,14 +7,12 @@ from typing import Any, Callable
 import pytorch_lightning as pl
 import torch
 import torchvision
-
 from torch.utils.data import DataLoader, Dataset, random_split
 
 from .transforms import EnsureRGB
 from .utils import dl_targets
 
-
-DEFAULT_DATALOADER_KWARGS = {
+DEFAULT_DATALOADER_KWARGS: dict[str, Any] = {
     "batch_size": 256 if torch.cuda.is_available() else 64,
     "num_workers": 8,
     "persistent_workers": True,
@@ -195,7 +193,7 @@ class TorchvisionDataset(pl.LightningDataModule):
         factory = ALL_DATASETS[self.dataset_name]
         self.dataset = factory(
             root=str(self.download_path),
-            # download=True,  # Necessary first time but then clutters the logs
+            download=True,  # Necessary first time but then clutters the logs
             transform=self.transform,
             **kwargs,
         )
