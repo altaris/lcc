@@ -8,7 +8,8 @@ from loguru import logger as logging
 from nlnas.classifier import TorchvisionClassifier
 from nlnas.logging import setup_logging
 from nlnas.nlnas import train_and_analyse_all
-from nlnas.transforms import *
+from nlnas.training import train_model_guarded
+from nlnas.transforms import EnsureRGB, dataset_normalization
 from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
 from nlnas.utils import best_device
 
@@ -102,7 +103,7 @@ def main():
                 input_shape=datamodule.image_shape,
             )
             model = model.to(best_device())
-            train_model(
+            train_model_guarded(
                 model,
                 datamodule,
                 output_dir / "model",
