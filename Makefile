@@ -34,4 +34,5 @@ lint:
 .PHONY: typecheck
 typecheck:
 	$(MYPY) -p $(SRC_PATH)
+	$(MYPY) experiments/*.py
 	$(MYPY) *.py
