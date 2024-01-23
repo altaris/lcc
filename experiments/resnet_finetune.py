@@ -41,7 +41,7 @@ def main():
             [
                 tvtr.ToTensor(),
                 EnsureRGB(),
-                mnist_normalization(),
+                dataset_normalization("mnist"),
                 tvtr.Resize([64, 64], antialias=True),
             ]
         ),
@@ -49,7 +49,7 @@ def main():
             [
                 tvtr.ToTensor(),
                 EnsureRGB(),
-                fashionmnist_normalization(),
+                dataset_normalization("fashionmnist"),
                 tvtr.Resize([64, 64], antialias=True),
             ]
         ),
@@ -58,7 +58,7 @@ def main():
                 tvtr.RandomCrop(32, padding=4),
                 tvtr.RandomHorizontalFlip(),
                 tvtr.ToTensor(),
-                cifar10_normalization(),
+                dataset_normalization("cifar10"),
                 tvtr.Resize([64, 64], antialias=True),
             ]
         ),
@@ -67,7 +67,7 @@ def main():
                 tvtr.RandomCrop(32, padding=4),
                 tvtr.RandomHorizontalFlip(),
                 tvtr.ToTensor(),
-                cifar10_normalization(),
+                dataset_normalization("cifar10"),
                 tvtr.Resize([64, 64], antialias=True),
             ]
         ),

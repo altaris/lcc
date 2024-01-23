@@ -1,6 +1,6 @@
 """Custom torchvision transforms"""
 
-from typing import Callable, Literal
+from typing import Callable
 
 from torch import Tensor
 from torchvision import transforms
@@ -28,82 +28,50 @@ class EnsureRGB:
         return f"{self.__class__.__name__}()"
 
 
-def cifar10_normalization() -> Callable:
+def dataset_normalization(dataset_name: str) -> Callable:
     """
-    Normalization transform for the cifar10 dataset. Inspired from
-    [Lightning-Universe/lightning-bolts](https://github.com/Lightning-Universe/lightning-bolts/blob/master/src/pl_bolts/transforms/dataset_normalizations.py)
-    but the constants were slightly adjusted:
+    Returns a [normalization
+    transform](https://pytorch.org/vision/main/generated/torchvision.transforms.Normalize.html)
+    with parameters tailored for a given dataset. The parameters were obtained
+    with a snippet that looks like this:
 
-        from nlnas.tv_dataset import TorchvisionDataset
+        from torchvision.datasets import *
+        from torch.utils.data import DataLoader
+        from torchvision import transforms
 
-        ds = TorchvisionDataset("cifar10")
-        ds.setup("fit")
-        ds.setup("test")
-        x = torch.concat(
-            [a for a, _ in ds.train_dataloader()]
-            + [a for a, _ in ds.test_dataloader()]
+        ds = Flowers102(
+            root="/home/cedric/torchvision/datasets/",
+            transform=transforms.Compose(
+                [
+                    transforms.Resize([512, 512]),  # if no standard size
+                    transforms.ToTensor(),
+                ]
+            ),
+            split="train",  # or something like that
+            download=True,
         )
+        dl = DataLoader(ds, batch_size=256)
+        x = torch.concat([a for a, _ in tqdm(dl)])
         mean = [float(x[:,i].mean()) for i in range(x.shape[1])]
         std = [float(x[:,i].std()) for i in range(x.shape[1])]
+        print(mean)
+        print(std)
 
-        print(mean, std)
-    """
-    return transforms.Normalize(
-        mean=[0.491, 0.482, 0.446], std=[0.247, 0.243, 0.261]
-    )
-
-
-def fashionmnist_normalization() -> Callable:
-    """
-    Normalization transform for the mnist dataset. Inspired from
+    The parameters for `imagenet` where shamelessly stolen from
     [Lightning-Universe/lightning-bolts](https://github.com/Lightning-Universe/lightning-bolts/blob/master/src/pl_bolts/transforms/dataset_normalizations.py).
-    but the constants were slightly adjusted:
-
-        from nlnas.tv_dataset import TorchvisionDataset
-
-        ds = TorchvisionDataset("fashionmnist")
-        ds.setup("fit")
-        ds.setup("test")
-        x = torch.concat(
-            [a for a, _ in ds.train_dataloader()]
-            + [a for a, _ in ds.test_dataloader()]
+    """
+    parameters = {
+        "cifar10": ([0.491, 0.482, 0.446], [0.247, 0.243, 0.261]),
+        "cifar100": ([0.491, 0.482, 0.446], [0.247, 0.243, 0.261]),
+        "fashionmnist": ([0.286], [0.353]),
+        "flowers102": ([0.432, 0.381, 0.296], [0.294, 0.246, 0.273]),
+        "imagenet": ([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+        "mnist": ([0.130], [0.308]),
+    }
+    if dataset_name not in parameters:
+        raise ValueError(
+            "Could not find normalization parameters for dataset "
+            f"'{dataset_name}'"
         )
-        mean = float(x.mean())
-        std = float(x.std())
-
-        print(mean, std)
-    """
-    return transforms.Normalize(mean=[0.286], std=[0.353])
-
-
-def imagenet_normalization() -> Callable:
-    """
-    Normalization transform for the imagenet dataset. Inspired from
-    [Lightning-Universe/lightning-bolts](https://github.com/Lightning-Universe/lightning-bolts/blob/master/src/pl_bolts/transforms/dataset_normalizations.py).
-    """
-    return transforms.Normalize(
-        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-    )
-
-
-def mnist_normalization() -> Callable:
-    """
-    Normalization transform for the mnist dataset. Shamelessly stolen from
-    [Lightning-Universe/lightning-bolts](https://github.com/Lightning-Universe/lightning-bolts/blob/master/src/pl_bolts/transforms/dataset_normalizations.py).
-    but the constants were slightly adjusted:
-
-        from nlnas.tv_dataset import TorchvisionDataset
-
-        ds = TorchvisionDataset("mnist")
-        ds.setup("fit")
-        ds.setup("test")
-        x = torch.concat(
-            [a for a, _ in ds.train_dataloader()]
-            + [a for a, _ in ds.test_dataloader()]
-        )
-        mean = float(x.mean())
-        std = float(x.std())
-
-        print(mean, std)
-    """
-    return transforms.Normalize(mean=[0.130], std=[0.308])
+    mean, std = parameters[dataset_name]
+    return transforms.Normalize(mean=mean, std=std)
