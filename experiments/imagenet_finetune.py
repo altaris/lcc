@@ -5,13 +5,13 @@ from loguru import logger as logging
 from torchvision.models import AlexNet_Weights, ResNet18_Weights
 
 from nlnas.classifier import TorchvisionClassifier
+from nlnas.imagenet import ImageNet
 from nlnas.logging import setup_logging
 from nlnas.training import train_model_guarded
-from nlnas.imagenet import ImageNet
 from nlnas.utils import best_device
 
-IMAGENET_DOWNLOAD_PATH = Path.home() / "torchvision" / "datasets" / "imagenet"
-# IMAGENET_DOWNLOAD_PATH = Path.home() / "torchvision" / "imagenet"
+# IMAGENET_DOWNLOAD_PATH = Path.home() / "torchvision" / "datasets" / "imagenet"
+IMAGENET_DOWNLOAD_PATH = Path.home() / "torchvision" / "imagenet"
 
 
 def main():
@@ -32,7 +32,7 @@ def main():
             "correction_submodules": [
                 "model.0.classifier.1",
                 "model.0.classifier.4",
-                # "model.0.classifier.6",
+                "model.0.classifier.6",
             ],
         },
         # {
@@ -64,7 +64,7 @@ def main():
             )
             output_dir = Path("out") / exp_name / "imagenet"
             datamodule = ImageNet(
-                transform=exp["weights"].transforms,
+                transform=exp["weights"].transforms(),
                 download_path=IMAGENET_DOWNLOAD_PATH,
             )
             model = TorchvisionClassifier(
@@ -84,6 +84,8 @@ def main():
                 name=exp_name,
                 max_epochs=512,
             )
+        # except:
+        #     raise
         except (KeyboardInterrupt, SystemExit):
             return
         except:
