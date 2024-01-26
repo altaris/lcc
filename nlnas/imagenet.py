@@ -3,12 +3,13 @@
 from pathlib import Path
 from typing import Callable, Iterator
 
+import numpy as np
 import pytorch_lightning as pl
 import torch
 import torchvision
 import turbo_broccoli as tb
-from tqdm import tqdm
 from torch.utils.data import DataLoader, Dataset, IterableDataset, Sampler
+from tqdm import tqdm
 
 from .tv_dataset import DEFAULT_DATALOADER_KWARGS, DEFAULT_DOWNLOAD_PATH
 
@@ -41,6 +42,10 @@ class BalancedBatchSampler(Sampler[list[int]]):
                 dataset, batch_size=2048, n_classes_per_batch=10, seed=0
             ),
         )
+
+    Then sampler can't run in a distributed manner (yet). If using with pytorch
+    lightning, don't forget to construct your trainer with
+    `use_distributed_sampler=False`.
     """
 
     class _Iterator(Iterator[list[int]]):
@@ -59,8 +64,8 @@ class BalancedBatchSampler(Sampler[list[int]]):
             n_batches: int,
             seed: int | None = None,
         ):
-            self.y, self.classes = y, torch.unique(self.y)
-            if self.classes < n_classes_per_batch:
+            self.y, self.classes = y, torch.unique(y)
+            if len(self.classes) < n_classes_per_batch:
                 raise ValueError(
                     "The number of classes per batch cannot exceed the actual "
                     "number of classes"
@@ -96,32 +101,43 @@ class BalancedBatchSampler(Sampler[list[int]]):
                 idx += [_choice(r, n=reminder, generator=self.generator)]
             return torch.concat(idx).int().tolist()
 
-    iterator: "BalancedBatchSampler._Iterator"
+    batch_size: int
+    n_batches: int
+    n_classes_per_batch: int
+    seed: int | None
+    y: torch.Tensor
 
     def __init__(
         self,
-        y: IterableDataset | torch.Tensor,
+        y: IterableDataset | torch.Tensor | np.ndarray,
         batch_size: int,
         n_classes_per_batch: int,
         n_batches: int | None = None,
         seed: int | None = None,
     ):
         super().__init__()
-        if not isinstance(y, torch.Tensor):
-            y = torch.Tensor([e[-1] for e in y])
-        self.iterator = BalancedBatchSampler._Iterator(
-            y,
-            batch_size=batch_size,
-            n_classes_per_batch=n_classes_per_batch,
-            n_batches=n_batches or (len(y) // batch_size),
-            seed=seed,
-        )
+        if isinstance(y, np.ndarray):
+            self.y = torch.Tensor(y)
+        elif isinstance(y, IterableDataset):
+            self.y = torch.Tensor([e[-1] for e in y])
+        else:
+            self.y = y
+        self.batch_size = batch_size
+        self.n_classes_per_batch = n_classes_per_batch
+        self.seed = seed
+        self.n_batches = n_batches or (len(self.y) // batch_size)
 
     def __len__(self) -> int:
-        return self.iterator.n_batches
+        return self.n_batches
 
     def __iter__(self) -> Iterator[list[int]]:
-        return self.iterator
+        return BalancedBatchSampler._Iterator(
+            self.y,
+            batch_size=self.batch_size,
+            n_classes_per_batch=self.n_classes_per_batch,
+            n_batches=self.n_batches,
+            seed=self.seed,
+        )
 
 
 class ImageNet(pl.LightningDataModule):
@@ -196,28 +212,36 @@ class ImageNet(pl.LightningDataModule):
         loaded before calling this method using
         `TorchvisionDataset.setup('fit')`
         """
+        # pylint: disable=duplicate-code
         if self.train_dataset is None:
             raise RuntimeError(
                 "The dataset has not been loaded. Call "
                 "`TorchvisionDataset.setup('fit')` before using "
                 "this datamodule."
             )
+        kw = DEFAULT_DATALOADER_KWARGS.copy()
+        kw["shuffle"] = False
+        # return DataLoader(dataset=self.train_dataset, **kw)
         h = tb.GuardedBlockHandler(self.download_path / "train_y.st")
         for _ in h.guard():
+            # Should take about 10mins
+            dl = DataLoader(self.train_dataset, batch_size=2048, num_workers=8)
             progress = tqdm(
-                self.train_dataset,
+                dl,
                 desc="Constructing label vector",
                 leave=False,
             )
-            h.result = torch.Tensor([e[-1] for e in progress]).int()
+            y = torch.concat([e[-1] for e in progress]).int()
+            h.result = {"y": y}
         return DataLoader(
             dataset=self.train_dataset,
             batch_sampler=BalancedBatchSampler(
-                h.result,
+                h.result["y"],
                 batch_size=2048,
                 n_classes_per_batch=10,
-                seed=0,
+                # seed=0,
             ),
+            num_workers=DEFAULT_DATALOADER_KWARGS["num_workers"],
         )
 
     def val_dataloader(self) -> DataLoader:
@@ -226,6 +250,7 @@ class ImageNet(pl.LightningDataModule):
         been loaded before calling this method using
         `TorchvisionDataset.setup('fit')` (yes, `'fit'`, this is not a typo)
         """
+        # pylint: disable=duplicate-code
         if self.val_dataset is None:
             raise RuntimeError(
                 "The dataset has not been loaded. Call "
