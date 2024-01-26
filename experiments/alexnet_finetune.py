@@ -2,14 +2,13 @@ from itertools import product
 from pathlib import Path
 
 import pytorch_lightning as pl
-import torchvision.transforms as tvtr
+from _parameters import BATCH_SIZES, DATASETS, KS, WEIGHT_EXPONENTS
 from loguru import logger as logging
 
 from nlnas.classifier import TorchvisionClassifier
 from nlnas.logging import setup_logging
 from nlnas.nlnas import train_and_analyse_all
 from nlnas.training import best_checkpoint_path, train_model_guarded
-from nlnas.transforms import EnsureRGB, dataset_normalization
 from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
 from nlnas.utils import best_device
 
@@ -29,72 +28,13 @@ def main():
         "model.0.classifier.6",
         # "model.0.classifier",
     ]
-    datasets = {
-        "mnist": tvtr.Compose(
-            [
-                tvtr.ToTensor(),
-                EnsureRGB(),
-                dataset_normalization("mnist"),
-                tvtr.Resize([64, 64], antialias=True),
-            ]
-        ),
-        "fashionmnist": tvtr.Compose(
-            [
-                tvtr.ToTensor(),
-                EnsureRGB(),
-                dataset_normalization("fashionmnist"),
-                tvtr.Resize([64, 64], antialias=True),
-            ]
-        ),
-        "cifar10": tvtr.Compose(
-            [
-                tvtr.RandomCrop(32, padding=4),
-                tvtr.RandomHorizontalFlip(),
-                tvtr.ToTensor(),
-                dataset_normalization("cifar10"),
-                tvtr.Resize([64, 64], antialias=True),
-            ]
-        ),
-        "cifar100": tvtr.Compose(
-            [
-                tvtr.RandomCrop(32, padding=4),
-                tvtr.RandomHorizontalFlip(),
-                tvtr.ToTensor(),
-                dataset_normalization("cifar10"),
-                tvtr.Resize([64, 64], antialias=True),
-            ]
-        ),
-        "stl10": tvtr.Compose(
-            [
-                tvtr.RandomHorizontalFlip(),
-                tvtr.ToTensor(),
-                dataset_normalization("stl10"),
-            ]
-        ),
-        "pcam": tvtr.Compose(
-            [
-                tvtr.ToTensor(),
-                dataset_normalization("pcam"),
-            ]
-        ),
-        "flowers102": tvtr.Compose(
-            [
-                tvtr.Resize([128, 128], antialias=True),
-                tvtr.ToTensor(),
-                dataset_normalization("flowers102"),
-            ]
-        ),
-    }
     cor_submodules = [
         "model.0.classifier.1",
         "model.0.classifier.4",
         "model.0.classifier.6",
     ]
-    weight_exponents = [0, 1, 3, 5, 10]
-    batch_sizes = [2048]
-    ks = [5, 25, 50]
     for m, (d, t), we, bs, k in product(
-        model_names, datasets.items(), weight_exponents, batch_sizes, ks
+        model_names, DATASETS.items(), WEIGHT_EXPONENTS, BATCH_SIZES, KS
     ):
         try:
             bcp, _ = best_checkpoint_path(

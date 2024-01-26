@@ -2,7 +2,7 @@ from itertools import product
 from pathlib import Path
 
 import pytorch_lightning as pl
-import torchvision.transforms as tvtr
+from _parameters import DATASETS
 from loguru import logger as logging
 from torch import Tensor
 
@@ -10,7 +10,6 @@ from nlnas.classifier import TorchvisionClassifier
 from nlnas.logging import setup_logging
 from nlnas.nlnas import train_and_analyse_all
 from nlnas.training import train_model_guarded
-from nlnas.transforms import EnsureRGB, dataset_normalization
 from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
 from nlnas.utils import best_device
 
@@ -36,63 +35,7 @@ def main():
         "model.0.inception5b",
         "model.0.fc",
     ]
-    datasets = {
-        "mnist": tvtr.Compose(
-            [
-                tvtr.ToTensor(),
-                EnsureRGB(),
-                dataset_normalization("mnist"),
-                tvtr.Resize([64, 64], antialias=True),
-            ]
-        ),
-        "fashionmnist": tvtr.Compose(
-            [
-                tvtr.ToTensor(),
-                EnsureRGB(),
-                dataset_normalization("fashionmnist"),
-                tvtr.Resize([64, 64], antialias=True),
-            ]
-        ),
-        "cifar10": tvtr.Compose(
-            [
-                tvtr.RandomCrop(32, padding=4),
-                tvtr.RandomHorizontalFlip(),
-                tvtr.ToTensor(),
-                dataset_normalization("cifar10"),
-                tvtr.Resize([64, 64], antialias=True),
-            ]
-        ),
-        "cifar100": tvtr.Compose(
-            [
-                tvtr.RandomCrop(32, padding=4),
-                tvtr.RandomHorizontalFlip(),
-                tvtr.ToTensor(),
-                dataset_normalization("cifar10"),
-                tvtr.Resize([64, 64], antialias=True),
-            ]
-        ),
-        "stl10": tvtr.Compose(
-            [
-                tvtr.RandomHorizontalFlip(),
-                tvtr.ToTensor(),
-                dataset_normalization("stl10"),
-            ]
-        ),
-        "pcam": tvtr.Compose(
-            [
-                tvtr.ToTensor(),
-                dataset_normalization("pcam"),
-            ]
-        ),
-        "flowers102": tvtr.Compose(
-            [
-                tvtr.Resize([128, 128], antialias=True),
-                tvtr.ToTensor(),
-                dataset_normalization("flowers102"),
-            ]
-        ),
-    }
-    for m, (d, t) in product(model_names, datasets.items()):
+    for m, (d, t) in product(model_names, DATASETS.items()):
         try:
             output_dir = Path("out") / m / d
             dataloader_kwargs = DEFAULT_DATALOADER_KWARGS.copy()
