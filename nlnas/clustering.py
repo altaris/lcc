@@ -161,8 +161,8 @@ def clustering_loss(
         k (int, optional):
     """
 
-    def _npf(a: Tensor) -> np.ndarray:
-        return a.cpu().detach().flatten(1).numpy()
+    def _np(a: Tensor) -> np.ndarray:
+        return a.cpu().detach().numpy()
 
     if isinstance(y_true, Tensor):
         y_true = y_true.cpu().detach().numpy()
@@ -179,9 +179,13 @@ def clustering_loss(
         z_match, z_miss = z[p12[a]], z[p3[a]]  # both non empty
         z_match, z_miss = z_match.flatten(1), z_miss.flatten(1)
         index = NearestNeighbors(n_neighbors=min(k + 1, z_match.shape[0]))
-        index.fit(_npf(z_match))
-        _, idx = index.kneighbors(_npf(z_miss))
+        index.fit(_np(z_match))
+        _, idx = index.kneighbors(_np(z_miss))
         idx = idx[:, 1:]  # exclude self as nearest neighbor
+        if idx.size == 0:
+            # Can happen if z_match or z_miss only have 1 row, which can happen
+            # for clusters with only one element
+            continue
         targets = z_match[torch.tensor(idx)].mean(dim=1)
         losses.append(torch.norm(z_miss - targets, dim=-1).mean())
     if not losses:
