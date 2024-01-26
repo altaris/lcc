@@ -241,7 +241,8 @@ class ImageNet(pl.LightningDataModule):
                 n_classes_per_batch=10,
                 # seed=0,
             ),
-            num_workers=DEFAULT_DATALOADER_KWARGS["num_workers"],
+            # num_workers=DEFAULT_DATALOADER_KWARGS["num_workers"],
+            num_workers=24,
         )
 
     def val_dataloader(self) -> DataLoader:

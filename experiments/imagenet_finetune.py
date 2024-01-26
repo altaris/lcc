@@ -19,21 +19,25 @@ def main():
     experiments = [
         {
             "model_name": "resnet18",
-            "weights": ResNet18_Weights.IMAGENET1K_V1,
+            "weights": ResNet18_Weights.DEFAULT,
             "correction_submodules": [
                 "model.0.layer3",
                 "model.0.layer4",
                 # "model.0.fc",
             ],
+            # torch.optim.SGD(self.parameters(), lr=1e-5, momentum=0.9)
+            # test/loss: 1.246917963027954, test/acc: 0.6976400017738342
         },
         {
             "model_name": "alexnet",
-            "weights": AlexNet_Weights.IMAGENET1K_V1,
+            "weights": AlexNet_Weights.DEFAULT,
             "correction_submodules": [
                 "model.0.classifier.1",
                 "model.0.classifier.4",
                 "model.0.classifier.6",
             ],
+            # torch.optim.SGD(self.parameters(), lr=1e-5, momentum=0.9)
+            # test/loss: 1.9095762968063354, test/acc: 0.565500020980835
         },
         # {
         #     "model_name": "vit_b_16",
@@ -82,7 +86,13 @@ def main():
                 datamodule,
                 output_dir / "model",
                 name=exp_name,
-                max_epochs=512,
+                max_epochs=128,
+                use_distributed_sampler=False,
+                early_stopping_kwargs={
+                    "monitor": "val/loss",
+                    "patience": 5,
+                    "mode": "min",
+                },
             )
         # except:
         #     raise

@@ -277,9 +277,7 @@ def train_model(
         max_epochs=max_epochs,
         callbacks=[
             pl.callbacks.EarlyStopping(**early_stopping_kwargs),
-            pl.callbacks.ModelCheckpoint(
-                save_top_k=-1, monitor="val/acc", mode="max", every_n_epochs=1
-            ),
+            pl.callbacks.ModelCheckpoint(every_n_epochs=1),
             pl.callbacks.TQDMProgressBar(),
             *additional_callbacks,
         ],
