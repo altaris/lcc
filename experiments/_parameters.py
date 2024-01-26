@@ -60,6 +60,7 @@ DATASETS = {
         [
             transforms.ToTensor(),
             dataset_normalization("semeion"),
+            EnsureRGB(),
         ]
     ),
     # "flowers102": transforms.Compose(
