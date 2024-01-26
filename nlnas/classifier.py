@@ -91,7 +91,7 @@ class Classifier(pl.LightningModule):
         )
         self.cor_type = cor_type if sep_score is None else sep_score
         self.cor_weight = cor_weight if sep_weight is None else sep_weight
-        self.cov_kwargs = cor_kwargs or {}
+        self.cor_kwargs = cor_kwargs or {}
 
     def _evaluate(self, batch, stage: str | None = None) -> Tensor:
         """Self-explanatory"""
