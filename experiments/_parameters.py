@@ -60,6 +60,7 @@ DATASETS = {
         [
             transforms.ToTensor(),
             dataset_normalization("semeion"),
+            transforms.Resize([64, 64], antialias=True),
             EnsureRGB(),
         ]
     ),
