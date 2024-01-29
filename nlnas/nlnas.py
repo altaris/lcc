@@ -228,125 +228,27 @@ def analyse_training(output_dir: str | Path, last_epoch: int | None = None):
     )
     last_epoch = last_epoch or len(ckpt_analysis_dirs) - 1
 
-    # LV COMPUTATION
-    # h = tb.GuardedBlockHandler(output_dir / "lv.csv")
-    # for _ in h.guard():
-    #     data = []
-    #     logging.info("Computing LVs")
-    #     progress = tqdm(ckpt_analysis_dirs, desc="LV", leave=False)
-    #     for epoch, path in enumerate(progress):
-    #         evaluations = tb.load_json(path / "eval" / "eval.json")
-    #         for sm, z in evaluations["z"].items():
-    #             progress.set_postfix({"epoch": epoch, "submodule": sm})
-    #             v = float(label_variation(z, evaluations["y_true"]))
-    #             data.append([epoch, sm, v])
-    #     df = pd.DataFrame(data, columns=["epoch", "submodule", "lv"])
-    #     h.result = df
-
-    #     # PLOTTING
-    #     e = np.linspace(0, last_epoch, num=5, dtype=int)
-    #     figure = sns.lineplot(
-    #         df[df["epoch"].isin(e)],
-    #         x="submodule",
-    #         y="lv",
-    #         hue="epoch",
-    #         size="epoch",
-    #     )
-    #     figure.set(title="Label variation by epoch")
-    #     figure.set_xticklabels(
-    #         figure.get_xticklabels(),
-    #         rotation=45,
-    #         rotation_mode="anchor",
-    #         ha="right",
-    #     )
-    #     figure.get_figure().savefig(output_dir / "lv_epoch.png")
-    #     plt.clf()
-
-    # GDV COMPUTATION
-    # h = tb.GuardedBlockHandler(output_dir / "gdv.csv")
-    # for _ in h.guard():
-    #     data = []
-    #     logging.info("Computing GDVs")
-    #     progress = tqdm(ckpt_analysis_dirs, desc="GDV", leave=False)
-    #     for epoch, path in enumerate(progress):
-    #         evaluations = tb.load_json(path / "eval" / "eval.json")
-    #         for sm, z in evaluations["z"].items():
-    #             progress.set_postfix({"epoch": epoch, "submodule": sm})
-    #             v = float(gdv(z, evaluations["y_true"]))
-    #             data.append([epoch, sm, v])
-    #     df = pd.DataFrame(data, columns=["epoch", "submodule", "gdv"])
-    #     h.result = df
-
-    #     # PLOTTING
-    #     e = np.linspace(0, last_epoch, num=5, dtype=int)
-    #     figure = sns.lineplot(
-    #         df[df["epoch"].isin(e)],
-    #         x="submodule",
-    #         y="gdv",
-    #         hue="epoch",
-    #         size="epoch",
-    #     )
-    #     figure.set(title="GDV by epoch")
-    #     figure.set_xticklabels(
-    #         figure.get_xticklabels(),
-    #         rotation=45,
-    #         rotation_mode="anchor",
-    #         ha="right",
-    #     )
-    #     figure.get_figure().savefig(output_dir / "gdv_epoch.png")
-    #     plt.clf()
-
-    # GRASSMANNIAN DISTANCE COMPUTATION
-    # h = tb.GuardedBlockHandler(output_dir / "gr.csv")
-    # for _ in h.guard():
-    #     data = []
-    #     logging.info("Computing Grassmannian geodesic distances")
-    #     progress = tqdm(ckpt_analysis_dirs, desc="GGD", leave=False)
-    #     for epoch, path in enumerate(progress):
-    #         evaluations = tb.load_json(path / "eval" / "eval.json")
-    #         for sm, z in evaluations["z"].items():
-    #             progress.set_postfix({"epoch": epoch, "submodule": sm})
-    #             v = float(mean_ggd(z.flatten(1), evaluations["y_true"]))
-    #             data.append([epoch, sm, v])
-    #     df = pd.DataFrame(data, columns=["epoch", "submodule", "gr"])
-    #     h.result = df
-
-    #     # PLOTTING
-    #     # evaluations = tb.load_json(
-    #     #     ckpt_analysis_dirs[0] / "eval" / "eval.json"
-    #     # )
-    #     progress = tqdm(
-    #         evaluations["z"].keys(), desc="GGD plotting", leave=False
-    #     )
-    #     for sm in progress:
-    #         progress.set_postfix({"submodule": sm})
-    #         figure = sns.lineplot(df[df["submodule"] == sm], x="epoch", y="gr")
-    #         figure.axvline(last_epoch, linestyle=":", color="gray")
-    #         figure.set(title=f"Mean Grass. dst. for {sm}")
-    #         figure.get_figure().savefig(output_dir / f"gr_{sm}.png")
-    #         plt.clf()
-
     # UMAP PLOT
-    umap_all_path = output_dir / "umap_all.png"
-    if not umap_all_path.exists():
-        rows, epochs = [], np.linspace(0, last_epoch, num=10, dtype=int)
-        logging.info("Consolidating UMAP plots")
-        progress = tqdm(
-            ckpt_analysis_dirs, desc="UMAP summary plot", leave=False
-        )
-        for epoch, path in enumerate(progress):
-            if not epoch in epochs:
-                continue
-            progress.set_postfix({"epoch": epoch})
-            document = tb.load_json(path / "umap" / "plots.json")
-            for figure in document.values():
-                figure.height, figure.width = 200, 200
-                figure.grid.visible, figure.axis.visible = False, False
-            rows.append(list(document.values()))
-        figure = bk.gridplot(rows)
-        logging.debug("Sleeping for 5s before rendering to file")
-        sleep(5)
-        export_png(figure, filename=umap_all_path)
+    # umap_all_path = output_dir / "umap_all.png"
+    # if not umap_all_path.exists():
+    #     rows, epochs = [], np.linspace(0, last_epoch, num=10, dtype=int)
+    #     logging.info("Consolidating UMAP plots")
+    #     progress = tqdm(
+    #         ckpt_analysis_dirs, desc="UMAP summary plot", leave=False
+    #     )
+    #     for epoch, path in enumerate(progress):
+    #         if not epoch in epochs:
+    #             continue
+    #         progress.set_postfix({"epoch": epoch})
+    #         document = tb.load_json(path / "umap" / "plots.json")
+    #         for figure in document.values():
+    #             figure.height, figure.width = 200, 200
+    #             figure.grid.visible, figure.axis.visible = False, False
+    #         rows.append(list(document.values()))
+    #     figure = bk.gridplot(rows)
+    #     logging.debug("Sleeping for 5s before rendering to file")
+    #     sleep(5)
+    #     export_png(figure, filename=umap_all_path)
 
     # METRICS OF MISS/MATCH GROUPS
     h = tb.GuardedBlockHandler(output_dir / "metrics.csv")
