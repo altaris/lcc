@@ -1,16 +1,20 @@
+import sys
 from pathlib import Path
 
 import pytorch_lightning as pl
 from loguru import logger as logging
-from torchvision.models import AlexNet_Weights, ResNet18_Weights
+from torchvision.models import (
+    AlexNet_Weights,
+    ResNet18_Weights,
+    ViT_B_16_Weights,
+)
 
 from nlnas.classifier import TorchvisionClassifier
 from nlnas.imagenet import ImageNet
-from nlnas.logging import setup_logging
+from nlnas.logging import r0_info, setup_logging
 from nlnas.training import train_model_guarded
 from nlnas.utils import best_device
 
-# IMAGENET_DOWNLOAD_PATH = Path.home() / "torchvision" / "datasets" / "imagenet"
 IMAGENET_DOWNLOAD_PATH = Path.home() / "torchvision" / "imagenet"
 
 
@@ -23,22 +27,22 @@ def main():
             "correction_submodules": [
                 "model.0.layer3",
                 "model.0.layer4",
-                # "model.0.fc",
+                "model.0.fc",
             ],
             # torch.optim.SGD(self.parameters(), lr=1e-5, momentum=0.9)
             # test/loss: 1.246917963027954, test/acc: 0.6976400017738342
         },
-        {
-            "model_name": "alexnet",
-            "weights": AlexNet_Weights.DEFAULT,
-            "correction_submodules": [
-                "model.0.classifier.1",
-                "model.0.classifier.4",
-                "model.0.classifier.6",
-            ],
-            # torch.optim.SGD(self.parameters(), lr=1e-5, momentum=0.9)
-            # test/loss: 1.9095762968063354, test/acc: 0.565500020980835
-        },
+        # {
+        #     "model_name": "alexnet",
+        #     "weights": AlexNet_Weights.DEFAULT,
+        #     "correction_submodules": [
+        #         "model.0.classifier.1",
+        #         "model.0.classifier.4",
+        #         "model.0.classifier.6",
+        #     ],
+        #     # torch.optim.SGD(self.parameters(), lr=1e-5, momentum=0.9)
+        #     # test/loss: 1.9095762968063354, test/acc: 0.565500020980835
+        # },
         # {
         #     "model_name": "vit_b_16",
         #     "weights": ViT_B_16_Weights.IMAGENET1K_SWAG_E2E_V1,
@@ -59,9 +63,15 @@ def main():
         #     ],
         # },
     ]
-    weight_exponent, batch_size, k = 3, 2048, 5
+    weight_exponent, batch_size, k = 1, 2048, 10
     for exp in experiments:
         try:
+            r0_info(
+                "Starting fine-tuning of {} with k={} and w=1e-{}",
+                exp["model_name"],
+                batch_size,
+                weight_exponent,
+            )
             exp_name = (
                 exp["model_name"]
                 + f"_finetune_l{k}_b{batch_size}_1e-{weight_exponent}"
@@ -81,7 +91,7 @@ def main():
                 cor_kwargs={"k": k},
             )
             model = model.to(best_device())
-            train_model_guarded(
+            model, _ = train_model_guarded(
                 model,
                 datamodule,
                 output_dir / "model",
@@ -90,12 +100,19 @@ def main():
                 use_distributed_sampler=False,
                 early_stopping_kwargs={
                     "monitor": "val/loss",
-                    "patience": 5,
+                    "patience": 10,
                     "mode": "min",
                 },
             )
-        # except:
-        #     raise
+            if model.global_rank != 0:
+                sys.exit(0)
+            r0_info("Testing validation accuracy")
+            trainer = pl.Trainer(
+                callbacks=[pl.callbacks.TQDMProgressBar()],
+                strategy="ddp",
+                use_distributed_sampler=False,
+            )
+            trainer.test(model, datamodule)
         except (KeyboardInterrupt, SystemExit):
             return
         except:

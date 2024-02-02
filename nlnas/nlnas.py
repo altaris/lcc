@@ -1,10 +1,10 @@
 """Main module"""
+# TODO: Split module
 
 import sys
 import warnings
 from glob import glob
 from pathlib import Path
-from time import sleep
 from typing import Type
 
 import bokeh.layouts as bkl
