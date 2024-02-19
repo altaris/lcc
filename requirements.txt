@@ -1,6 +1,6 @@
 bokeh
 click
-git+https://github.com/altaris/turbo-broccoli.git
+git+https://github.com/altaris/turbo-broccoli.git@ec5c0a7a6bf1d6f400dc2972195ed62cd1cb1184
 loguru
 matplotlib
 networkx
