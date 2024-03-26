@@ -5,7 +5,6 @@
 
 from .classifier import Classifier, TorchvisionClassifier
 from .nlnas import analyse_ckpt, analyse_training, train_and_analyse_all
-from .pdist import pdist
 from .plotting import class_scatter, gaussian_mixture_plot
 from .separability import gdv, label_variation
 from .training import (
