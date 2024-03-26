@@ -6,12 +6,15 @@ from _parameters import DATASETS
 from loguru import logger as logging
 from torch import Tensor
 
-from nlnas.classifier import TorchvisionClassifier
+from nlnas import (
+    DEFAULT_DATALOADER_KWARGS,
+    TorchvisionClassifier,
+    TorchvisionDataset,
+    best_device,
+    train_and_analyse_all,
+    train_model_guarded,
+)
 from nlnas.logging import setup_logging
-from nlnas.nlnas import train_and_analyse_all
-from nlnas.training import train_model_guarded
-from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
-from nlnas.utils import best_device
 
 
 def extract_logits(_module, _inputs, outputs) -> Tensor | None:
@@ -51,7 +54,7 @@ def main():
                 input_shape=datamodule.image_shape,
             )
             model = model.to(best_device())
-            model.model[0].register_forward_hook(extract_logits)
+            model.model[0].register_forward_hook(extract_logits)  # type: ignore
             train_model_guarded(
                 model,
                 datamodule,

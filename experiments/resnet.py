@@ -5,12 +5,15 @@ import pytorch_lightning as pl
 from _parameters import DATASETS
 from loguru import logger as logging
 
-from nlnas.classifier import TorchvisionClassifier
+from nlnas import (
+    DEFAULT_DATALOADER_KWARGS,
+    TorchvisionClassifier,
+    TorchvisionDataset,
+    best_device,
+    train_and_analyse_all,
+    train_model_guarded,
+)
 from nlnas.logging import setup_logging
-from nlnas.nlnas import train_and_analyse_all
-from nlnas.training import train_model_guarded
-from nlnas.tv_dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
-from nlnas.utils import best_device
 
 
 def main():

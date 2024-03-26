@@ -9,11 +9,13 @@ from torchvision.models import (
     ViT_B_16_Weights,
 )
 
-from nlnas.classifier import TorchvisionClassifier
-from nlnas.imagenet import ImageNet
+from nlnas import (
+    ImageNet,
+    TorchvisionClassifier,
+    best_device,
+    train_model_guarded,
+)
 from nlnas.logging import r0_info, setup_logging
-from nlnas.training import train_model_guarded
-from nlnas.utils import best_device
 
 IMAGENET_DOWNLOAD_PATH = Path.home() / "torchvision" / "imagenet"
 

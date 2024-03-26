@@ -1,6 +1,6 @@
 from torchvision import transforms
 
-from nlnas.transforms import EnsureRGB, dataset_normalization
+from nlnas import EnsureRGB, dataset_normalization
 
 DATASETS = {
     "mnist": transforms.Compose(
