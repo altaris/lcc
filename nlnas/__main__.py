@@ -1,4 +1,5 @@
 """CLI module"""
+
 # pylint: disable=import-outside-toplevel
 
 import os

@@ -4,7 +4,7 @@ A torchvision image classifier wrapped inside a
 """
 
 import warnings
-from typing import Any, Iterable, Literal
+from typing import Any, Iterable
 
 import pytorch_lightning as pl
 import torch
@@ -14,7 +14,6 @@ from torch.utils.hooks import RemovableHandle
 from torchvision.models import get_model
 
 from .clustering import louvain_loss
-from .separability import gdv, label_variation, mean_ggd
 from .utils import best_device
 
 
@@ -34,11 +33,10 @@ def _make_lazy_linear(*args, **kwargs) -> nn.LazyLinear:
 
 
 class Classifier(pl.LightningModule):
-    """Classifier model with some extra features"""
+    """Abstract classifier model with some extra features"""
 
     n_classes: int
     cor_submodules: list[str]
-    cor_type: Literal["gdv", "lv", "ggd", "louvain"] | None
     cor_weight: float
     cor_kwargs: dict[str, Any]
 
@@ -46,13 +44,8 @@ class Classifier(pl.LightningModule):
         self,
         n_classes: int,
         cor_submodules: list[str] | None = None,
-        cor_type: Literal["gdv", "lv", "ggd", "louvain"] | None = None,
         cor_weight: float = 1e-1,
         cor_kwargs: dict[str, Any] | None = None,
-        sep_submodules: list[str] | None = None,  # Don't use
-        sep_score: Literal["gdv", "lv", "ggd", "louvain"]
-        | None = None,  # Don't use
-        sep_weight: float | None = None,  # Don't use
         **kwargs: Any,
     ) -> None:
         """
@@ -60,38 +53,15 @@ class Classifier(pl.LightningModule):
             n_classes (int):
             cor_submodules (list[str] | None, optional): Submodules to consider
                 for the latent correction loss
-            cor_type (Literal["gdv", "lv", "gdd"], optional): Type of
-                correction, either
-                - `gdv` for the Generalized Discrimination Value (see
-                  `nlnas.separability.gdv`),
-                - `lv` for Label Variation (see `nlnas.separability.lv`),
-                - `ggd` for Geodesic Grassmanian Distance
-                  (see `nlnas.separability.ggd`),
-                - `louvain` for the Louvain/Leiden clustering loss (see
-                  `nlnas.clustering.louvain_loss`).
             cor_weight (float, optional): Weight of the correction loss.
                 Ignored if `cor_submodules` is left to `None` or is `[]`
             cor_kwargs (dict, optional): Passed to the correction loss function
-            sep_submodules: For backward compatibility with old model
-                checkpoints, do not use.
-            sep_score: For backward compatibility with old model checkpoints,
-                do not use.
-            sep_weight: For backward compatibility with old model checkpoints,
-                do not use.
         """
         super().__init__(**kwargs)
-        self.save_hyperparameters(
-            ignore=["sep_submodules", "sep_score", "sep_weight"]
-        )
+        self.save_hyperparameters()
         self.n_classes = n_classes
-        self.cor_submodules = (
-            (cor_submodules or [])
-            if sep_submodules is None
-            else sep_submodules
-        )
-        self.cor_type = cor_type if sep_score is None else sep_score
-        self.cor_weight = cor_weight if sep_weight is None else sep_weight
-        self.cor_kwargs = cor_kwargs or {}
+        self.cor_submodules = cor_submodules or []
+        self.cor_weight, self.cor_kwargs = cor_weight, cor_kwargs or {}
 
     def _evaluate(self, batch, stage: str | None = None) -> Tensor:
         """Self-explanatory"""
@@ -104,76 +74,39 @@ class Classifier(pl.LightningModule):
         )
         loss_ce = nn.functional.cross_entropy(logits, y.long())
 
-        compute_cor_loss = (
-            stage == "train" and self.cor_type and self.cor_submodules
-        )
-        if compute_cor_loss:
-            if self.cor_type == "gdv":
-                loss_sep = torch.stack(
-                    [gdv(v, y, **self.cor_kwargs) for v in out.values()]
-                ).mean()
-            elif self.cor_type == "lv":
-                loss_sep = torch.stack(
-                    [
-                        label_variation(
-                            v,
-                            y,
-                            k=10,
-                            n_classes=self.n_classes,
-                            **self.cor_kwargs,
-                        )
-                        for v in out.values()
-                    ]
-                ).mean()
-            elif self.cor_type == "ggd":
-                loss_sep = -torch.stack(
-                    [
-                        mean_ggd(v.flatten(1), y, **self.cor_kwargs)
-                        for v in out.values()
-                    ]
-                ).mean()
-            elif self.cor_type == "louvain":
-                loss_sep = torch.stack(
-                    [
-                        louvain_loss(v, y, **self.cor_kwargs)
-                        for v in out.values()
-                    ]
-                ).mean()
-            else:
-                raise RuntimeError(
-                    f"Unknown correction type '{self.cor_type}'."
-                )
+        compute_correction_loss = stage == "train" and self.cor_submodules
+        if compute_correction_loss:
+            loss_lou = torch.stack(
+                [louvain_loss(v, y, **self.cor_kwargs) for v in out.values()]
+            ).mean()
         else:
-            loss_sep = torch.tensor(0.0)
+            loss_lou = torch.tensor(0.0)
 
+        log: dict[str, Tensor] = {}
         if stage:
-            self.log(f"{stage}/loss", loss_ce, prog_bar=True, sync_dist=True)
-        if compute_cor_loss:
-            self.log(
-                f"{stage}/{self.cor_type}",
-                loss_sep,
-                prog_bar=True,
-                sync_dist=True,
-            )
-        if stage and best_device() != "mps":
-            # NotImplementedError: The operator 'aten::_unique2' is not
-            # currently implemented for the MPS device. If you want this op to
-            # be added in priority during the prototype phase of this feature,
-            # please comment on
-            # https://github.com/pytorch/pytorch/issues/77764. As a temporary
-            # fix, you can set the environment variable
-            # `PYTORCH_ENABLE_MPS_FALLBACK=1` to use the CPU as a fallback for
-            # this op. WARNING: this will be slower than running natively on
-            # MPS.
-            acc = torchmetrics.functional.accuracy(
-                torch.argmax(logits, dim=1),
-                y,
-                "multiclass",
-                num_classes=self.n_classes,
-                top_k=1,
-            )
-            self.log(f"{stage}/acc", acc, prog_bar=True, sync_dist=True)
-        return loss_ce + self.cor_weight * loss_sep
+            log[f"{stage}/loss"] = loss_ce
+            if best_device() != "mps":
+                # NotImplementedError: The operator 'aten::_unique2' is not
+                # currently implemented for the MPS device. If you want this op to
+                # be added in priority during the prototype phase of this feature,
+                # please comment on
+                # https://github.com/pytorch/pytorch/issues/77764. As a temporary
+                # fix, you can set the environment variable
+                # `PYTORCH_ENABLE_MPS_FALLBACK=1` to use the CPU as a fallback for
+                # this op. WARNING: this will be slower than running natively on
+                # MPS.
+                acc = torchmetrics.functional.accuracy(
+                    torch.argmax(logits, dim=1),
+                    y,
+                    "multiclass",
+                    num_classes=self.n_classes,
+                    top_k=1,
+                )
+                log[f"{stage}/acc"] = acc
+        if compute_correction_loss:
+            log[f"{stage}/louvain"] = loss_lou
+        self.log_dict(log, prog_bar=True, sync_dist=True)
+        return loss_ce + self.cor_weight * loss_lou
 
     def configure_optimizers(self):
         """Override"""

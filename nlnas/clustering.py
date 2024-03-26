@@ -196,9 +196,9 @@ def clustering_loss(
 def louvain_communities(
     z: np.ndarray | Tensor,
     k: int = 50,
-    scaling: Literal["standard", "minmax"]
-    | TransformerMixin
-    | None = "standard",
+    scaling: (
+        Literal["standard", "minmax"] | TransformerMixin | None
+    ) = "standard",
 ) -> tuple[list[set[int]], np.ndarray]:
     """
     Returns louvain communities of a set of points.
@@ -326,9 +326,11 @@ def otm_matching_predicates(
     c_a = y_a.max() + 1
     p1 = [y_a == a for a in range(c_a)]
     p2 = [
-        np.sum([np.zeros_like(y_b)] + [y_b == b for b in m[a]], axis=0) > 0
-        if a in m
-        else np.full_like(y_a, False, dtype=bool)  # a is not matched in m
+        (
+            np.sum([np.zeros_like(y_b)] + [y_b == b for b in m[a]], axis=0) > 0
+            if a in m
+            else np.full_like(y_a, False, dtype=bool)
+        )  # a is not matched in m
         for a in range(c_a)
     ]
     p3 = [p1[a] & ~p2[a] for a in range(c_a)]

@@ -1,4 +1,5 @@
 """Main module"""
+
 # TODO: Split module
 
 import sys
