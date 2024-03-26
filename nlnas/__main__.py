@@ -54,8 +54,8 @@ def main(
     import pytorch_lightning as pl
 
     from .classifier import TorchvisionClassifier
+    from .dataset import TorchvisionDataset
     from .nlnas import train_and_analyse_all
-    from .tv_dataset import TorchvisionDataset
     from .utils import dl_targets
 
     setup_logging(logging_level)

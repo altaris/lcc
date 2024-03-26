@@ -3,7 +3,7 @@ from datetime import datetime
 from cuml import UMAP as cUMAP
 from umap import UMAP
 
-from nlnas.tv_dataset import TorchvisionDataset
+from nlnas.dataset import TorchvisionDataset
 from nlnas.utils import dl_head
 
 datamodule = TorchvisionDataset("mnist")

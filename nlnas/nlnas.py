@@ -30,9 +30,9 @@ from .clustering import (
     louvain_communities,
     otm_matching_predicates,
 )
+from .dataset import TorchvisionDataset
 from .plotting import class_matching_plot, class_scatter, make_same_xy_range
 from .training import all_checkpoint_paths, checkpoint_ves, train_model_guarded
-from .tv_dataset import TorchvisionDataset
 from .utils import dl_head
 
 if torch.cuda.is_available():

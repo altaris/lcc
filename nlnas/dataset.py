@@ -71,7 +71,8 @@ ALL_DATASETS = {
 
 class TorchvisionDataset(pl.LightningDataModule):
     """
-    A torchvision dataset wrapped inside a [`LightningDataModule`](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.core.LightningDataModule.html)
+    A torchvision dataset wrapped inside a
+    [`LightningDataModule`](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.core.LightningDataModule.html)
 
     See also:
         https://pytorch.org/vision/stable/datasets.html#image-classification

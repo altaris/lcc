@@ -11,7 +11,7 @@ import turbo_broccoli as tb
 from torch.utils.data import DataLoader, Dataset, IterableDataset, Sampler
 from tqdm import tqdm
 
-from .tv_dataset import DEFAULT_DATALOADER_KWARGS, DEFAULT_DOWNLOAD_PATH
+from .dataset import DEFAULT_DATALOADER_KWARGS, DEFAULT_DOWNLOAD_PATH
 
 
 def _choice(
