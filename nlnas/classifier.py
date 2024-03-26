@@ -109,7 +109,6 @@ class Classifier(pl.LightningModule):
         return loss_ce + self.cor_weight * loss_lou
 
     def configure_optimizers(self):
-        """Override"""
         return torch.optim.Adam(self.parameters())
 
     def forward_intermediate(
@@ -153,19 +152,17 @@ class Classifier(pl.LightningModule):
 
     # pylint: disable=arguments-differ
     def test_step(self, batch, *_, **__):
-        """Override"""
         return self._evaluate(batch, "test")
 
     # pylint: disable=arguments-differ
     def training_step(self, batch, *_, **__) -> Any:
-        """Override"""
         return self._evaluate(batch, "train")
 
     def validation_step(self, batch, *_, **__):
-        """Override"""
         return self._evaluate(batch, "val")
 
 
+# pylint: disable=too-many-ancestors
 class TorchvisionClassifier(Classifier):
     """
     A torchvision image classifier with some extra features
@@ -213,5 +210,4 @@ class TorchvisionClassifier(Classifier):
 
     # pylint: disable=arguments-differ
     def forward(self, x: Tensor, *_, **__) -> Tensor:
-        """Override"""
         return self.model(x.to(self.device))  # type: ignore
