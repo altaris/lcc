@@ -1,0 +1,8 @@
+{
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/.ipynb_checkpoints": true,
+        "**/.mypy_cache": true
+    },
+    "python.analysis.typeCheckingMode": "off"
+}
