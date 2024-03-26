@@ -2,7 +2,8 @@
     "files.exclude": {
         "**/__pycache__": true,
         "**/.ipynb_checkpoints": true,
-        "**/.mypy_cache": true
+        "**/.mypy_cache": true,
+        "experiments/nlnas": true,
     },
     "python.analysis.typeCheckingMode": "off"
 }
