@@ -27,9 +27,9 @@ def main():
     base_model_name = "resnet18_lv_l1l2l3l4fc1_w1_b256"
     trunc_model_name = "resnet18_lv_l1l2l3l4fc1_w1_b256_l3_uf"
     submodule_names = [
-        "model.model.0.layer1",
-        "model.model.0.layer2",
-        "model.model.0.layer3",
+        "model.model.layer1",
+        "model.model.layer2",
+        "model.model.layer3",
         "fc",
     ]
 
@@ -39,7 +39,7 @@ def main():
     )
     truncated_model = TruncatedClassifier(
         model=ckpt,
-        truncate_after="model.0.layer3",
+        truncate_after="model.layer3",
         sep_submodules=submodule_names,
         sep_score="lv",
         sep_weight=1,

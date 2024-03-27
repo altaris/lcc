@@ -117,7 +117,7 @@ class TruncatedClassifier(Classifier):
         """
         Args:
             model (TorchvisionClassifier | str | Path):
-            truncate_after (str): e.g. `model.0.classifier.4`
+            truncate_after (str): e.g. `model.classifier.4`
             freeze_base_model (bool, optional):
         """
         _model = (

@@ -17,22 +17,22 @@ from nlnas.utils import best_device
 def main():
     pl.seed_everything(0)
     analysis_submodules = [
-        "model.0.features.0",
-        # "model.0.features.3",
-        "model.0.features.6",
-        # "model.0.features.8",
-        "model.0.features.10",
-        # "model.0.features",
-        "model.0.classifier.1",
-        "model.0.classifier.4",
-        "model.0.classifier.6",
-        # "model.0.classifier",
+        "model.features.0",
+        # "model.features.3",
+        "model.features.6",
+        # "model.features.8",
+        "model.features.10",
+        # "model.features",
+        "model.classifier.1",
+        "model.classifier.4",
+        "model.classifier.6",
+        # "model.classifier",
         # "model"
     ]
     cor_submodules = [
-        "model.0.classifier.1",
-        "model.0.classifier.4",
-        "model.0.classifier.6",
+        "model.classifier.1",
+        "model.classifier.4",
+        "model.classifier.6",
     ]
     transform = tvtr.Compose(
         [

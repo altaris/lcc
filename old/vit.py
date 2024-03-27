@@ -16,19 +16,19 @@ def main():
     pl.seed_everything(0)
     model_names = ["vit_b_16"]
     analysis_submodules = [
-        # "model.0.encoder.layers.encoder_layer_0.mlp",
-        # "model.0.encoder.layers.encoder_layer_1.mlp",
-        "model.0.encoder.layers.encoder_layer_2.mlp",
-        # "model.0.encoder.layers.encoder_layer_3.mlp",
-        # "model.0.encoder.layers.encoder_layer_4.mlp",
-        # "model.0.encoder.layers.encoder_layer_5.mlp",
-        "model.0.encoder.layers.encoder_layer_6.mlp",
-        # "model.0.encoder.layers.encoder_layer_7.mlp",
-        # "model.0.encoder.layers.encoder_layer_8.mlp",
-        # "model.0.encoder.layers.encoder_layer_9.mlp",
-        # "model.0.encoder.layers.encoder_layer_10.mlp",
-        "model.0.encoder.layers.encoder_layer_11.mlp",
-        "model.0.heads",
+        # "model.encoder.layers.encoder_layer_0.mlp",
+        # "model.encoder.layers.encoder_layer_1.mlp",
+        "model.encoder.layers.encoder_layer_2.mlp",
+        # "model.encoder.layers.encoder_layer_3.mlp",
+        # "model.encoder.layers.encoder_layer_4.mlp",
+        # "model.encoder.layers.encoder_layer_5.mlp",
+        "model.encoder.layers.encoder_layer_6.mlp",
+        # "model.encoder.layers.encoder_layer_7.mlp",
+        # "model.encoder.layers.encoder_layer_8.mlp",
+        # "model.encoder.layers.encoder_layer_9.mlp",
+        # "model.encoder.layers.encoder_layer_10.mlp",
+        "model.encoder.layers.encoder_layer_11.mlp",
+        "model.heads",
     ]
     dataset_names = [
         "cifar10",

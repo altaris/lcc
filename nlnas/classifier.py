@@ -3,7 +3,6 @@ A torchvision image classifier wrapped inside a
 [`LightningModule`](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html)
 """
 
-import warnings
 from typing import Any, Iterable
 
 import pytorch_lightning as pl
@@ -15,21 +14,6 @@ from torchvision.models import get_model
 
 from .clustering import louvain_loss
 from .utils import best_device
-
-
-def _make_lazy_linear(*args, **kwargs) -> nn.LazyLinear:
-    """
-    Constructs a
-    [`LazyLinear`](https://pytorch.org/docs/stable/generated/torch.nn.LazyLinear.html)
-    layer but hides the following warning:
-
-        [...]torch/nn/modules/lazy.py:180: UserWarning: Lazy modules are a new
-        feature under heavy development so changes to the API or functionality
-        can happen at any moment.
-    """
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        return nn.LazyLinear(*args, **kwargs)
 
 
 class Classifier(pl.LightningModule):
@@ -179,7 +163,6 @@ class TorchvisionClassifier(Classifier):
         n_classes: int,
         input_shape: Iterable[int] | None = None,
         model_config: dict[str, Any] | None = None,
-        add_final_fc: bool = False,
         **kwargs,
     ) -> None:
         """
@@ -191,18 +174,13 @@ class TorchvisionClassifier(Classifier):
                 performed after construction. This can be useful to see the
                 model's computation graph on tensorboard.
             model_config (dict[str, Any], optional):
-            add_final_fc (bool): If true, adds a final dense layer which
-                outputs `n_classes` logits
         """
         super().__init__(n_classes=n_classes, **kwargs)
         self.save_hyperparameters()
         model_config = model_config or {}
         if "num_classes" not in model_config:
             model_config["num_classes"] = n_classes
-        modules = [get_model(model_name, **model_config)]
-        if add_final_fc:
-            modules.append(_make_lazy_linear(n_classes))
-        self.model = nn.Sequential(*modules)
+        self.model = get_model(model_name, **model_config)
         if input_shape is not None:
             self.example_input_array = torch.zeros([1] + list(input_shape))
             self.model.eval()

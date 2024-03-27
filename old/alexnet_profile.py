@@ -13,9 +13,9 @@ from nlnas.training import best_checkpoint_path, train_model_guarded
 def main():
     pl.seed_everything(0)
     sep_submodules = [
-        "model.0.classifier.1",
-        "model.0.classifier.4",
-        "model.0.classifier.6",
+        "model.classifier.1",
+        "model.classifier.4",
+        "model.classifier.6",
     ]
     transform = tvtr.Compose(
         [

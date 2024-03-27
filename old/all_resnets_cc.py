@@ -16,18 +16,18 @@ from nlnas.utils import best_device
 def main():
     pl.seed_everything(0)
     analysis_submodules = [
-        "model.0.layer1",
-        "model.0.layer2",
-        "model.0.layer3",
-        "model.0.layer4",
-        "model.0.fc",
+        "model.layer1",
+        "model.layer2",
+        "model.layer3",
+        "model.layer4",
+        "model.fc",
     ]
     cor_submodules = [
-        # "model.0.layer1",
-        # "model.0.layer2",
-        # "model.0.layer3",
-        "model.0.layer4",
-        "model.0.fc",
+        # "model.layer1",
+        # "model.layer2",
+        # "model.layer3",
+        "model.layer4",
+        "model.fc",
     ]
     transform = tvtr.Compose(
         [

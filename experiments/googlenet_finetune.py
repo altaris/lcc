@@ -27,21 +27,21 @@ def main():
     pl.seed_everything(0)
     model_names = ["googlenet"]
     analysis_submodules = [
-        "model.0.conv1",
-        "model.0.conv2",
-        "model.0.conv3",
-        "model.0.inception3a",
-        "model.0.inception4a",
-        "model.0.inception4b",
-        "model.0.inception4c",
-        "model.0.inception4d",
-        "model.0.inception5a",
-        "model.0.inception5b",
-        "model.0.fc",
+        "model.conv1",
+        "model.conv2",
+        "model.conv3",
+        "model.inception3a",
+        "model.inception4a",
+        "model.inception4b",
+        "model.inception4c",
+        "model.inception4d",
+        "model.inception5a",
+        "model.inception5b",
+        "model.fc",
     ]
     cor_submodules = [
-        "model.0.inception5a",
-        "model.0.inception5b",
+        "model.inception5a",
+        "model.inception5b",
     ]
     for m, (d, t), we, bs, k in product(
         model_names, DATASETS.items(), WEIGHT_EXPONENTS, BATCH_SIZES, KS

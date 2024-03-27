@@ -27,17 +27,17 @@ def main():
         # "resnet152",
     ]
     analysis_submodules = [
-        # "model.0.maxpool",
-        "model.0.layer1",
-        "model.0.layer2",
-        "model.0.layer3",
-        "model.0.layer4",
-        "model.0.fc",
+        # "model.maxpool",
+        "model.layer1",
+        "model.layer2",
+        "model.layer3",
+        "model.layer4",
+        "model.fc",
     ]
     cor_submodules = [
-        "model.0.layer3",
-        "model.0.layer4",
-        "model.0.fc",
+        "model.layer3",
+        "model.layer4",
+        "model.fc",
     ]
     for m, (d, t), we, bs, k in product(
         model_names, DATASETS.items(), WEIGHT_EXPONENTS, BATCH_SIZES, KS

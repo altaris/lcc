@@ -24,34 +24,34 @@ def main():
     ]
     separation_score = "ggd"
     obs_submodules = [
-        # "model.0.layer1.0"
-        # "model.0.layer1.1"
-        "model.0.layer1",
-        # "model.0.layer2.0"
-        # "model.0.layer2.1"
-        "model.0.layer2",
-        # "model.0.layer3.0"
-        # "model.0.layer3.1"
-        "model.0.layer3",
-        # "model.0.layer4.0"
-        # "model.0.layer4.1"
-        "model.0.layer4",
-        "model.0.fc",
+        # "model.layer1.0"
+        # "model.layer1.1"
+        "model.layer1",
+        # "model.layer2.0"
+        # "model.layer2.1"
+        "model.layer2",
+        # "model.layer3.0"
+        # "model.layer3.1"
+        "model.layer3",
+        # "model.layer4.0"
+        # "model.layer4.1"
+        "model.layer4",
+        "model.fc",
     ]
     sep_submodules = [
-        # "model.0.layer1.0"
-        # "model.0.layer1.1"
-        # "model.0.layer1",
-        # "model.0.layer2.0"
-        # "model.0.layer2.1"
-        # "model.0.layer2",
-        # "model.0.layer3.0"
-        # "model.0.layer3.1"
-        # "model.0.layer3",
-        # "model.0.layer4.0"
-        # "model.0.layer4.1"
-        "model.0.layer4",
-        # "model.0.fc",
+        # "model.layer1.0"
+        # "model.layer1.1"
+        # "model.layer1",
+        # "model.layer2.0"
+        # "model.layer2.1"
+        # "model.layer2",
+        # "model.layer3.0"
+        # "model.layer3.1"
+        # "model.layer3",
+        # "model.layer4.0"
+        # "model.layer4.1"
+        "model.layer4",
+        # "model.fc",
     ]
     dataset_names = [
         # "mnist",

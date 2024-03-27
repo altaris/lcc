@@ -26,7 +26,7 @@ def main():
     # )
     # model = TruncatedClassifier(
     #     model=resnet18,
-    #     truncate_after="model.0.layer3",
+    #     truncate_after="model.layer3",
     #     n_classes=resnet18.hparams["n_classes"],
     #     input_shape=resnet18.hparams["input_shape"],
     # )
@@ -38,7 +38,7 @@ def main():
     # )
     # model = TruncatedClassifier(
     #     model=resnet18,
-    #     truncate_after="model.0.layer4",
+    #     truncate_after="model.layer4",
     #     n_classes=resnet18.hparams["n_classes"],
     #     input_shape=resnet18.hparams["input_shape"],
     # )
@@ -47,16 +47,16 @@ def main():
     model_name, dataset_name = "alexnet_f10", "cifar10"
     truncated_model = TruncatedClassifier(
         model="out/alexnet/cifar10/model/tb_logs/alexnet/version_0/checkpoints/epoch=71-step=5688.ckpt",
-        truncate_after="model.0.features.10",
+        truncate_after="model.features.10",
     )
     submodule_names = [
-        "model.model.0.features.0",
-        "model.model.0.features.3",
-        "model.model.0.features.6",
-        "model.model.0.features.8",
-        "model.model.0.features.10",
-        # "model.model.0.classifier.1",
-        # "model.model.0.classifier.4",
+        "model.model.features.0",
+        "model.model.features.3",
+        "model.model.features.6",
+        "model.model.features.8",
+        "model.model.features.10",
+        # "model.model.classifier.1",
+        # "model.model.classifier.4",
         "fc",
     ]
 

@@ -21,26 +21,26 @@ def main():
     pl.seed_everything(0)
     model_names = ["vgg16"]
     analysis_submodules = [
-        # "model.0.features.0",
-        # "model.0.features.2",
-        # "model.0.features.5",
-        # "model.0.features.7",
-        # "model.0.features.10",
-        # "model.0.features.12",
-        "model.0.features.14",
-        # "model.0.features.17",
-        # "model.0.features.19",
-        # "model.0.features.21",
-        "model.0.features.24",
-        # "model.0.features.26",
-        # "model.0.features.28",
-        "model.0.classifier.0",
-        # "model.0.classifier.3",
-        "model.0.classifier.6",
+        # "model.features.0",
+        # "model.features.2",
+        # "model.features.5",
+        # "model.features.7",
+        # "model.features.10",
+        # "model.features.12",
+        "model.features.14",
+        # "model.features.17",
+        # "model.features.19",
+        # "model.features.21",
+        "model.features.24",
+        # "model.features.26",
+        # "model.features.28",
+        "model.classifier.0",
+        # "model.classifier.3",
+        "model.classifier.6",
     ]
     cor_submodules = [
-        "model.0.classifier.0",
-        "model.0.classifier.3",
+        "model.classifier.0",
+        "model.classifier.3",
     ]
     for m, (d, t), we, bs, k in product(
         model_names, DATASETS.items(), WEIGHT_EXPONENTS, BATCH_SIZES, KS

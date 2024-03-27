@@ -27,9 +27,9 @@ def main():
             "model_name": "resnet18",
             "weights": ResNet18_Weights.DEFAULT,
             "correction_submodules": [
-                "model.0.layer3",
-                "model.0.layer4",
-                "model.0.fc",
+                "model.layer3",
+                "model.layer4",
+                "model.fc",
             ],
             # torch.optim.SGD(self.parameters(), lr=1e-5, momentum=0.9)
             # test/loss: 1.246917963027954, test/acc: 0.6976400017738342
@@ -38,9 +38,9 @@ def main():
         #     "model_name": "alexnet",
         #     "weights": AlexNet_Weights.DEFAULT,
         #     "correction_submodules": [
-        #         "model.0.classifier.1",
-        #         "model.0.classifier.4",
-        #         "model.0.classifier.6",
+        #         "model.classifier.1",
+        #         "model.classifier.4",
+        #         "model.classifier.6",
         #     ],
         #     # torch.optim.SGD(self.parameters(), lr=1e-5, momentum=0.9)
         #     # test/loss: 1.9095762968063354, test/acc: 0.565500020980835
@@ -49,19 +49,19 @@ def main():
         #     "model_name": "vit_b_16",
         #     "weights": ViT_B_16_Weights.IMAGENET1K_SWAG_E2E_V1,
         #     "correction_submodules": [
-        #         # "model.0.encoder.layers.encoder_layer_0.mlp",
-        #         # "model.0.encoder.layers.encoder_layer_1.mlp",
-        #         # "model.0.encoder.layers.encoder_layer_2.mlp",
-        #         # "model.0.encoder.layers.encoder_layer_3.mlp",
-        #         # "model.0.encoder.layers.encoder_layer_4.mlp",
-        #         # "model.0.encoder.layers.encoder_layer_5.mlp",
-        #         # "model.0.encoder.layers.encoder_layer_6.mlp",
-        #         # "model.0.encoder.layers.encoder_layer_7.mlp",
-        #         # "model.0.encoder.layers.encoder_layer_8.mlp",
-        #         # "model.0.encoder.layers.encoder_layer_9.mlp",
-        #         "model.0.encoder.layers.encoder_layer_10.mlp",
-        #         "model.0.encoder.layers.encoder_layer_11.mlp",
-        #         # "model.0.heads",
+        #         # "model.encoder.layers.encoder_layer_0.mlp",
+        #         # "model.encoder.layers.encoder_layer_1.mlp",
+        #         # "model.encoder.layers.encoder_layer_2.mlp",
+        #         # "model.encoder.layers.encoder_layer_3.mlp",
+        #         # "model.encoder.layers.encoder_layer_4.mlp",
+        #         # "model.encoder.layers.encoder_layer_5.mlp",
+        #         # "model.encoder.layers.encoder_layer_6.mlp",
+        #         # "model.encoder.layers.encoder_layer_7.mlp",
+        #         # "model.encoder.layers.encoder_layer_8.mlp",
+        #         # "model.encoder.layers.encoder_layer_9.mlp",
+        #         "model.encoder.layers.encoder_layer_10.mlp",
+        #         "model.encoder.layers.encoder_layer_11.mlp",
+        #         # "model.heads",
         #     ],
         # },
     ]
