@@ -3,7 +3,11 @@
 .. include:: ../CHANGELOG.md
 """
 
-from .classifier import Classifier, TorchvisionClassifier
+from .classifier import (
+    BaseClassifier,
+    TorchvisionClassifier,
+    WrappedClassifier,
+)
 from .dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
 from .imagenet import ImageNet
 from .nlnas import analyse_ckpt, analyse_training, train_and_analyse_all

@@ -24,7 +24,7 @@ from sklearn.metrics import accuracy_score, log_loss
 from torch import Tensor
 from tqdm import tqdm
 
-from .classifier import Classifier
+from .classifier import BaseClassifier
 from .clustering import (
     class_otm_matching,
     louvain_communities,
@@ -62,12 +62,12 @@ def _is_ckpt_analysis_dir(p: Path | str) -> bool:
 
 
 def analyse_ckpt(
-    model: Classifier | str | Path,
+    model: BaseClassifier | str | Path,
     submodule_names: list[str],
     dataset: pl.LightningDataModule | str,
     output_dir: str | Path,
     n_samples: int = 5000,
-    model_cls: Type[Classifier] | None = None,
+    model_cls: Type[BaseClassifier] | None = None,
 ):
     """
     Analyses a model checkpoint. I can't be bothered to list everything this
@@ -76,7 +76,7 @@ def analyse_ckpt(
     during training.
 
     Args:
-        model (`nlnas.classifier.Classifier` | str | Path): A model or a path
+        model (`nlnas.classifier.BaseClassifier` | str | Path): A model or a path
             to a model checkpoint
         submodule_names (list[str]): List or comma-separated list of
             submodule names. For example, the interesting submodules of
@@ -90,10 +90,10 @@ def analyse_ckpt(
     output_dir = Path(output_dir)
 
     # LOAD MODEL IF NEEDED
-    if not isinstance(model, Classifier):
-        model_cls = model_cls or Classifier
+    if not isinstance(model, BaseClassifier):
+        model_cls = model_cls or BaseClassifier
         model = model_cls.load_from_checkpoint(model)
-    assert isinstance(model, Classifier)  # For typechecking
+    assert isinstance(model, BaseClassifier)  # For typechecking
     model.eval()
 
     # EVALUATION
@@ -333,7 +333,7 @@ def analyse_training(output_dir: str | Path, last_epoch: int | None = None):
 
 
 def train_and_analyse_all(
-    model: Classifier,
+    model: BaseClassifier,
     submodule_names: list[str],
     dataset: pl.LightningDataModule | str,
     output_dir: str | Path,
@@ -350,7 +350,7 @@ def train_and_analyse_all(
     3. Call `analyse_training`.
 
     Args:
-        model (`nlnas.classifier.Classifier`):
+        model (`nlnas.classifier.BaseClassifier`):
         submodule_names (list[str]): List or comma-separated list of
             submodule names. For example, the interesting submodules of
             `resnet18` are `maxpool, layer1, layer2, layer3, layer4, fc`
