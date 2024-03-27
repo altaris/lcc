@@ -147,7 +147,7 @@ def analyse_ckpt(
             figure = bk.figure(title=sm, toolbar_location=None)
             class_scatter(figure, e, y_train.numpy())
             h.result[sm] = figure
-            export_png(figure, filename=h.output_path.parent / (sm + ".png"))
+            export_png(figure, filename=h.file_path.parent / (sm + ".png"))
 
     # LOUVAIN CLUSTERING
     progress = tqdm(
@@ -206,7 +206,7 @@ def analyse_ckpt(
 
             # EXPORT
             for k, v in h.result.items():
-                export_png(v, filename=h.output_path.parent / (k + ".png"))
+                export_png(v, filename=h.file_path.parent / (k + ".png"))
 
 
 def analyse_training(output_dir: str | Path, last_epoch: int | None = None):
