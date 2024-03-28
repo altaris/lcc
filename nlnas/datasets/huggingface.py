@@ -46,6 +46,23 @@ class HuggingFaceDataset(WrappedDataset):
         dataloader_kwargs: dict[str, Any] | None = None,
         cache_dir: Path | str = DEFAULT_CACHE_DIR,
     ) -> None:
+        """
+        Args:
+            dataset_name (str): Name of the Hugging Face image classification
+                dataset, see
+                https://huggingface.co/datasets?task_categories=task_categories:image-classification
+            fit_split (str, optional): Name of the split containing the
+                training data. See also
+                https://huggingface.co/docs/datasets/en/loading#slice-splits
+            val_split (str, optional): Analogous to `fit_split`
+            test_split (str | None, optional): Analogous to `fit_split`. If
+                left to `None`, setting up this datamodule at the `test` will
+                raise a `RuntimeError`
+            image_processor (BaseImageProcessor | None, optional):
+            dataloader_kwargs (dict[str, Any] | None, optional): Defaults to
+                `nlnas.datasets.wrapped.DEFAULT_DATALOADER_KWARGS`.
+            cache_dir (Path | str, optional):
+        """
 
         def factory(split: str) -> Callable[[], Dataset]:
             def wrapped() -> Dataset:
