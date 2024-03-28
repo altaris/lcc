@@ -50,7 +50,10 @@ class HuggingFaceDataset(WrappedDataset):
         def factory(split: str) -> Callable[[], Dataset]:
             def wrapped() -> Dataset:
                 d = load_dataset(
-                    dataset_name, split=split, cache_dir=str(cache_dir)
+                    dataset_name,
+                    split=split,
+                    cache_dir=str(cache_dir),
+                    trust_remote_code=True,
                 )
                 d.set_transform(self.transform)
                 return d
