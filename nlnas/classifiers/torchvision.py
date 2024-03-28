@@ -39,6 +39,9 @@ class TorchvisionClassifier(WrappedClassifier):
             cor_weight (float, optional): See `BaseClassifier`
             cor_kwargs (dict[str, Any] | None, optional): See `BaseClassifier`
         """
+        self.save_hyperparameters(
+            "model_name", "n_classes", "input_shape", "model_config"
+        )
         model_config = model_config or {}
         if "num_classes" not in model_config:
             model_config["num_classes"] = n_classes

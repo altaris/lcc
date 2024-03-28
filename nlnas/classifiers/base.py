@@ -62,7 +62,15 @@ class BaseClassifier(pl.LightningModule):
                 to `None` if the model already returns logit tensors.
         """
         super().__init__(**kwargs)
-        self.save_hyperparameters()
+        self.save_hyperparameters(
+            "n_classes",
+            "cor_submodules",
+            "cor_weight",
+            "cor_kwargs",
+            "image_key",
+            "label_key",
+            "logit_key",
+        )
         self.n_classes = n_classes
         self.cor_submodules = cor_submodules or []
         self.cor_weight, self.cor_kwargs = cor_weight, cor_kwargs or {}

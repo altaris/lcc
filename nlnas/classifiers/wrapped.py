@@ -28,8 +28,8 @@ class WrappedClassifier(BaseClassifier):
             cor_weight (float, optional): See `BaseClassifier`
             cor_kwargs (dict[str, Any] | None, optional): See `BaseClassifier`
         """
-        super().__init__(n_classes, **kwargs)
         self.save_hyperparameters(ignore=["model"])
+        super().__init__(n_classes, **kwargs)
         self.model = model
 
     # pylint: disable=arguments-differ
