@@ -3,10 +3,11 @@ A dataset wrapped inside a
 [`LightningDataModule`](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.core.LightningDataModule.html)
 """
 
-from typing import Any, Callable
+from typing import Any, Callable, TypeAlias
 
 import pytorch_lightning as pl
 import torch
+from datasets import Dataset as HuggingFaceDataset
 from torch.utils.data import DataLoader, Dataset
 
 DEFAULT_DATALOADER_KWARGS: dict[str, Any] = {
@@ -20,8 +21,13 @@ Default parameters for [pytorch
 dataloaders](https://pytorch.org/docs/stable/data.html?highlight=dataloader#torch.utils.data.DataLoader).
 """
 
-DatasetOrDataLoaderOrFactory = (
-    Callable[[], Dataset] | Dataset | Callable[[], DataLoader] | DataLoader
+DatasetOrDataLoaderOrFactory: TypeAlias = (
+    Callable[[], Dataset]
+    | Dataset
+    | Callable[[], HuggingFaceDataset]
+    | HuggingFaceDataset
+    | Callable[[], DataLoader]
+    | DataLoader
 )
 """
 Types that are acceptable as dataset or dataloader arguments when
@@ -32,20 +38,20 @@ constructing a `WrappedDataset`
 class WrappedDataset(pl.LightningDataModule):
     """See module documentation"""
 
-    fit: DatasetOrDataLoaderOrFactory
+    train: DatasetOrDataLoaderOrFactory
     val: DatasetOrDataLoaderOrFactory
     test: DatasetOrDataLoaderOrFactory | None
     predict: DatasetOrDataLoaderOrFactory | None
     dataloader_kwargs: dict[str, Any]
 
-    fit_dl: DataLoader | None = None
+    train_dl: DataLoader | None = None
     val_dl: DataLoader | None = None
     test_dl: DataLoader | None = None
     predict_dl: DataLoader | None = None
 
     def __init__(
         self,
-        fit: DatasetOrDataLoaderOrFactory,
+        train: DatasetOrDataLoaderOrFactory,
         val: DatasetOrDataLoaderOrFactory | None = None,
         test: DatasetOrDataLoaderOrFactory | None = None,
         predict: DatasetOrDataLoaderOrFactory | None = None,
@@ -53,7 +59,7 @@ class WrappedDataset(pl.LightningDataModule):
     ) -> None:
         """
         Args:
-            fit (DatasetOrDataLoaderOrFactory): A dataset or dataloader for
+            train (DatasetOrDataLoaderOrFactory): A dataset or dataloader for
                 training. Can be a callable without argument that returns said
                 dataset or dataloader. In this case, it will be called during
                 the preparation phase (so only on rank 0).
@@ -66,15 +72,19 @@ class WrappedDataset(pl.LightningDataModule):
             dataloader_kwargs (dict[str, Any] | None, optional): If
                 some arguments where datasets (or callable that return
                 datasets), this dictionary will be passed to the dataloader
-                constructor.
+                constructor. Defaults to `DEFAULT_DATALOADER_KWARGS`
         """
         super().__init__()
-        self.fit, self.val = fit, val if val is not None else fit
+        self.train, self.val = train, val if val is not None else train
         self.test, self.predict = test, predict
-        self.dataloader_kwargs = dataloader_kwargs or {}
+        self.dataloader_kwargs = (
+            dataloader_kwargs or DEFAULT_DATALOADER_KWARGS.copy()
+        )
 
     def _get_dl(self, dataset: DatasetOrDataLoaderOrFactory) -> DataLoader:
-        x: Dataset | DataLoader = dataset() if callable(dataset) else dataset
+        x: Dataset | HuggingFaceDataset | DataLoader = (
+            dataset() if callable(dataset) else dataset
+        )
         return (
             x
             if isinstance(x, DataLoader)
@@ -99,8 +109,8 @@ class WrappedDataset(pl.LightningDataModule):
         [pl.LightningDataModule.prepare_data](https://lightning.ai/docs/pytorch/stable/data/datamodule.html#prepare-data).
         This is automatically called so don't worry about it.
         """
-        if callable(self.fit):
-            self.fit()
+        if callable(self.train):
+            self.train()
         if callable(self.val):
             self.val()
         if callable(self.test):
@@ -115,7 +125,7 @@ class WrappedDataset(pl.LightningDataModule):
         This is automatically called so don't worry about it.
         """
         if stage == "fit":
-            self.fit_dl = self._get_dl(self.fit)
+            self.train_dl = self._get_dl(self.train)
             self.val_dl = self._get_dl(self.val)
         elif stage == "test":
             if self.test is None:
@@ -146,17 +156,17 @@ class WrappedDataset(pl.LightningDataModule):
             )
         return self.test_dl
 
-    def fit_dataloader(self) -> DataLoader:
+    def train_dataloader(self) -> DataLoader:
         """
         Returns the training dataloader. The training dataset must have been
         loaded before calling this method using `setup('fit')`
         """
-        if self.fit_dl is None:
+        if self.train_dl is None:
             raise RuntimeError(
                 "The training dataset has not been loaded. Call "
                 "`setup('fit')` before calling this method"
             )
-        return self.fit_dl
+        return self.train_dl
 
     def val_dataloader(self) -> DataLoader:
         """

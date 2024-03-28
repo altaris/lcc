@@ -1,5 +1,6 @@
 bokeh
 click
+datasets[vision]
 loguru
 matplotlib
 networkx

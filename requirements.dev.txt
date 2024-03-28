@@ -1,4 +1,5 @@
 black
+huggingface_hub[cli]
 ipykernel
 ipywidgets
 mypy
