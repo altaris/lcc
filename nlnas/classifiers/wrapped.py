@@ -38,5 +38,10 @@ class WrappedClassifier(BaseClassifier):
         self.model = model
 
     # pylint: disable=arguments-differ
-    def forward(self, x: Tensor, *_, **__) -> Tensor:
-        return self.model(x.to(self.device))  # type: ignore
+    # pylint: disable=missing-function-docstring
+    def forward(self, inputs: Tensor | Batch, *_, **__) -> Tensor:
+        x: Tensor = (
+            inputs if isinstance(inputs, Tensor) else inputs[self.image_key]
+        )
+        output = self.model(x.to(self.device))  # type: ignore
+        return output if self.logit_key is None else output[self.logit_key]
