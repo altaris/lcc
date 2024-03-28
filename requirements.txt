@@ -15,4 +15,5 @@ selenium==4.8.2
 tensorboard
 torch
 torchvision
+transformers
 turbo-broccoli
