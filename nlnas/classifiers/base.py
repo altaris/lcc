@@ -81,12 +81,10 @@ class BaseClassifier(pl.LightningModule):
         """Self-explanatory"""
         x, y = batch[self.image_key], batch[self.label_key].to(self.device)
         latent: dict[str, Tensor] = {}
-        output = self.forward_intermediate(
+        logits = self.forward_intermediate(
             x, self.cor_submodules, latent, keep_gradients=True
         )
-        if self.logit_key is not None:
-            output = output[self.logit_key]
-        loss_ce = nn.functional.cross_entropy(output, y.long())
+        loss_ce = nn.functional.cross_entropy(logits, y.long())
 
         compute_correction_loss = stage == "train" and self.cor_submodules
         if compute_correction_loss:
@@ -113,7 +111,7 @@ class BaseClassifier(pl.LightningModule):
                 # for this op. WARNING: this will be slower than running
                 # natively on MPS.
                 acc = torchmetrics.functional.accuracy(
-                    torch.argmax(output, dim=1),
+                    torch.argmax(logits, dim=1),
                     y,
                     "multiclass",
                     num_classes=self.n_classes,
