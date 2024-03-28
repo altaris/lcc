@@ -167,8 +167,7 @@ cython_debug/
 
 # VSCode
 *.code-workspace
-.vscode/
-export-out
+# .vscode/
 out
 playground.ipynb
 notes.txt

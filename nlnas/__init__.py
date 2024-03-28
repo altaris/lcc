@@ -8,7 +8,15 @@ from .classifier import (
     TorchvisionClassifier,
     WrappedClassifier,
 )
-from .dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
+from .datasets import (
+    DEFAULT_DATALOADER_KWARGS,
+    HuggingFaceDataset,
+    TorchvisionDataset,
+    WrappedDataset,
+    dl_head,
+    dl_targets,
+)
+from .datasets.transforms import EnsureRGB, dataset_normalization
 from .imagenet import ImageNet
 from .nlnas import analyse_ckpt, analyse_training, train_and_analyse_all
 from .plotting import class_scatter, gaussian_mixture_plot
@@ -19,5 +27,4 @@ from .training import (
     train_model,
     train_model_guarded,
 )
-from .transforms import EnsureRGB, dataset_normalization
-from .utils import best_device, dl_head, dl_targets
+from .utils import best_device

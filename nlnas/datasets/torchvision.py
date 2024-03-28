@@ -1,29 +1,23 @@
-"""A torchvision dataset wrapped inside a `LightningDataModule`"""
+"""
+A torchvision dataset wrapped inside a `WrappedDataset`,
+which is itself a
+[`LightningDataModule`](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.core.LightningDataModule.html).
+
+See also:
+    https://pytorch.org/vision/stable/datasets.html#image-classification
+"""
 
 import functools
 from pathlib import Path
 from typing import Any, Callable
 
 import pytorch_lightning as pl
-import torch
 import torchvision
 from torch.utils.data import DataLoader, Dataset, random_split
 
 from .transforms import EnsureRGB
 from .utils import dl_targets
-
-DEFAULT_DATALOADER_KWARGS: dict[str, Any] = {
-    "batch_size": 256 if torch.cuda.is_available() else 64,
-    "num_workers": 8,
-    "persistent_workers": True,
-    "pin_memory": True,
-    "shuffle": True,
-}
-"""
-Default parameters for [pytorch
-dataloaders](https://pytorch.org/docs/stable/data.html?highlight=dataloader#torch.utils.data.DataLoader).
-Note that for validation, test, and prediction dataloaders, shuffling is always disabled.
-"""
+from .wrapped import DEFAULT_DATALOADER_KWARGS
 
 DEFAULT_DOWNLOAD_PATH: Path = Path.home() / "torchvision" / "datasets"
 """
@@ -70,13 +64,7 @@ ALL_DATASETS = {
 
 
 class TorchvisionDataset(pl.LightningDataModule):
-    """
-    A torchvision dataset wrapped inside a
-    [`LightningDataModule`](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.core.LightningDataModule.html)
-
-    See also:
-        https://pytorch.org/vision/stable/datasets.html#image-classification
-    """
+    """See module documentation"""
 
     dataloader_kwargs: dict[str, Any]
     dataset_name: str

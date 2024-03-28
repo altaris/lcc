@@ -10,6 +10,7 @@ from torchvision.models import (
 )
 
 from nlnas import (
+    DEFAULT_DATALOADER_KWARGS,
     ImageNet,
     TorchvisionClassifier,
     best_device,
