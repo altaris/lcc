@@ -24,7 +24,7 @@ from sklearn.metrics import accuracy_score, log_loss
 from torch import Tensor
 from tqdm import tqdm
 
-from .classifier import BaseClassifier
+from .classifiers import BaseClassifier
 from .clustering import (
     class_otm_matching,
     louvain_communities,

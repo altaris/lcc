@@ -53,7 +53,7 @@ def main(
 
     import pytorch_lightning as pl
 
-    from .classifier import TorchvisionClassifier
+    from .classifiers import TorchvisionClassifier
     from .datasets import TorchvisionDataset, dl_targets
     from .nlnas import train_and_analyse_all
 

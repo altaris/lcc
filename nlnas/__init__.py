@@ -3,7 +3,7 @@
 .. include:: ../CHANGELOG.md
 """
 
-from .classifier import (
+from .classifiers import (
     BaseClassifier,
     TorchvisionClassifier,
     WrappedClassifier,
