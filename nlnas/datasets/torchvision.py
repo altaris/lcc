@@ -63,6 +63,7 @@ ALL_DATASETS = {
 }
 
 
+# TODO: Refactor to inherit from `WrappedDataset`
 class TorchvisionDataset(pl.LightningDataModule):
     """See module documentation"""
 
