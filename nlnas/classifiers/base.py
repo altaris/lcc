@@ -144,9 +144,20 @@ class BaseClassifier(pl.LightningModule):
         """
 
         def create_hook(key: str):
-            def hook(_model: nn.Module, _args: Any, output: Tensor) -> None:
-                z = output if keep_gradients else output.cpu().detach()
-                output_dict[key] = z
+            def hook(_model: nn.Module, _args: Any, out: Any) -> None:
+                if isinstance(out, (tuple, list)) and len(out) == 1:
+                    # This scenario happens with some implementations of ViTs
+                    out = out[0]
+                if isinstance(out, Tensor):
+                    output_dict[key] = (
+                        out if keep_gradients else out.cpu().detach()
+                    )
+                else:
+                    raise ValueError(
+                        f"Unsupported latent object type: {type(out)}. "
+                        "Supported types are Tensors or tuples/lists "
+                        "containing a single Tensor."
+                    )
 
             return hook
 
