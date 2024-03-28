@@ -6,7 +6,7 @@ from typing import Any
 
 from torch import Tensor, nn
 
-from .base import BaseClassifier
+from .base import BaseClassifier, Batch
 
 
 class WrappedClassifier(BaseClassifier):
@@ -18,9 +18,6 @@ class WrappedClassifier(BaseClassifier):
         self,
         model: nn.Module,
         n_classes: int,
-        cor_submodules: list[str] | None = None,
-        cor_weight: float = 0.1,
-        cor_kwargs: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -31,9 +28,7 @@ class WrappedClassifier(BaseClassifier):
             cor_weight (float, optional): See `BaseClassifier`
             cor_kwargs (dict[str, Any] | None, optional): See `BaseClassifier`
         """
-        super().__init__(
-            n_classes, cor_submodules, cor_weight, cor_kwargs, **kwargs
-        )
+        super().__init__(n_classes, **kwargs)
         self.save_hyperparameters(ignore=["model"])
         self.model = model
 

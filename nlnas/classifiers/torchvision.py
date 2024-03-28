@@ -24,9 +24,6 @@ class TorchvisionClassifier(WrappedClassifier):
         n_classes: int,
         input_shape: Iterable[int] | None = None,
         model_config: dict[str, Any] | None = None,
-        cor_submodules: list[str] | None = None,
-        cor_weight: float = 0.1,
-        cor_kwargs: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -46,9 +43,7 @@ class TorchvisionClassifier(WrappedClassifier):
         if "num_classes" not in model_config:
             model_config["num_classes"] = n_classes
         model = get_model(model_name, **model_config)
-        super().__init__(
-            model, n_classes, cor_submodules, cor_weight, cor_kwargs, **kwargs
-        )
+        super().__init__(model, n_classes, **kwargs)
         self.save_hyperparameters()
         if input_shape is not None:
             self.example_input_array = torch.zeros([1] + list(input_shape))
