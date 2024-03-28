@@ -127,6 +127,8 @@ class WrappedDataset(pl.LightningDataModule):
         if stage == "fit":
             self.train_dl = self._get_dl(self.train)
             self.val_dl = self._get_dl(self.val)
+        elif stage == "validate":
+            self.val_dl = self._get_dl(self.val)
         elif stage == "test":
             if self.test is None:
                 raise RuntimeError(
@@ -171,13 +173,13 @@ class WrappedDataset(pl.LightningDataModule):
     def val_dataloader(self) -> DataLoader:
         """
         Returns the valudation dataloader. The valudation dataset must have
-        been loaded before calling this method using `setup('fit')` (yes, the
-        'fit' stage, this is not a typo)
+        been loaded before calling this method using `setup('fit')` or
+        `setup('validate')`
         """
         if self.val_dl is None:
             raise RuntimeError(
                 "The valudation dataset has not been loaded. Call "
-                "`setup('fit')` before calling this method (yes, 'fit', this "
-                "is not a typo)"
+                "`setup('fit')` or `setup('validate')` before calling this "
+                "method"
             )
         return self.val_dl
