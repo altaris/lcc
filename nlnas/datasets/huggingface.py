@@ -72,7 +72,9 @@ class HuggingFaceDataset(WrappedDataset):
             return batch
         return {
             k: (
-                self.image_processor(v, return_tensors="pt")["pixel_values"]
+                self.image_processor(
+                    [img.convert("RGB") for img in v], return_tensors="pt"
+                )["pixel_values"]
                 if k in ["img", "image"]
                 else v
             )
