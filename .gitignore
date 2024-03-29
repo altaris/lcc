@@ -169,6 +169,7 @@ cython_debug/
 *.code-workspace
 # .vscode/
 out
+out.local
 playground.ipynb
 notes.txt
 

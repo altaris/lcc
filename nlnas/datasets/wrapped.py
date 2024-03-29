@@ -8,14 +8,15 @@ from typing import Any, Callable, TypeAlias
 import pytorch_lightning as pl
 import torch
 from datasets import Dataset as HuggingFaceDataset
-from loguru import logger as logging
+
+# from loguru import logger as logging
 from torch.utils.data import DataLoader, Dataset
 
 DEFAULT_DATALOADER_KWARGS: dict[str, Any] = {
-    "batch_size": 256 if torch.cuda.is_available() else 64,
+    "batch_size": 200 if torch.cuda.is_available() else 64,
     "num_workers": 8,
     "persistent_workers": True,
-    "pin_memory": True,
+    "pin_memory": False,
 }
 """
 Default parameters for [pytorch

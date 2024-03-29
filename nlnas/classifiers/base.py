@@ -4,9 +4,9 @@ from typing import Any, TypeAlias
 
 import pytorch_lightning as pl
 import torch
-import torchmetrics
 from torch import Tensor, nn
 from torch.utils.hooks import RemovableHandle
+from torchmetrics.functional.classification import multiclass_accuracy
 
 from ..clustering import louvain_loss
 from ..utils import best_device
@@ -110,14 +110,9 @@ class BaseClassifier(pl.LightningModule):
                 # `PYTORCH_ENABLE_MPS_FALLBACK=1` to use the CPU as a fallback
                 # for this op. WARNING: this will be slower than running
                 # natively on MPS.
-                acc = torchmetrics.functional.accuracy(
-                    torch.argmax(logits, dim=1),
-                    y,
-                    "multiclass",
-                    num_classes=self.n_classes,
-                    top_k=1,
+                log[f"{stage}/acc"] = multiclass_accuracy(
+                    logits, y, num_classes=self.n_classes, top_k=1
                 )
-                log[f"{stage}/acc"] = acc
         if compute_correction_loss:
             log[f"{stage}/louvain"] = loss_lou
         self.log_dict(log, prog_bar=True, sync_dist=True)

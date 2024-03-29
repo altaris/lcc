@@ -25,7 +25,7 @@ if __name__ == "__main__":
         fit_split="train",
         val_split="validation",
         image_processor=AutoImageProcessor.from_pretrained(MODEL_NAME),
-        cache_dir=HF_CACHE_DIR,
+        # cache_dir=HF_CACHE_DIR,
     )
     model = WrappedClassifier(
         AutoModelForImageClassification.from_pretrained(MODEL_NAME),
