@@ -8,6 +8,7 @@ from typing import Any, Callable, TypeAlias
 import pytorch_lightning as pl
 import torch
 from datasets import Dataset as HuggingFaceDataset
+from loguru import logger as logging
 from torch.utils.data import DataLoader, Dataset
 
 DEFAULT_DATALOADER_KWARGS: dict[str, Any] = {
@@ -110,12 +111,16 @@ class WrappedDataset(pl.LightningDataModule):
         This is automatically called so don't worry about it.
         """
         if callable(self.train):
+            logging.debug("Preparing the training dataset/split")
             self.train()
         if callable(self.val):
+            logging.debug("Preparing the validation dataset/split")
             self.val()
         if callable(self.test):
+            logging.debug("Preparing the testing dataset/split")
             self.test()
         if callable(self.predict):
+            logging.debug("Preparing the prediction dataset/split")
             self.predict()
 
     def setup(self, stage: str) -> None:
