@@ -5,12 +5,15 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug current file (all GPUs)",
+            "name": "Debug current file (1 GPU)",
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": false,
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "0",
+            }
         },
         {
             "name": "Debug current file (CPU)",
@@ -22,6 +25,14 @@
             "env": {
                 "CUDA_VISIBLE_DEVICES": "",
             }
-        }
+        },
+        {
+            "name": "Debug current file (all GPUs)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+        },
     ],
 }
