@@ -4,6 +4,7 @@
         "**/.ipynb_checkpoints": true,
         "**/.mypy_cache": true,
         "experiments/nlnas/": true,
+        "lightning_logs/": true,
     },
     "python.analysis.typeCheckingMode": "off"
 }

@@ -17,7 +17,9 @@ See also:
 from pathlib import Path
 from typing import Any, Callable
 
+import numpy as np
 from datasets import Dataset, load_dataset
+from torch import Tensor
 from transformers.image_processing_utils import BaseImageProcessor
 
 from .wrapped import WrappedDataset
@@ -42,9 +44,12 @@ class HuggingFaceDataset(WrappedDataset):
         fit_split: str = "training",
         val_split: str = "validation",
         test_split: str | None = None,
+        predict_split: str | None = None,
         image_processor: BaseImageProcessor | None = None,
         dataloader_kwargs: dict[str, Any] | None = None,
         cache_dir: Path | str = DEFAULT_CACHE_DIR,
+        classes: list | Tensor | np.ndarray | None = None,
+        label_column: str = "label",
     ) -> None:
         """
         Args:
@@ -56,15 +61,41 @@ class HuggingFaceDataset(WrappedDataset):
                 https://huggingface.co/docs/datasets/en/loading#slice-splits
             val_split (str, optional): Analogous to `fit_split`
             test_split (str | None, optional): Analogous to `fit_split`. If
-                left to `None`, setting up this datamodule at the `test` will
-                raise a `RuntimeError`
+                left to `None`, setting up this datamodule at the `test` stage
+                will raise a `RuntimeError`
+            predict_split (str | None, optional): Analogous to `fit_split`. If
+                left to `None`, setting up this datamodule at the `predict`
+                stage will raise a `RuntimeError`
             image_processor (BaseImageProcessor | None, optional):
             dataloader_kwargs (dict[str, Any] | None, optional): Defaults to
                 `nlnas.datasets.wrapped.DEFAULT_DATALOADER_KWARGS`.
             cache_dir (Path | str, optional):
+            classes (list | Tensor | np.ndarray | None, optional): List of
+                classes to keep. For example if `classes=[1, 2]`, only those
+                samples whose label is `1` or `2` will be present in the
+                dataset. If `None`, all classes are kept.
+            label_column (str, optional): Name of the column containing the
+                label. Only relevant if `classes` is not `None`.
         """
 
-        def factory(split: str) -> Callable[[], Dataset]:
+        def factory(
+            split: str, apply_filter: bool = True
+        ) -> Callable[[], Dataset]:
+            """
+            Returns a function that loads the dataset split.
+
+            Args:
+                split (str): Name of the split, see constructor arguments
+                apply_filter (bool, optional): If `True` and the constructor
+                    has `classes` set, then the dataset is filtered to only
+                    keep those samples whose label is in `classes`. You
+                    probably want to set this to `False` for the prediction
+                    split.
+
+            Returns:
+                Callable[[], Dataset]: The dataset factory
+            """
+
             def wrapped() -> Dataset:
                 d = load_dataset(
                     dataset_name,
@@ -73,6 +104,10 @@ class HuggingFaceDataset(WrappedDataset):
                     trust_remote_code=True,
                 )
                 d.set_transform(self.transform)
+                if apply_filter and classes:
+                    d = d.filter(
+                        lambda l: l in classes, input_columns=label_column
+                    )
                 return d
 
             return wrapped
@@ -80,8 +115,8 @@ class HuggingFaceDataset(WrappedDataset):
         super().__init__(
             train=factory(fit_split),
             val=factory(val_split),
-            test=factory(test_split) if test_split else None,
-            predict=None,
+            test=(factory(test_split) if test_split else None),
+            predict=(factory(predict_split, False) if predict_split else None),
             dataloader_kwargs=dataloader_kwargs,
         )
         self.image_processor = image_processor
