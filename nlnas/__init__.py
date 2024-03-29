@@ -17,7 +17,6 @@ from .datasets import (
     dl_targets,
 )
 from .datasets.transforms import EnsureRGB, dataset_normalization
-from .imagenet import ImageNet
 from .nlnas import analyse_ckpt, analyse_training, train_and_analyse_all
 from .plotting import class_scatter, gaussian_mixture_plot
 from .training import (
