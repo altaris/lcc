@@ -73,7 +73,9 @@ class HuggingFaceDataset(WrappedDataset):
             classes (list | Tensor | np.ndarray | None, optional): List of
                 classes to keep. For example if `classes=[1, 2]`, only those
                 samples whose label is `1` or `2` will be present in the
-                dataset. If `None`, all classes are kept.
+                dataset. If `None`, all classes are kept. Note that this only
+                applies to the `train` and `val` splits, the `test` and
+                `predict` splits (if they exist) will not be filtered.
             label_column (str, optional): Name of the column containing the
                 label. Only relevant if `classes` is not `None`.
         """
@@ -90,7 +92,7 @@ class HuggingFaceDataset(WrappedDataset):
                     has `classes` set, then the dataset is filtered to only
                     keep those samples whose label is in `classes`. You
                     probably want to set this to `False` for the prediction
-                    split.
+                    split and maybe even the test split.
 
             Returns:
                 Callable[[], Dataset]: The dataset factory
@@ -115,7 +117,7 @@ class HuggingFaceDataset(WrappedDataset):
         super().__init__(
             train=factory(fit_split),
             val=factory(val_split),
-            test=(factory(test_split) if test_split else None),
+            test=(factory(test_split, False) if test_split else None),
             predict=(factory(predict_split, False) if predict_split else None),
             dataloader_kwargs=dataloader_kwargs,
         )
