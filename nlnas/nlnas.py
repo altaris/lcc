@@ -25,7 +25,7 @@ from torch import Tensor
 from tqdm import tqdm
 
 from .classifiers import BaseClassifier
-from .clustering import (
+from .correction import (
     class_otm_matching,
     louvain_communities,
     otm_matching_predicates,

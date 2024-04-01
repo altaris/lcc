@@ -13,14 +13,34 @@ from pathlib import Path
 
 import pytorch_lightning as pl
 import torch
+import turbo_broccoli as tb
 from loguru import logger as logging
+from torch import Tensor
+from tqdm import tqdm
 from transformers import AutoImageProcessor, AutoModelForImageClassification
 
-from nlnas import HuggingFaceDataset, WrappedClassifier
+from nlnas import (
+    HuggingFaceDataset,
+    WrappedClassifier,
+    max_connected_confusion_choice,
+)
 
+HF_DATASET_NAME = "imagenet-1k"  # Name in Hugging Face's dataset index
 HF_MODEL_NAME = "microsoft/resnet-50"  # Name in Hugging Face's model index
+
+N_CLASSES = 1000  # Number of classes in the dataset
+TRAIN_SPLIT = "train"  # See HF dataset page for split name
+VAL_SPLIT = "validation"  # See HF dataset page for split name
+TEST_SPLIT = "validation"  # See HF dataset page for split name
+IMAGE_KEY = "image"  # See HF dataset page for name of dataset column
+LABEL_KEY = "label"  # See HF dataset page for name of dataset column
+LOGIT_KEY = "logits"  # See HF dataset page for name of dataset column
+
+# Filesystem-friendly names
+DATASET_NAME = HF_DATASET_NAME.replace("/", "-")
 MODEL_NAME = HF_MODEL_NAME.replace("/", "-")
-OUTPUT_DIR = Path("out.local") / MODEL_NAME
+
+OUTPUT_DIR = Path("out.local") / DATASET_NAME / MODEL_NAME
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 CORRECTION_SUBMODULES = [  # See also `nlnas.utils.pretty_print_submodules`
@@ -33,30 +53,37 @@ CORRECTION_WEIGHT = 1e-3
 N_CORRECTIONS_EPOCHS = 100
 N_CLASSES_PER_CORRECTION_EPOCH = 10
 
-HF_CACHE_DIR = "/export/users/hothanh/huggingface/datasets"
+# HF_CACHE_DIR = "/export/users/hothanh/huggingface/datasets"
 
 
-def choice(
-    a: torch.Tensor,
-    n: int | None = None,
-    generator: torch.Generator | None = None,
-) -> torch.Tensor:
+def get_val_y_true() -> Tensor:
     """
-    Analogous to
-    [`numpy.random.choice`](https://numpy.org/doc/stable/reference/random/generated/numpy.random.choice.html)
-    except the selection is without replacement the selection distribution is
-    uniform.
-
-    Args:
-        a (torch.Tensor): Tensor to sample from.
-        n (int | None, optional): Number of samples to draw. If `None`, returns
-            a permutation of `a`
-        generator (torch.Generator | None, optional):
+    Gets the label vector of the validation dataset. This method is internally
+    guarded and the artefact is `OUTPUT_DIR/../y_true.val.st`.
     """
-    idx = torch.randperm(len(a), generator=generator)
-    if n is not None:
-        idx = idx[:n]
-    return a[idx]
+    h = tb.GuardedBlockHandler(OUTPUT_DIR.parent / "y_true.val.st")
+    for _ in h:
+        dataset = HuggingFaceDataset(
+            HF_DATASET_NAME,
+            fit_split=TRAIN_SPLIT,
+            val_split=VAL_SPLIT,
+            image_processor=AutoImageProcessor.from_pretrained(HF_MODEL_NAME),
+        )
+        dataset.prepare_data()
+        dataset.setup("fit")
+        y_true = torch.concat(
+            [
+                batch[LABEL_KEY]
+                for batch in tqdm(
+                    dataset.val_dataloader(),
+                    desc="Constructing label vector",
+                    leave=False,
+                )
+            ]
+        )
+        h.result = {"y_true": y_true}
+    # TB loads safetensor files as numpy arrays...
+    return Tensor(h.result["y_true"])
 
 
 def make_trainer() -> pl.Trainer:
@@ -90,46 +117,73 @@ if __name__ == "__main__":
     model = WrappedClassifier(
         AutoModelForImageClassification.from_pretrained(HF_MODEL_NAME),
         n_classes=1000,
-        image_key="image",
-        label_key="label",
-        logit_key="logits",
+        image_key=IMAGE_KEY,
+        label_key=LABEL_KEY,
+        logit_key=LOGIT_KEY,
         cor_submodules=CORRECTION_SUBMODULES,
         cor_weight=CORRECTION_WEIGHT,
     )
     logging.debug("Loaded model: {}", HF_MODEL_NAME)
 
+    y_true = get_val_y_true()
     trainer = make_trainer()
     for epoch in range(1, N_CORRECTIONS_EPOCHS + 1):
         logging.info(
             "Starting correction epoch {}/{}", epoch, N_CORRECTIONS_EPOCHS
         )
 
-        classes = choice(
-            torch.arange(1000), N_CLASSES_PER_CORRECTION_EPOCH
-        ).tolist()
+        # COMPUTE PREDUCTIONS ON VAL DATASET
+        h = tb.GuardedBlockHandler(OUTPUT_DIR / f"y_pred.val.{epoch}.st")
+        for _ in h:
+            dataset = HuggingFaceDataset(
+                HF_DATASET_NAME,
+                fit_split=TRAIN_SPLIT,
+                val_split=VAL_SPLIT,
+                predict_split=VAL_SPLIT,
+                image_processor=AutoImageProcessor.from_pretrained(
+                    HF_MODEL_NAME
+                ),
+                # cache_dir=HF_CACHE_DIR,
+            )
+            results = trainer.predict(model, dataset)
+            y_pred = torch.concat(results)  # type: ignore
+            h.result = {"y_pred": y_pred}
+        y_pred = Tensor(h.result["y_pred"])
+
+        # SELECT CORRECTION CLASSES
+        classes, confusion = max_connected_confusion_choice(
+            y_pred, y_true, 1000, N_CLASSES_PER_CORRECTION_EPOCH
+        )
+        logging.debug("Selected classes: {}", classes)
+        logging.debug("Total confusion: {}", confusion)
         with (OUTPUT_DIR / f"classes.{epoch}.json").open(
             "w", encoding="utf-8"
         ) as fp:
-            json.dump(classes, fp)
+            json.dump(
+                {"classes": classes, "confusion": confusion},
+                fp,
+            )
+
+        # LOAD FILTERED DATASET
         dataset = HuggingFaceDataset(
-            "imagenet-1k",
-            fit_split="train",
-            val_split="validation",
-            test_split="validation",
+            HF_DATASET_NAME,
+            fit_split=TRAIN_SPLIT,
+            val_split=VAL_SPLIT,
+            test_split=TEST_SPLIT,
             image_processor=AutoImageProcessor.from_pretrained(HF_MODEL_NAME),
             # cache_dir=HF_CACHE_DIR,
             classes=classes,
         )
-        logging.debug("Loaded imagenet-1k")
-        logging.debug(
-            "Selected {} classes: {}", N_CLASSES_PER_CORRECTION_EPOCH, classes
-        )
+        logging.debug("Loaded dataset '{}'", HF_DATASET_NAME)
 
+        # FINE TUNE
         trainer.fit_loop.max_epochs = epoch
         trainer.fit(model, dataset)
+
+        # TEST (logs to tensorboard)
         trainer.test(model, dataset)
 
         # del dataset
-        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache()
 
     logging.info("Finished fine-tuning in {}", datetime.now() - start)

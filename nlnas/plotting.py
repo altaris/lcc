@@ -8,7 +8,7 @@ import numpy as np
 from scipy.stats import multivariate_normal
 from sklearn.mixture import GaussianMixture
 
-from .clustering import otm_matching_predicates
+from .correction import otm_matching_predicates
 
 BK_PALETTE_FUNCTIONS = {
     "cividis": bkp.cividis,

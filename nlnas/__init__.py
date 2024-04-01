@@ -8,6 +8,14 @@ from .classifiers import (
     TorchvisionClassifier,
     WrappedClassifier,
 )
+from .correction import (
+    class_otm_matching,
+    clustering_loss,
+    louvain_communities,
+    louvain_loss,
+    max_connected_confusion_choice,
+    otm_matching_predicates,
+)
 from .datasets import (
     DEFAULT_DATALOADER_KWARGS,
     HuggingFaceDataset,

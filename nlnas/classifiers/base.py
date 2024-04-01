@@ -8,7 +8,7 @@ from torch import Tensor, nn
 from torch.utils.hooks import RemovableHandle
 from torchmetrics.functional.classification import multiclass_accuracy
 
-from ..clustering import louvain_loss
+from ..correction import louvain_loss
 from ..utils import best_device
 
 Batch: TypeAlias = dict[Any, Tensor] | list[Tensor] | tuple[Tensor, ...]
