@@ -49,9 +49,9 @@ CORRECTION_SUBMODULES = [  # See also `nlnas.utils.pretty_print_submodules`
     # "model.resnet.encoder.stages.2",
     "model.resnet.encoder.stages.3",
 ]
-CORRECTION_WEIGHT = 1e-3
+CORRECTION_WEIGHT = 1e-5
 N_CORRECTIONS_EPOCHS = 100
-N_CLASSES_PER_CORRECTION_EPOCH = 10
+N_CLASSES_PER_CORRECTION_EPOCH = 5
 
 # HF_CACHE_DIR = "/export/users/hothanh/huggingface/datasets"
 

@@ -13,8 +13,8 @@ from datasets import Dataset as HuggingFaceDataset
 from torch.utils.data import DataLoader, Dataset
 
 DEFAULT_DATALOADER_KWARGS: dict[str, Any] = {
-    "batch_size": 200 if torch.cuda.is_available() else 64,
-    "num_workers": 8,
+    "batch_size": 128 if torch.cuda.is_available() else 32,
+    "num_workers": 16,
     "persistent_workers": True,
     "pin_memory": False,
 }
