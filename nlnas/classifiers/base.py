@@ -170,13 +170,13 @@ class BaseClassifier(pl.LightningModule):
         cls = OPTIMIZERS[self.hparams["optimizer"].lower()]
         optimizer = cls(
             self.parameters(),
-            **self.hparams.get("optimizer_kwargs", {}),
+            **(self.hparams.get("optimizer_kwargs") or {}),
         )
         if self.hparams["scheduler"]:
             cls = SCHEDULERS[self.hparams["scheduler"]]
             scheduler = cls(
                 optimizer,
-                **self.hparams.get("scheduler_kwargs", {}),
+                **(self.hparams.get("scheduler_kwargs") or {}),
             )
             return {"optimizer": optimizer, "scheduler": scheduler}
         return optimizer
