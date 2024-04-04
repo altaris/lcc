@@ -5,6 +5,9 @@ import sys
 from loguru import logger as logging
 from pytorch_lightning.utilities.rank_zero import rank_zero_only
 
+LOGGING_LEVELS = ["critical", "debug", "error", "info", "warning"]
+"""Allowed logging levels (up to case insensitivity)"""
+
 
 @rank_zero_only
 def r0_debug(message: str, *args, **kwargs) -> None:
@@ -60,9 +63,15 @@ def setup_logging(logging_level: str = "info") -> None:
         2022-02-01 10:42:12,488 [CRITICAL] We're out of beans!
 
     Args:
-        logging_level (str): Either 'critical', 'debug', 'error', 'info', or
-            'warning', case insensitive. If invalid, defaults to 'info'.
+        logging_level (str): Logging level in `LOGGING_LEVELS` (case
+            insensitive).
     """
+    if logging_level.lower() not in LOGGING_LEVELS:
+        raise ValueError(
+            "Logging level must be one of "
+            + ", ".join(map(lambda s: f"'{s}'", LOGGING_LEVELS))
+            + " (case insensitive)"
+        )
     logging.remove()
     logging.add(
         sys.stderr,
