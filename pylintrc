@@ -61,18 +61,20 @@ confidence=
 # no Warning level messages displayed, use "--disable=all --enable=classes
 # --disable=W".
 disable=
-      import-error,
-      invalid-name,
+      ; import-error,
+      ; invalid-name,
       line-too-long,
-      protected-access,
+      ; protected-access,
       too-few-public-methods,
       too-many-arguments,
       broad-except,
       bare-except,
       not-callable, ; too many false positive
+      import-outside-toplevel, ; i know what i'm doing >:(
+      fixme, ; clutters the report
+      too-many-instance-attributes, ; ¯\_(ツ)_/¯
       ; duplicate-code,
       ; global-statement,
-      ; import-outside-toplevel,
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
