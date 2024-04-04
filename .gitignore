@@ -167,11 +167,11 @@ cython_debug/
 
 # VSCode
 *.code-workspace
-# .vscode/
 out
 out.local
 playground.ipynb
 notes.txt
+pyproject.toml
 
 # Pytorch Lightning stuff
 lightning_logs/
