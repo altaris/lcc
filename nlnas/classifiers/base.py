@@ -13,6 +13,40 @@ from ..utils import best_device
 
 Batch: TypeAlias = dict[Any, Tensor] | list[Tensor] | tuple[Tensor, ...]
 
+OPTIMIZERS: dict[str, type] = {
+    "asgd": torch.optim.ASGD,
+    "adadelta": torch.optim.Adadelta,
+    "adagrad": torch.optim.Adagrad,
+    "adam": torch.optim.Adam,
+    "adamw": torch.optim.AdamW,
+    "adamax": torch.optim.Adamax,
+    "lbfgs": torch.optim.LBFGS,
+    "nadam": torch.optim.NAdam,
+    "optimizer": torch.optim.Optimizer,
+    "radam": torch.optim.RAdam,
+    "rmsprop": torch.optim.RMSprop,
+    "rprop": torch.optim.Rprop,
+    "sgd": torch.optim.SGD,
+    "sparseadam": torch.optim.SparseAdam,
+}
+
+SCHEDULERS: dict[str, type] = {
+    "constantlr": torch.optim.lr_scheduler.ConstantLR,
+    "cosineannealinglr": torch.optim.lr_scheduler.CosineAnnealingLR,
+    "cosineannealingwarmrestarts": torch.optim.lr_scheduler.CosineAnnealingWarmRestarts,
+    "cycliclr": torch.optim.lr_scheduler.CyclicLR,
+    "exponentiallr": torch.optim.lr_scheduler.ExponentialLR,
+    "lambdalr": torch.optim.lr_scheduler.LambdaLR,
+    "linearlr": torch.optim.lr_scheduler.LinearLR,
+    "multisteplr": torch.optim.lr_scheduler.MultiStepLR,
+    "multiplicativelr": torch.optim.lr_scheduler.MultiplicativeLR,
+    "onecyclelr": torch.optim.lr_scheduler.OneCycleLR,
+    "polynomiallr": torch.optim.lr_scheduler.PolynomialLR,
+    "reducelronplateau": torch.optim.lr_scheduler.ReduceLROnPlateau,
+    "sequentiallr": torch.optim.lr_scheduler.SequentialLR,
+    "steplr": torch.optim.lr_scheduler.StepLR,
+}
+
 
 class BaseClassifier(pl.LightningModule):
     """
@@ -34,6 +68,7 @@ class BaseClassifier(pl.LightningModule):
     label_key: Any
     logit_key: Any
 
+    # pylint: disable=unused-argument
     def __init__(
         self,
         n_classes: int,
@@ -43,6 +78,10 @@ class BaseClassifier(pl.LightningModule):
         image_key: Any = 0,
         label_key: Any = 1,
         logit_key: Any = None,
+        optimizer: str = "sgd",
+        optimizer_kwargs: dict[str, Any] | None = None,
+        scheduler: str | None = None,
+        scheduler_kwargs: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -59,18 +98,27 @@ class BaseClassifier(pl.LightningModule):
             label_key (Any, optional): Analogous to `image_key`
             logit_key (Any, optional): Analogous to `image_key` and `label_key`
                 but used to extract the logits from the model's output. Leave
-                to `None` if the model already returns logit tensors.
+                to `None` if the model already returns logit tensors. If
+                `model`is a Hugging Face transformer that outputs a
+                [`ImageClassifierOutput`](https://huggingface.co/docs/transformers/v4.39.3/en/main_classes/output#transformers.modeling_outputs.ImageClassifierOutput)
+                or a
+                [`ImageClassifierOutputWithNoAttention`](https://huggingface.co/docs/transformers/v4.39.3/en/main_classes/output#transformers.modeling_outputs.ImageClassifierOutput),
+                then this key should be
+                `"logits"`.
+            optimizer (str, optional): Optimizer name, case insensitive. See
+                `OPTIMIZERS` and
+                https://pytorch.org/docs/stable/optim.html#algorithms .
+            optimizer_kwargs (dict, optional): Forwarded to the optimizer
+                constructor
+            scheduler (str, optional): Scheduler name, case insensitive. See
+                `SCHEDULERS`. If left to `None`, then no scheduler is used.
+            scheduler_kwargs (dict, optional): Forwarded to the scheduler, if
+                any.
+            kwargs: Forwarded to
+                [`pl.LightningModule`](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#)
         """
         super().__init__(**kwargs)
-        self.save_hyperparameters(
-            "n_classes",
-            "cor_submodules",
-            "cor_weight",
-            "cor_kwargs",
-            "image_key",
-            "label_key",
-            "logit_key",
-        )
+        self.save_hyperparameters(ignore=["model"])
         self.n_classes = n_classes
         self.cor_submodules = cor_submodules or []
         self.cor_weight, self.cor_kwargs = cor_weight, cor_kwargs or {}
@@ -119,7 +167,19 @@ class BaseClassifier(pl.LightningModule):
         return loss_ce + self.cor_weight * loss_lou
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters())
+        cls = OPTIMIZERS[self.hparams["optimizer"].lower()]
+        optimizer = cls(
+            self.parameters(),
+            **self.hparams.get("optimizer_kwargs", {}),
+        )
+        if self.hparams["scheduler"]:
+            cls = SCHEDULERS[self.hparams["scheduler"]]
+            scheduler = cls(
+                optimizer,
+                **self.hparams.get("scheduler_kwargs", {}),
+            )
+            return {"optimizer": optimizer, "scheduler": scheduler}
+        return optimizer
 
     def forward_intermediate(
         self,
@@ -171,6 +231,23 @@ class BaseClassifier(pl.LightningModule):
         for h in handles:
             h.remove()
         return logits
+
+    def on_train_batch_end(self, *args, **kwargs) -> None:
+        def _lr(o: torch.optim.Optimizer) -> float:
+            return o.param_groups[0]["lr"]
+
+        opts = self.optimizers()
+        if isinstance(opts, list):
+            self.log_dict(
+                {
+                    f"lr_{i}": _lr(opt)
+                    for i, opt in enumerate(opts)
+                    if isinstance(opt, torch.optim.Optimizer)
+                }
+            )
+        elif isinstance(opts, torch.optim.Optimizer):
+            self.log("lr", _lr(opts))
+        return super().on_train_batch_end(*args, **kwargs)
 
     # pylint: disable=arguments-differ
     def test_step(self, batch: Batch, *_, **__) -> Tensor:
