@@ -4,6 +4,22 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](https://choosealicense.com/licenses/mit/)
 [![Code style](https://img.shields.io/badge/style-black-black)](https://pypi.org/project/black)
 
+## Usage
+
+### Fine-tuning
+
+```sh
+python3.10 -m nlnas finetune \
+    microsoft/resnet-18 cifar100 100 out.local/finetune \
+    --epochs 10 \
+    --train-split 'train[:80%]' \
+    --val-split 'train[80%:]' \
+    --test-split test \
+    --image-key img \
+    --label-key fine_label \
+    --head-name classifier.1
+```
+
 ## Contributing
 
 ### Dependencies

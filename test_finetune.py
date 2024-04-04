@@ -24,7 +24,7 @@ TRAIN_SPLIT = "train[:80%]"  # See HF dataset page for split name
 VAL_SPLIT = "train[80%:]"  # See HF dataset page for split name
 TEST_SPLIT = "test"  # See HF dataset page for split name
 IMAGE_KEY = "img"  # See HF dataset page for name of dataset column
-LABEL_KEY = "label"  # See HF dataset page for name of dataset column
+LABEL_KEY = "fine_label"  # See HF dataset page for name of dataset column
 DATALOADER_KWARGS = {
     "batch_size": 64,
     "num_workers": 8,
