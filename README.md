@@ -11,7 +11,6 @@
 ```sh
 python3.10 -m nlnas finetune \
     microsoft/resnet-18 cifar100 100 out.local/finetune \
-    --epochs 10 \
     --train-split 'train[:80%]' \
     --val-split 'train[80%:]' \
     --test-split test \

@@ -2,13 +2,17 @@
 Fine-tuning of HuggingFace models on HuggingFace datasets.
 """
 
+from datetime import datetime
 from pathlib import Path
 
 import pytorch_lightning as pl
+import turbo_broccoli as tb
 from transformers import AutoImageProcessor, AutoModelForImageClassification
 
 from .classifiers import WrappedClassifier
 from .datasets import HuggingFaceDataset
+from .logging import r0_info
+from .training import checkpoint_ves
 
 DEFAULT_MAX_GRAD_NORM = 1.0
 
@@ -18,7 +22,7 @@ def finetune(
     dataset_name: str,
     n_classes: int,
     output_dir: Path,
-    epochs: int = 10,
+    max_epochs: int = 100,
     batch_size: int = 64,
     train_split: str = "train",
     val_split: str = "val",
@@ -40,7 +44,7 @@ def finetune(
         n_classes (int): Number of classes in the dataset. Sadly this is not
             computed automatically ^^"
         output_dir (Path):
-        epochs (int, optional):
+        max_epochs (int, optional):
         batch_size (int, optional):
         train_split (str, optional):
         val_split (str, optional):
@@ -52,24 +56,27 @@ def finetune(
     """
     _dataset_name = dataset_name.replace("/", "-")
     _model_name = model_name.replace("/", "-")
-    output_dir = output_dir / _dataset_name / _model_name
-    output_dir.mkdir(parents=True, exist_ok=True)
+    _output_dir = output_dir / _dataset_name / _model_name
+    _output_dir.mkdir(parents=True, exist_ok=True)
 
     tb_logger = pl.loggers.TensorBoardLogger(
-        str(output_dir / "tb_logs"), name=_model_name
+        str(_output_dir / "tb_logs"), name=_model_name
     )
     csv_logger = pl.loggers.CSVLogger(
-        str(output_dir / "csv_logs"), name=_model_name
+        str(_output_dir / "csv_logs"), name=_model_name
     )
     trainer = pl.Trainer(
-        max_epochs=epochs,
+        max_epochs=max_epochs,
         callbacks=[
+            pl.callbacks.EarlyStopping(
+                monitor="val/loss", patience=10, mode="min"
+            ),
             pl.callbacks.ModelCheckpoint(
                 save_top_k=1, monitor="val/acc", mode="max", every_n_epochs=1
             ),
             pl.callbacks.TQDMProgressBar(),
         ],
-        default_root_dir=str(output_dir),
+        default_root_dir=str(_output_dir),
         logger=[tb_logger, csv_logger],
         log_every_n_steps=1,
         gradient_clip_val=DEFAULT_MAX_GRAD_NORM,
@@ -107,5 +114,41 @@ def finetune(
         # scheduler_kwargs={},
     )
 
+    start = datetime.now()
     trainer.fit(model, dataset)
-    trainer.test(model, dataset)
+    r0_info("Finished fine-tuning in {}", datetime.now() - start)
+
+    ckpt = Path(trainer.checkpoint_callback.best_model_path)  # type: ignore
+    ckpt = ckpt.relative_to(output_dir)
+    v, e, s = checkpoint_ves(ckpt)
+    r0_info("Best checkpoint path: '{}'", ckpt)
+    r0_info("version={}, best_epoch={}, n_steps={}", v, e, s)
+
+    results = trainer.test(model, dataset)
+
+    data = {
+        "model": {
+            "name": model_name,
+            "logit_key": logit_key,
+            "head_name": head_name,
+        },
+        "dataset": {
+            "name": dataset_name,
+            "n_classes": n_classes,
+            "train_split": train_split,
+            "val_split": val_split,
+            "test_split": test_split,
+            "image_key": image_key,
+            "label_key": label_key,
+        },
+        "epochs": max_epochs,
+        "batch_size": batch_size,
+        "best_checkpoint": {
+            "path": str(ckpt),
+            "version": v,
+            "best_epoch": e,
+            "n_steps": s,
+        },
+        "test": results,
+    }
+    tb.save_json(data, _output_dir / "results.json")

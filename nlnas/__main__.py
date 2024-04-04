@@ -38,9 +38,12 @@ def main(logging_level: str):
 )
 @click.option(
     "-e",
-    "--epochs",
-    default=10,
-    help="Number of fine-tuning epochs. Defaults to 10.",
+    "--max-epochs",
+    default=100,
+    help=(
+        "Maximum number of fine-tuning epochs. Defaults to 100. Keep "
+        "in mind that early stopping is used."
+    ),
     type=int,
 )
 @click.option(
@@ -113,7 +116,7 @@ def finetune(
     dataset_name: str,
     n_classes: int,
     output_dir: Path,
-    epochs: int,
+    max_epochs: int,
     batch_size: int,
     train_split: str,
     val_split: str,
@@ -135,7 +138,7 @@ def finetune(
         dataset_name=dataset_name,
         n_classes=n_classes,
         output_dir=output_dir,
-        epochs=epochs,
+        max_epochs=max_epochs,
         batch_size=batch_size,
         train_split=train_split,
         val_split=val_split,
