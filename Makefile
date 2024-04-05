@@ -27,8 +27,6 @@ docs-browser:
 format:
 	$(ISORT) $(SRC_PATH)
 	$(BLACK) $(SRC_PATH)
-	$(ISORT) *.py experiments
-	$(BLACK) *.py experiments
 
 .PHONY: lint
 lint:
@@ -43,4 +41,3 @@ profile:
 .PHONY: typecheck
 typecheck:
 	$(MYPY) -p $(SRC_PATH)
-	$(MYPY) *.py experiments/*.py
