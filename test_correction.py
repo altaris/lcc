@@ -17,7 +17,7 @@ import turbo_broccoli as tb
 from loguru import logger as logging
 from torch import Tensor
 from tqdm import tqdm
-from transformers import AutoImageProcessor, AutoModelForImageClassification
+from transformers import AutoModelForImageClassification
 
 from nlnas import (
     HuggingFaceDataset,
@@ -67,7 +67,7 @@ def get_val_y_true() -> Tensor:
             HF_DATASET_NAME,
             fit_split=TRAIN_SPLIT,
             val_split=VAL_SPLIT,
-            image_processor=AutoImageProcessor.from_pretrained(HF_MODEL_NAME),
+            image_processor=HF_MODEL_NAME,
         )
         dataset.prepare_data()
         dataset.setup("fit")

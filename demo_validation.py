@@ -7,7 +7,7 @@ against some dataset, also from
 
 import pytorch_lightning as pl
 import torch
-from transformers import AutoImageProcessor, AutoModelForImageClassification
+from transformers import AutoModelForImageClassification
 
 from nlnas import HuggingFaceDataset, WrappedClassifier
 
@@ -43,7 +43,7 @@ if __name__ == "__main__":
         HF_DATASET_NAME,
         fit_split=FIT_SPLIT,
         val_split=VAL_SPLIT,
-        image_processor=AutoImageProcessor.from_pretrained(HF_MODEL_NAME),
+        image_processor=HF_MODEL_NAME,
     )
     model = WrappedClassifier(
         AutoModelForImageClassification.from_pretrained(HF_MODEL_NAME),

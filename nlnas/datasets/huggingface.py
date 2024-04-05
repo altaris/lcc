@@ -45,7 +45,7 @@ class HuggingFaceDataset(WrappedDataset):
         val_split: str = "validation",
         test_split: str | None = None,
         predict_split: str | None = None,
-        image_processor: BaseImageProcessor | None = None,
+        image_processor: BaseImageProcessor | str | None = None,
         dataloader_kwargs: dict[str, Any] | None = None,
         cache_dir: Path | str = DEFAULT_CACHE_DIR,
         classes: list | Tensor | np.ndarray | None = None,
@@ -66,7 +66,9 @@ class HuggingFaceDataset(WrappedDataset):
             predict_split (str | None, optional): Analogous to `fit_split`. If
                 left to `None`, setting up this datamodule at the `predict`
                 stage will raise a `RuntimeError`
-            image_processor (BaseImageProcessor | None, optional):
+            image_processor (BaseImageProcessor | str| None, optional): If a
+                string, will be loaded using
+                [`AutoImageProcessor.from_pretrained`](https://huggingface.co/docs/transformers/v4.39.3/en/model_doc/auto#transformers.AutoImageProcessor.from_pretrained).
             dataloader_kwargs (dict[str, Any] | None, optional): Defaults to
                 `nlnas.datasets.wrapped.DEFAULT_DATALOADER_KWARGS`.
             cache_dir (Path | str, optional):

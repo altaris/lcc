@@ -11,7 +11,7 @@ from typing import Any
 
 import pytorch_lightning as pl
 import torch
-from transformers import AutoImageProcessor, AutoModelForImageClassification
+from transformers import AutoModelForImageClassification
 
 from nlnas import HuggingFaceDataset, WrappedClassifier
 
@@ -87,7 +87,7 @@ if __name__ == "__main__":
         fit_split=TRAIN_SPLIT,
         val_split=VAL_SPLIT,
         test_split=TEST_SPLIT,
-        image_processor=AutoImageProcessor.from_pretrained(HF_MODEL_NAME),
+        image_processor=HF_MODEL_NAME,
         dataloader_kwargs=DATALOADER_KWARGS,
     )
     model = WrappedClassifier(
