@@ -28,7 +28,6 @@ from nlnas import (
 HF_DATASET_NAME = "imagenet-1k"  # Name in Hugging Face's dataset index
 HF_MODEL_NAME = "microsoft/resnet-50"  # Name in Hugging Face's model index
 
-N_CLASSES = 1000  # Number of classes in the dataset
 TRAIN_SPLIT = "train"  # See HF dataset page for split name
 VAL_SPLIT = "validation"  # See HF dataset page for split name
 TEST_SPLIT = "validation"  # See HF dataset page for split name
@@ -54,36 +53,6 @@ N_CORRECTIONS_EPOCHS = 100
 N_CLASSES_PER_CORRECTION_EPOCH = 5
 
 # HF_CACHE_DIR = "/export/users/hothanh/huggingface/datasets"
-
-
-def get_val_y_true() -> Tensor:
-    """
-    Gets the label vector of the validation dataset. This method is internally
-    guarded and the artefact is `OUTPUT_DIR/../y_true.val.st`.
-    """
-    h = tb.GuardedBlockHandler(OUTPUT_DIR.parent / "y_true.val.st")
-    for _ in h:
-        dataset = HuggingFaceDataset(
-            HF_DATASET_NAME,
-            fit_split=TRAIN_SPLIT,
-            val_split=VAL_SPLIT,
-            image_processor=HF_MODEL_NAME,
-        )
-        dataset.prepare_data()
-        dataset.setup("fit")
-        y_true = torch.concat(
-            [
-                batch[LABEL_KEY]
-                for batch in tqdm(
-                    dataset.val_dataloader(),
-                    desc="Constructing label vector",
-                    leave=False,
-                )
-            ]
-        )
-        h.result = {"y_true": y_true}
-    # TB loads safetensor files as numpy arrays...
-    return Tensor(h.result["y_true"])
 
 
 def make_trainer() -> pl.Trainer:
@@ -125,7 +94,6 @@ if __name__ == "__main__":
     )
     logging.debug("Loaded model: {}", HF_MODEL_NAME)
 
-    y_true = get_val_y_true()
     trainer = make_trainer()
     for epoch in range(1, N_CORRECTIONS_EPOCHS + 1):
         logging.info(
@@ -133,26 +101,24 @@ if __name__ == "__main__":
         )
 
         # COMPUTE PREDUCTIONS ON VAL DATASET
-        h = tb.GuardedBlockHandler(OUTPUT_DIR / f"y_pred.val.{epoch}.st")
-        for _ in h:
-            dataset = HuggingFaceDataset(
-                HF_DATASET_NAME,
-                fit_split=TRAIN_SPLIT,
-                val_split=VAL_SPLIT,
-                predict_split=VAL_SPLIT,
-                image_processor=AutoImageProcessor.from_pretrained(
-                    HF_MODEL_NAME
-                ),
-                # cache_dir=HF_CACHE_DIR,
-            )
-            results = trainer.predict(model, dataset)
-            y_pred = torch.concat(results)  # type: ignore
-            h.result = {"y_pred": y_pred}
-        y_pred = Tensor(h.result["y_pred"])
+        dataset = HuggingFaceDataset(
+            HF_DATASET_NAME,
+            fit_split=TRAIN_SPLIT,
+            val_split=VAL_SPLIT,
+            predict_split=VAL_SPLIT,
+            image_processor=HF_MODEL_NAME,
+            # cache_dir=HF_CACHE_DIR,
+        )
+        results = trainer.predict(model, dataset)
+        y_pred = torch.concat(results)  # type: ignore
+        y_true = dataset.y_true("val")
 
         # SELECT CORRECTION CLASSES
         classes, confusion = max_connected_confusion_choice(
-            y_pred, y_true, 1000, N_CLASSES_PER_CORRECTION_EPOCH
+            y_pred,
+            y_true,
+            dataset.n_classes("val"),
+            N_CLASSES_PER_CORRECTION_EPOCH,
         )
         logging.debug("Selected classes: {}", classes)
         logging.debug("Total confusion: {}", confusion)
@@ -170,7 +136,7 @@ if __name__ == "__main__":
             fit_split=TRAIN_SPLIT,
             val_split=VAL_SPLIT,
             test_split=TEST_SPLIT,
-            image_processor=AutoImageProcessor.from_pretrained(HF_MODEL_NAME),
+            image_processor=HF_MODEL_NAME,
             # cache_dir=HF_CACHE_DIR,
             classes=classes,
         )

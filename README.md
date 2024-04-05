@@ -10,7 +10,7 @@
 
 ```sh
 python3.10 -m nlnas finetune \
-    microsoft/resnet-18 cifar100 100 out.local/ft \
+    microsoft/resnet-18 cifar100 out.local/ft \
     --train-split 'train[:80%]' \
     --val-split 'train[80%:]' \
     --test-split test \
@@ -23,7 +23,7 @@ python3.10 -m nlnas finetune \
 
 ```sh
 python3.10 -m nlnas finetune \
-    microsoft/resnet-18 cifar100 100 out.local/ftc \
+    microsoft/resnet-18 cifar100 out.local/ftc \
     --train-split 'train[:80%]' \
     --val-split 'train[80%:]' \
     --test-split test \

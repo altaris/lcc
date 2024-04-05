@@ -15,7 +15,7 @@ See also:
 """
 
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 import numpy as np
 from datasets import Dataset, load_dataset
@@ -37,6 +37,9 @@ class HuggingFaceDataset(WrappedDataset):
     """See module documentation"""
 
     image_processor: BaseImageProcessor | None
+    label_key: str
+
+    _datasets: dict[str, Dataset] = {}  # Cache
 
     def __init__(
         self,
@@ -49,7 +52,7 @@ class HuggingFaceDataset(WrappedDataset):
         dataloader_kwargs: dict[str, Any] | None = None,
         cache_dir: Path | str = DEFAULT_CACHE_DIR,
         classes: list | Tensor | np.ndarray | None = None,
-        label_column: str = "label",
+        label_key: str = "label",
     ) -> None:
         """
         Args:
@@ -78,7 +81,7 @@ class HuggingFaceDataset(WrappedDataset):
                 dataset. If `None`, all classes are kept. Note that this only
                 applies to the `train` and `val` splits, the `test` and
                 `predict` splits (if they exist) will not be filtered.
-            label_column (str, optional): Name of the column containing the
+            label_key (str, optional): Name of the column containing the
                 label. Only relevant if `classes` is not `None`.
         """
 
@@ -110,7 +113,7 @@ class HuggingFaceDataset(WrappedDataset):
                 d.set_transform(self.transform)
                 if apply_filter and classes:
                     d = d.filter(
-                        lambda l: l in classes, input_columns=label_column
+                        lambda l: l in classes, input_columns=label_key
                     )
                 return d
 
@@ -124,6 +127,36 @@ class HuggingFaceDataset(WrappedDataset):
             dataloader_kwargs=dataloader_kwargs,
         )
         self.image_processor = image_processor
+        self.label_key = label_key
+
+    def _get_dataset(self, split: Literal["train", "val", "test"]) -> Dataset:
+        if split not in self._datasets:
+            if split == "test":
+                factory = self.test
+            elif split == "val":
+                factory = self.val
+            elif split == "test":
+                factory = self.test
+            else:
+                raise ValueError(f"Unknown split: {split}")
+            assert callable(factory)
+            self._datasets[split] = factory()
+        return self._datasets[split]
+
+    def n_classes(
+        self, split: Literal["train", "val", "test"] = "train"
+    ) -> int:
+        """
+        Returns the number of classes in a given split
+
+        Args:
+            split (Literal[&quot;train&quot;, &quot;val&quot;,
+                &quot;test&quot;], optional): Not the true name of the split
+                (as specified on the dataset's HuggingFace page), just either
+                `train`, `val`, or `test`.
+        """
+        ds = self._get_dataset(split)
+        return ds.features[self.label_key].num_classes
 
     def transform(self, batch: dict[str, Any]) -> dict[str, Any]:
         """Batched dataset transform"""
@@ -139,3 +172,20 @@ class HuggingFaceDataset(WrappedDataset):
             )
             for k, v in batch.items()
         }
+
+    def y_true(
+        self, split: Literal["train", "val", "test"] = "train"
+    ) -> Tensor:
+        """
+        Gets the vector of true labels of a given split.
+
+        Args:
+            split (Literal[&quot;train&quot;, &quot;val&quot;,
+                &quot;test&quot;], optional): Not the true name of the split
+                (as specified on the dataset's HuggingFace page), just either
+                `train`, `val`, or `test`.
+
+        Returns:
+            An `int` tensor
+        """
+        return Tensor(self._get_dataset(split)[self.label_key]).int()

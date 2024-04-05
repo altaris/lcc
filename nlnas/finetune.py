@@ -20,7 +20,6 @@ DEFAULT_MAX_GRAD_NORM = 1.0
 def finetune(
     model_name: str,
     dataset_name: str,
-    n_classes: int,
     output_dir: Path,
     max_epochs: int = 100,
     batch_size: int = 64,
@@ -43,8 +42,6 @@ def finetune(
             index](https://huggingface.co/models?pipeline_tag=image-classification)
         dataset_name (str): See the [HuggingFace dataset
             index](https://huggingface.co/datasets?task_categories=task_categories:image-classification)
-        n_classes (int): Number of classes in the dataset. Sadly this is not
-            computed automatically ^^"
         output_dir (Path):
         max_epochs (int, optional):
         batch_size (int, optional):
@@ -99,6 +96,7 @@ def finetune(
             "pin_memory": False,
         },
     )
+    n_classes = dataset.n_classes()
 
     model = WrappedClassifier(
         model=AutoModelForImageClassification.from_pretrained(model_name),

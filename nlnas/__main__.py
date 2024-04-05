@@ -31,7 +31,6 @@ def main(logging_level: str):
 @main.command()
 @click.argument("model_name", type=str)
 @click.argument("dataset_name", type=str)
-@click.argument("n_classes", type=int)
 @click.argument(
     "output_dir",
     type=click.Path(file_okay=False, dir_okay=True, path_type=Path),  # type: ignore
@@ -135,7 +134,6 @@ def main(logging_level: str):
 def finetune(
     model_name: str,
     dataset_name: str,
-    n_classes: int,
     output_dir: Path,
     max_epochs: int,
     batch_size: int,
@@ -159,7 +157,6 @@ def finetune(
     _finetune(
         model_name=model_name,
         dataset_name=dataset_name,
-        n_classes=n_classes,
         output_dir=output_dir,
         max_epochs=max_epochs,
         batch_size=batch_size,

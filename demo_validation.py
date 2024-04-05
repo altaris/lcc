@@ -14,7 +14,6 @@ from nlnas import HuggingFaceDataset, WrappedClassifier
 HF_MODEL_NAME = "microsoft/resnet-50"
 
 HF_DATASET_NAME = "imagenet-1k"
-N_CLASSES = 1000  # Sadly this isn't computed automatically :(
 
 # Name of the split containing training/validation data. See e.g. the dataset
 # viewer https://huggingface.co/datasets/imagenet-1k . It is also possible to
@@ -47,7 +46,7 @@ if __name__ == "__main__":
     )
     model = WrappedClassifier(
         AutoModelForImageClassification.from_pretrained(HF_MODEL_NAME),
-        n_classes=N_CLASSES,
+        n_classes=dataset.n_classes(),
         image_key=IMAGE_KEY,
         label_key=LABEL_KEY,
         logit_key=LOGIT_KEY,

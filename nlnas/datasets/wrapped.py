@@ -8,7 +8,6 @@ from typing import Any, Callable, TypeAlias
 import pytorch_lightning as pl
 import torch
 from datasets import Dataset as HuggingFaceDataset
-
 from loguru import logger as logging
 from torch.utils.data import DataLoader, Dataset
 
@@ -50,6 +49,8 @@ class WrappedDataset(pl.LightningDataModule):
     val_dl: DataLoader | None = None
     test_dl: DataLoader | None = None
     predict_dl: DataLoader | None = None
+
+    _prepared: bool = False
 
     def __init__(
         self,
@@ -111,6 +112,8 @@ class WrappedDataset(pl.LightningDataModule):
         [pl.LightningDataModule.prepare_data](https://lightning.ai/docs/pytorch/stable/data/datamodule.html#prepare-data).
         This is automatically called so don't worry about it.
         """
+        if self._prepared:
+            return
         if callable(self.train):
             logging.debug("Preparing the training dataset/split")
             self.train()
@@ -123,6 +126,7 @@ class WrappedDataset(pl.LightningDataModule):
         if callable(self.predict):
             logging.debug("Preparing the prediction dataset/split")
             self.predict()
+        self._prepared = True
 
     def setup(self, stage: str) -> None:
         """

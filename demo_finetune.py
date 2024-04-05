@@ -21,7 +21,6 @@ LOGIT_KEY = "logits"  # Key to retrieve the logits fromo the model's outputs
 HEAD_NAME = "classifier"  # Name of the final FC layer (to be replaced)
 
 HF_DATASET_NAME = "cifar100"  # Name in Hugging Face's dataset index
-N_CLASSES = 100  # Number of classes in the dataset
 TRAIN_SPLIT = "train[:80%]"  # See HF dataset page for split name
 VAL_SPLIT = "train[80%:]"  # See HF dataset page for split name
 TEST_SPLIT = "test"  # See HF dataset page for split name
@@ -92,7 +91,7 @@ if __name__ == "__main__":
     )
     model = WrappedClassifier(
         model=AutoModelForImageClassification.from_pretrained(HF_MODEL_NAME),
-        n_classes=N_CLASSES,
+        n_classes=dataset.n_classes(),
         head_name=HEAD_NAME,
         image_key=IMAGE_KEY,
         label_key=LABEL_KEY,
