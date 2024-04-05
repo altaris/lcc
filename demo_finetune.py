@@ -2,6 +2,8 @@
 A demo script to fine-tune a Hugging Face model pretrained on
 [ImageNet-1k](https://huggingface.co/datasets/imagenet-1k) on a different
 dataset using `nlnas` APIs.
+
+You can also use the CLI, see the README.
 """
 
 from pathlib import Path
