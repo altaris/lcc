@@ -10,13 +10,29 @@
 
 ```sh
 python3.10 -m nlnas finetune \
-    microsoft/resnet-18 cifar100 100 out.local/finetune \
+    microsoft/resnet-18 cifar100 100 out.local/ft \
     --train-split 'train[:80%]' \
     --val-split 'train[80%:]' \
     --test-split test \
     --image-key img \
     --label-key fine_label \
     --head-name classifier.1
+```
+
+### Fine-tuning with latent clustering correction
+
+```sh
+python3.10 -m nlnas finetune \
+    microsoft/resnet-18 cifar100 100 out.local/ftc \
+    --train-split 'train[:80%]' \
+    --val-split 'train[80%:]' \
+    --test-split test \
+    --image-key img \
+    --label-key fine_label \
+    --head-name classifier.1 \
+    --correction-weight 0.001 \
+    --correction-submodules model.resnet.encoder.stages.3 \
+    --batch-size 128
 ```
 
 ## Contributing

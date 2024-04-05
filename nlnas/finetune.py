@@ -31,6 +31,8 @@ def finetune(
     label_key: str = "label",
     logit_key: str = "logits",
     head_name: str | None = None,
+    correction_weight: float = 0.0,
+    correction_submodules: list[str] | None = None,
 ):
     """
     Loads and fine-tunes a pretrained HuggingFace model on a HuggingFace
@@ -53,6 +55,8 @@ def finetune(
         label_key (str, optional):
         logit_key (str, optional):
         head_name (str | None, optional):
+        correction_weight (float):
+        correction_submodules (str | list[str]):
     """
     _dataset_name = dataset_name.replace("/", "-")
     _model_name = model_name.replace("/", "-")
@@ -112,6 +116,8 @@ def finetune(
         },
         scheduler="linearlr",
         # scheduler_kwargs={},
+        cor_weight=correction_weight,
+        cor_submodules=correction_submodules,
     )
 
     start = datetime.now()
