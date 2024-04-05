@@ -98,7 +98,7 @@ def make_trainer() -> pl.Trainer:
         max_epochs=1,
         callbacks=[
             pl.callbacks.ModelCheckpoint(
-                save_top_k=-1, monitor="val/acc", mode="max", every_n_epochs=1
+                save_top_k=-1, monitor="val/loss", mode="min", every_n_epochs=1
             ),
             pl.callbacks.TQDMProgressBar(),
         ],
