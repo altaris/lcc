@@ -35,7 +35,8 @@ def finetune(
 ):
     """
     Loads and fine-tunes a pretrained HuggingFace model on a HuggingFace
-    datasets.
+    datasets. Set `correction_weight` and `correction_submodules` to perform
+    latent clustering correction at the same time (not recommended).
 
     Args:
         model_name (str): See the [HuggingFace model
@@ -98,8 +99,8 @@ def finetune(
     )
     n_classes = dataset.n_classes()
 
-    model = WrappedClassifier(
-        model=AutoModelForImageClassification.from_pretrained(model_name),
+    model = HuggingFaceClassifier(
+        model_name=model_name,
         n_classes=n_classes,
         head_name=head_name,
         image_key=image_key,
