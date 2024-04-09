@@ -4,8 +4,24 @@ from typing import Any, Iterator
 
 import numpy as np
 import torch
+import torch.distributed
 from torch import Tensor
 from torch.utils.data import IterableDataset, Sampler
+
+
+def get_generator(seed: int | None = None) -> torch.Generator:
+    """
+    Returns a seeded (either manually or automatically) `torch.Generator`.
+
+    Args:
+        seed (int | None, optional):
+    """
+    generator = torch.Generator()
+    if seed is None:
+        generator.seed()
+    else:
+        generator.manual_seed(seed)
+    return generator
 
 
 def _choice(
@@ -39,7 +55,12 @@ class _Iterator(Iterator[list[int]]):
     n_classes_per_batch: int
     y: Tensor
 
-    _r: Tensor  # Just [0, ..., len(y) - 1]
+    _idx: Tensor
+    """
+    Indices of entries of the dataset that are available to this sampler. In
+    the non-distributed case, this is just `torch.arange(len(y))`. In the
+    distributed case, this is `torch.arange(rank, len(y), world_size)`.
+    """
 
     def __init__(
         self,
@@ -48,6 +69,8 @@ class _Iterator(Iterator[list[int]]):
         n_classes_per_batch: int,
         n_batches: int,
         seed: int | None = None,
+        world_size: int | None = None,
+        rank: int | None = None,
     ):
         """
         Args:
@@ -57,20 +80,30 @@ class _Iterator(Iterator[list[int]]):
             n_batches (int | None, optional): Defaults to
                 `len(y) // batch_size`
             seed (int | None, optional):
+            world_size (int | None, optional): Set this for distributed
+                balanced sampling. You can find out the world size by calling
+                `torch.distributed.get_world_size()`. If set, so should
+                `rank`, otherwise both will be ignored.
+            rank (int | None, optional): Set this for distributed
+                balanced sampling. You can find out the global rank of the
+                current node by calling `torch.distributed.get_global_rank()`.
+                If set, so should `world_size`, otherwise both will be ignored.
         """
-        self.y, self.classes = y, torch.unique(y)
+        self.batch_size = batch_size
+        self.n_classes_per_batch = n_classes_per_batch
+        self.generator = get_generator(seed)
+        if world_size is not None and rank is not None:
+            self._idx = torch.arange(rank, len(y), world_size)
+        else:
+            self._idx = torch.arange(len(y))
+        self.y = y[self._idx]
+        self.classes = torch.unique(self.y)
+        self.n_batches = n_batches or (len(self._idx) // batch_size)
         if len(self.classes) < n_classes_per_batch:
             raise ValueError(
                 "The number of classes per batch cannot exceed the actual "
                 f"number of classes ({len(self.classes)})"
             )
-        self.batch_size = batch_size
-        self.n_batches = n_batches or (len(y) // batch_size)
-        self.n_classes_per_batch = n_classes_per_batch
-        self.generator = torch.Generator()
-        if seed is not None:
-            self.generator.manual_seed(seed)
-        self._r = torch.arange(len(self.y))
 
     def __iter__(self) -> Iterator[list[int]]:
         return self
@@ -88,7 +121,7 @@ class _Iterator(Iterator[list[int]]):
         )
         idx = [
             _choice(
-                self._r[self.y == i],
+                self._idx[self.y == i],
                 self.batch_size // self.n_classes_per_batch,
                 self.generator,
             )
@@ -98,7 +131,7 @@ class _Iterator(Iterator[list[int]]):
         if reminder := self.batch_size % len(self.classes):
             idx += [
                 _choice(
-                    self._r[self.y == classes[0]], reminder, self.generator
+                    self._idx[self.y == classes[0]], reminder, self.generator
                 )
             ]
         return torch.concat(idx).int().tolist()
@@ -163,6 +196,16 @@ class BalancedBatchSampler(Sampler[list[int]]):
         return self.n_batches
 
     def __iter__(self) -> Iterator[list[int]]:
+        if torch.distributed.is_initialized():
+            return _Iterator(
+                self.y,
+                batch_size=self.batch_size,
+                n_classes_per_batch=self.n_classes_per_batch,
+                n_batches=self.n_batches,
+                seed=self.seed,
+                world_size=torch.distributed.get_world_size(),
+                rank=torch.distributed.get_rank(),
+            )
         return _Iterator(
             self.y,
             batch_size=self.batch_size,

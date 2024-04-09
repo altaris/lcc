@@ -68,6 +68,7 @@ def correct(
         logger=[tb_logger, csv_logger],
         log_every_n_steps=1,
         gradient_clip_val=DEFAULT_MAX_GRAD_NORM,
+        use_distributed_sampler=False,  # BBS is responsible for distribution
     )
 
     dataset = HuggingFaceDataset(
