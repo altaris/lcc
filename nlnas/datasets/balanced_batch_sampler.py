@@ -1,27 +1,12 @@
 """A custom dataset sample that samples class-balanced batches"""
 
-from typing import Any, Iterator
+from typing import Any, Iterator, Literal
 
 import numpy as np
 import torch
-import torch.distributed
+import torch.distributed as dist
 from torch import Tensor
 from torch.utils.data import IterableDataset, Sampler
-
-
-def get_generator(seed: int | None = None) -> torch.Generator:
-    """
-    Returns a seeded (either manually or automatically) `torch.Generator`.
-
-    Args:
-        seed (int | None, optional):
-    """
-    generator = torch.Generator()
-    if seed is None:
-        generator.seed()
-    else:
-        generator.manual_seed(seed)
-    return generator
 
 
 def _choice(
@@ -43,6 +28,25 @@ def _choice(
     """
     idx = torch.randperm(len(a), generator=generator)
     return a[idx if n is None else idx[:n]]
+
+
+def _make_generator(*seeds: int | None) -> torch.Generator:
+    """
+    Returns a seeded `torch.Generator`. If seeds are provided, they are all
+    combined into a single "master seed" which is used to seed the generator.
+    If no seeds are provided, the generator is seeded automatically. This
+    paragraph contains the word "seed" a lot. seed seed seed.
+
+    Args:
+        *seed (int | None, optional):
+    """
+    generator = torch.Generator()
+    if not seeds or all(seed is None for seed in seeds):
+        generator.seed()
+        return generator
+    seed = sum((s if s is not None else i) for i, s in enumerate(seeds))
+    generator.manual_seed(seed)
+    return generator
 
 
 class _Iterator(Iterator[list[int]]):
@@ -71,6 +75,7 @@ class _Iterator(Iterator[list[int]]):
         seed: int | None = None,
         world_size: int | None = None,
         rank: int | None = None,
+        distribution_mode: Literal["split", "seed"] = "seed",
     ):
         """
         Args:
@@ -82,23 +87,33 @@ class _Iterator(Iterator[list[int]]):
             seed (int | None, optional):
             world_size (int | None, optional): Set this for distributed
                 balanced sampling. You can find out the world size by calling
-                `torch.distributed.get_world_size()`. If set, so should
-                `rank`, otherwise both will be ignored.
+                `torch.distributed.get_world_size()`. If set, so should `rank`.
             rank (int | None, optional): Set this for distributed
                 balanced sampling. You can find out the global rank of the
                 current node by calling `torch.distributed.get_global_rank()`.
-                If set, so should `world_size`, otherwise both will be ignored.
+                If set, so should `world_size`.
+            distribution_mode (Literal["split", "seed"], optional):
         """
         self.batch_size = batch_size
         self.n_classes_per_batch = n_classes_per_batch
-        self.generator = get_generator(seed)
-        if world_size is not None and rank is not None:
+        if distribution_mode == "split":
+            rank = 0 if rank is None else rank
+            world_size = 1 if world_size is None else world_size
             self._idx = torch.arange(rank, len(y), world_size)
+            self.y = y[self._idx]
+            self.generator = _make_generator(seed)
+            self.n_batches = n_batches or (len(self._idx) // batch_size)
+        elif distribution_mode == "seed":
+            self.y, self._idx = y, torch.arange(len(y))
+            self.generator = _make_generator(seed, world_size, rank)
+            self.n_batches = n_batches or (len(self._idx) // batch_size)
+            if world_size is not None:
+                self.n_batches = self.n_batches // world_size
         else:
-            self._idx = torch.arange(len(y))
-        self.y = y[self._idx]
+            raise ValueError(
+                f"Invalid value for `distribution_mode`: {distribution_mode}"
+            )
         self.classes = torch.unique(self.y)
-        self.n_batches = n_batches or (len(self._idx) // batch_size)
         if len(self.classes) < n_classes_per_batch:
             raise ValueError(
                 "The number of classes per batch cannot exceed the actual "
@@ -159,6 +174,7 @@ class BalancedBatchSampler(Sampler[list[int]]):
     n_classes_per_batch: int
     seed: int | None
     y: Tensor
+    distribution_mode: Literal["split", "seed"] = "seed"
 
     def __init__(
         self,
@@ -168,6 +184,7 @@ class BalancedBatchSampler(Sampler[list[int]]):
         n_batches: int | None = None,
         seed: int | None = None,
         label_key: Any = 1,
+        distribution_mode: Literal["split", "seed"] = "seed",
     ):
         """
         Args:
@@ -179,6 +196,19 @@ class BalancedBatchSampler(Sampler[list[int]]):
             n_batches (int | None, optional):
             seed (int | None, optional):
             label_key (Any, optional): Only needed if `y` is a dataset.
+            distribution_mode (Literal["split", "seed"], optional): (Should not
+                have any significant effect on training, it's just that I wrote
+                overly complicated code and I didn't want to throw it away) The
+                way the sampler behaves across nodes.
+                * In `"split"` mode, the dataset is roughly divided into
+                    disjoint subsets, one for each node. If `seed` is provided,
+                    every node has that seed.
+                * In `"seed"` mode, all nodes have access to the whole dataset
+                    but are guaranteed to be seeded differently (even if `seed`
+                    is provided, although it is still possible to make the
+                    sampler deterministic by providing it), which makes them
+                    build different batches.
+                Defaults to `"seed"`.
         """
         super().__init__()
         if isinstance(y, np.ndarray):
@@ -191,25 +221,25 @@ class BalancedBatchSampler(Sampler[list[int]]):
         self.n_classes_per_batch = n_classes_per_batch
         self.seed = seed
         self.n_batches = n_batches or (len(self.y) // batch_size)
+        self.distribution_mode = distribution_mode
 
     def __len__(self) -> int:
-        return self.n_batches
+        world_size = dist.get_world_size() if dist.is_initialized() else 1
+        return self.n_batches // world_size
 
     def __iter__(self) -> Iterator[list[int]]:
-        if torch.distributed.is_initialized():
-            return _Iterator(
-                self.y,
-                batch_size=self.batch_size,
-                n_classes_per_batch=self.n_classes_per_batch,
-                n_batches=self.n_batches,
-                seed=self.seed,
-                world_size=torch.distributed.get_world_size(),
-                rank=torch.distributed.get_rank(),
-            )
+        world_size, rank = (
+            (dist.get_world_size(), dist.get_rank())
+            if dist.is_initialized()
+            else (None, None)
+        )
         return _Iterator(
             self.y,
             batch_size=self.batch_size,
             n_classes_per_batch=self.n_classes_per_batch,
             n_batches=self.n_batches,
             seed=self.seed,
+            world_size=world_size,
+            rank=rank,
+            distribution_mode=self.distribution_mode,
         )
