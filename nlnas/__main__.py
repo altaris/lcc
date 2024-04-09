@@ -168,7 +168,9 @@ def finetune(
         logit_key=logit_key,
         head_name=head_name,
         correction_weight=correction_weight,
-        correction_submodules=correction_submodules.split(","),
+        correction_submodules=(
+            correction_submodules.split(",") if correction_submodules else None
+        ),
     )
 
 

@@ -134,7 +134,9 @@ class BaseClassifier(pl.LightningModule):
         )
         loss_ce = nn.functional.cross_entropy(logits, y.long())
 
-        compute_correction_loss = stage == "train" and self.cor_submodules
+        compute_correction_loss = (
+            stage == "train" and self.cor_submodules and self.cor_weight > 0
+        )
         if compute_correction_loss:
             loss_lou = torch.stack(
                 [
