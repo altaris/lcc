@@ -78,7 +78,7 @@ def correct(
         label_key=document["dataset"]["label_key"],
         image_processor=model_name,
         train_dl_kwargs={  # This sets val/test dl kwargs as well
-            "num_workers": 8,
+            "num_workers": 16,
             "persistent_workers": True,
             "pin_memory": False,
         },
@@ -89,6 +89,9 @@ def correct(
             batch_size=document["fine_tuning"]["batch_size"],
             n_classes_per_batch=n_classes_per_batch,
         ),
+        "num_workers": 16,
+        "persistent_workers": True,
+        "pin_memory": False,
     }
 
     model = HuggingFaceClassifier(
@@ -224,7 +227,7 @@ def finetune(
         image_processor=model_name,
         train_dl_kwargs={
             "batch_size": batch_size,
-            "num_workers": 8,
+            "num_workers": 16,
             "persistent_workers": True,
             "pin_memory": False,
         },
