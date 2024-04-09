@@ -119,6 +119,7 @@ def correct(
         / document["fine_tuning"]["best_checkpoint"]["path"]
     )
     # TODO: ↓ not pretty :(
+    # pylint: disable=no-value-for-parameter
     model.model = HuggingFaceClassifier.load_from_checkpoint(ckpt_path).model
     r0_info("Loaded checkpoint '{}'", ckpt_path)
 
