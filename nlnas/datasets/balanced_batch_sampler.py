@@ -1,4 +1,4 @@
-"""The ImageNet dataset as a lightning datamodule"""
+"""A custom dataset sample that samples class-balanced batches"""
 
 from typing import Any, Iterator
 
@@ -26,9 +26,7 @@ def _choice(
         generator (torch.Generator | None, optional):
     """
     idx = torch.randperm(len(a), generator=generator)
-    if n is not None:
-        idx = idx[:n]
-    return a[idx]
+    return a[idx if n is None else idx[:n]]
 
 
 class _Iterator(Iterator[list[int]]):
@@ -37,11 +35,11 @@ class _Iterator(Iterator[list[int]]):
     batch_size: int
     classes: Tensor
     generator: torch.Generator
-    n_batches: int  # Number of batches to generate (decreases during iter)
+    n_batches: int  # Number of batches **left** to generate
     n_classes_per_batch: int
     y: Tensor
 
-    _r: Tensor  # [0, ..., len(y) - 1]
+    _r: Tensor  # Just [0, ..., len(y) - 1]
 
     def __init__(
         self,
@@ -51,18 +49,28 @@ class _Iterator(Iterator[list[int]]):
         n_batches: int,
         seed: int | None = None,
     ):
+        """
+        Args:
+            y (Tensor):
+            batch_size (int):
+            n_classes_per_batch (int):
+            n_batches (int | None, optional): Defaults to
+                `len(y) // batch_size`
+            seed (int | None, optional):
+        """
         self.y, self.classes = y, torch.unique(y)
         if len(self.classes) < n_classes_per_batch:
             raise ValueError(
                 "The number of classes per batch cannot exceed the actual "
                 f"number of classes ({len(self.classes)})"
             )
-        self.batch_size, self.n_batches = batch_size, n_batches
+        self.batch_size = batch_size
+        self.n_batches = n_batches or (len(y) // batch_size)
         self.n_classes_per_batch = n_classes_per_batch
         self.generator = torch.Generator()
-        self._r = torch.arange(len(self.y))
         if seed is not None:
             self.generator.manual_seed(seed)
+        self._r = torch.arange(len(self.y))
 
     def __iter__(self) -> Iterator[list[int]]:
         return self
@@ -86,8 +94,8 @@ class _Iterator(Iterator[list[int]]):
             )
             for i in classes
         ]
+        # If there's room left, add extra samples from the first class
         if reminder := self.batch_size % len(self.classes):
-            # If there's room left, add extra samples from the first class
             idx += [
                 _choice(
                     self._r[self.y == classes[0]], reminder, self.generator
@@ -104,11 +112,11 @@ class BalancedBatchSampler(Sampler[list[int]]):
         dataloader = DataLoader(
             dataset,
             batch_sampler=BalancedBatchSampler(
-                dataset, batch_size=2048, n_classes_per_batch=10
+                dataset, batch_size=200, n_classes_per_batch=5
             ),
         )
 
-    This sampler can't run in a distributed manner (yet). If using with Pytorch
+    This sampler can't run in distributed mode (yet). If using with Pytorch
     Lightning, don't forget to construct your trainer with
     `use_distributed_sampler=False`.
     """
@@ -129,8 +137,6 @@ class BalancedBatchSampler(Sampler[list[int]]):
         label_key: Any = 1,
     ):
         """
-        _summary_
-
         Args:
             y (IterableDataset | Tensor | np.ndarray): Either the whole dataset
                 (in which case you might want to set `label_key` to make sure
@@ -139,7 +145,7 @@ class BalancedBatchSampler(Sampler[list[int]]):
             n_classes_per_batch (int):
             n_batches (int | None, optional):
             seed (int | None, optional):
-            label_key (Any, optional):
+            label_key (Any, optional): Only needed if `y` is a dataset.
         """
         super().__init__()
         if isinstance(y, np.ndarray):
