@@ -3,8 +3,20 @@
         "**/__pycache__": true,
         "**/.ipynb_checkpoints": true,
         "**/.mypy_cache": true,
-        "experiments/nlnas/": true,
-        "lightning_logs/": true,
+        "experiments/nlnas": true,
+        "lightning_logs": true,
     },
-    "python.analysis.typeCheckingMode": "off"
+    "files.watcherExclude": {
+        "**/__pycache__": true,
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/.hg/store/**": true,
+        "**/.ipynb_checkpoints": true,
+        "**/.mypy_cache": true,
+        "**/node_modules/*/**": true,
+        "lightning_logs": true,
+        "out.local": true,
+        "out": true,
+    },
+    "python.analysis.typeCheckingMode": "off",
 }
