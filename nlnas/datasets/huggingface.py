@@ -20,6 +20,7 @@ from typing import Any, Callable, Literal
 import numpy as np
 from datasets import Dataset, load_dataset
 from torch import Tensor
+from transformers import AutoImageProcessor
 from transformers.image_processing_utils import BaseImageProcessor
 
 from .wrapped import WrappedDataset
@@ -31,6 +32,33 @@ Default download path for huggingface dataset.
 See also:
     https://huggingface.co/docs/datasets/cache
 """
+
+
+def make_transform(
+    image_processor: BaseImageProcessor | str | None = None,
+) -> Callable:
+    """
+    Creates a transform that passes a batch through an image processor if
+    specified, or does nothing otherwise
+    """
+    if isinstance(image_processor, str):
+        image_processor = AutoImageProcessor.from_pretrained(image_processor)
+
+    def _transform(batch: dict[str, Any]) -> dict[str, Any]:
+        if image_processor is None:
+            return batch
+        return {
+            k: (
+                image_processor(
+                    [img.convert("RGB") for img in v], return_tensors="pt"
+                )["pixel_values"]
+                if k in ["img", "image"]  # TODO: pass image_key
+                else v
+            )
+            for k, v in batch.items()
+        }
+
+    return _transform
 
 
 class HuggingFaceDataset(WrappedDataset):
@@ -110,7 +138,7 @@ class HuggingFaceDataset(WrappedDataset):
                     cache_dir=str(cache_dir),
                     trust_remote_code=True,
                 )
-                d.set_transform(self.transform)
+                d.set_transform(make_transform(self.image_processor))
                 if apply_filter and classes:
                     d = d.filter(
                         lambda l: l in classes, input_columns=label_key
@@ -126,13 +154,17 @@ class HuggingFaceDataset(WrappedDataset):
             predict=(factory(predict_split, False) if predict_split else None),
             dataloader_kwargs=dataloader_kwargs,
         )
-        self.image_processor = image_processor
+        self.image_processor = (
+            AutoImageProcessor.from_pretrained(image_processor)
+            if isinstance(image_processor, str)
+            else image_processor
+        )
         self.label_key = label_key
 
     def _get_dataset(self, split: Literal["train", "val", "test"]) -> Dataset:
         if split not in self._datasets:
-            if split == "test":
-                factory = self.test
+            if split == "train":
+                factory = self.train
             elif split == "val":
                 factory = self.val
             elif split == "test":
@@ -157,21 +189,6 @@ class HuggingFaceDataset(WrappedDataset):
         """
         ds = self._get_dataset(split)
         return ds.features[self.label_key].num_classes
-
-    def transform(self, batch: dict[str, Any]) -> dict[str, Any]:
-        """Batched dataset transform"""
-        if self.image_processor is None:
-            return batch
-        return {
-            k: (
-                self.image_processor(
-                    [img.convert("RGB") for img in v], return_tensors="pt"
-                )["pixel_values"]
-                if k in ["img", "image"]
-                else v
-            )
-            for k, v in batch.items()
-        }
 
     def y_true(
         self, split: Literal["train", "val", "test"] = "train"
