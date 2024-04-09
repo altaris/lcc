@@ -161,7 +161,7 @@ class BaseClassifier(pl.LightningModule):
                 # for this op. WARNING: this will be slower than running
                 # natively on MPS.
                 log[f"{stage}/acc"] = multiclass_accuracy(
-                    logits, y, num_classes=self.n_classes, top_k=1
+                    logits, y, num_classes=self.n_classes, average="micro"
                 )
         if compute_correction_loss:
             log[f"{stage}/louvain"] = loss_lou
