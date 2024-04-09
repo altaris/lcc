@@ -29,6 +29,71 @@ def main(logging_level: str):
 
 
 @main.command()
+@click.argument(
+    "result_file",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path),  # type: ignore
+)
+@click.argument(
+    "output_dir",
+    type=click.Path(file_okay=False, dir_okay=True, path_type=Path),  # type: ignore
+)
+@click.argument("correction_submodules", type=str)
+@click.argument("correction_weight", type=float)
+@click.option(
+    "-e",
+    "--max-epochs",
+    default=100,
+    help=(
+        "Maximum number of fine-tuning epochs. Defaults to 100. Keep "
+        "in mind that early stopping is used."
+    ),
+    type=int,
+)
+@click.option(
+    "-bs",
+    "--batch-size",
+    default=64,
+    help="Batch size. Defaults to 64.",
+    type=int,
+)
+@click.option(
+    "-nc",
+    "--n-classes-per-batch",
+    default=5,
+    help="Number of classes to be represented in each batch.",
+    type=int,
+)
+def correct(
+    result_file: Path,
+    output_dir: Path,
+    correction_submodules: str,
+    correction_weight: float,
+    max_epochs: int,
+    batch_size: int,
+    n_classes_per_batch: int,
+):
+    """
+    Performs latent cluster correction on a model fine-tuning using the
+    `finetune` command.
+    """
+    import torch
+
+    from .finetune import correct as _correct
+
+    if torch.cuda.is_available():
+        torch.set_float32_matmul_precision("medium")
+    _correct(
+        result_file=result_file,
+        output_dir=output_dir,
+        correction_weight=correction_weight,
+        correction_submodules=correction_submodules.split(","),
+        max_epochs=max_epochs,
+        batch_size=batch_size,
+        n_classes_per_batch=n_classes_per_batch,
+    )
+
+
+@main.command()
 @click.argument("model_name", type=str)
 @click.argument("dataset_name", type=str)
 @click.argument(

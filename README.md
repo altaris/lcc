@@ -35,6 +35,20 @@ python3.10 -m nlnas finetune \
     --batch-size 128
 ```
 
+
+### Latent clustering correction
+
+The correction command uses a `DistributedBatchSampler` which can't be
+distributed across nodes (yet).
+
+```sh
+CUDA_VISIBLE_DEVICES=0 python3.10 -m nlnas correct \
+    out.local/ft/cifar100/microsoft-resnet-18/results.json out.local/c \
+    model.resnet.encoder.stages.3 0.001 \
+    --batch-size 200 \
+    --n-classes-per-batch 5
+```
+
 ## Contributing
 
 ### Dependencies

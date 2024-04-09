@@ -77,7 +77,10 @@ class HuggingFaceDataset(WrappedDataset):
         test_split: str | None = None,
         predict_split: str | None = None,
         image_processor: BaseImageProcessor | str | None = None,
-        dataloader_kwargs: dict[str, Any] | None = None,
+        train_dl_kwargs: dict[str, Any] | None = None,
+        val_dl_kwargs: dict[str, Any] | None = None,
+        test_dl_kwargs: dict[str, Any] | None = None,
+        predict_dl_kwargs: dict[str, Any] | None = None,
         cache_dir: Path | str = DEFAULT_CACHE_DIR,
         classes: list | Tensor | np.ndarray | None = None,
         label_key: str = "label",
@@ -100,8 +103,10 @@ class HuggingFaceDataset(WrappedDataset):
             image_processor (BaseImageProcessor | str| None, optional): If a
                 string, will be loaded using
                 [`AutoImageProcessor.from_pretrained`](https://huggingface.co/docs/transformers/v4.39.3/en/model_doc/auto#transformers.AutoImageProcessor.from_pretrained).
-            dataloader_kwargs (dict[str, Any] | None, optional): Defaults to
-                `nlnas.datasets.wrapped.DEFAULT_DATALOADER_KWARGS`.
+            train_dl_kwargs (dict[str, Any] | None, optional):
+            val_dl_kwargs (dict[str, Any] | None, optional):
+            test_dl_kwargs (dict[str, Any] | None, optional):
+            predict_dl_kwargs (dict[str, Any] | None, optional):
             cache_dir (Path | str, optional):
             classes (list | Tensor | np.ndarray | None, optional): List of
                 classes to keep. For example if `classes=[1, 2]`, only those
@@ -152,7 +157,10 @@ class HuggingFaceDataset(WrappedDataset):
             val=factory(val_split),
             test=(factory(test_split, False) if test_split else None),
             predict=(factory(predict_split, False) if predict_split else None),
-            dataloader_kwargs=dataloader_kwargs,
+            train_dl_kwargs=train_dl_kwargs,
+            val_dl_kwargs=val_dl_kwargs,
+            test_dl_kwargs=test_dl_kwargs,
+            predict_dl_kwargs=predict_dl_kwargs,
         )
         self.image_processor = (
             AutoImageProcessor.from_pretrained(image_processor)

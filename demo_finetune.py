@@ -87,7 +87,7 @@ if __name__ == "__main__":
         val_split=VAL_SPLIT,
         test_split=TEST_SPLIT,
         image_processor=HF_MODEL_NAME,
-        dataloader_kwargs=DATALOADER_KWARGS,
+        train_dl_kwargs=DATALOADER_KWARGS,
     )
     model = WrappedClassifier(
         model=AutoModelForImageClassification.from_pretrained(HF_MODEL_NAME),
