@@ -1,6 +1,7 @@
 bokeh
 click
 datasets[vision]
+git+https://github.com/altaris/turbo-broccoli
 loguru
 matplotlib
 networkx
@@ -16,4 +17,3 @@ tensorboard
 torch
 torchvision
 transformers
-turbo-broccoli
