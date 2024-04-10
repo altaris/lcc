@@ -78,11 +78,6 @@ def correct(
         test_split=document["dataset"]["test_split"],
         label_key=document["dataset"]["label_key"],
         image_processor=model_name,
-        train_dl_kwargs={  # This sets val/test dl kwargs as well
-            "num_workers": 16,
-            "persistent_workers": True,
-            "pin_memory": False,
-        },
     )
     dataset.train_dl_kwargs = {  # TODO: make API simpler to use
         "batch_sampler": BalancedBatchSampler(
