@@ -62,19 +62,18 @@ confidence=
 # --disable=W".
 disable=
       ; import-error,
-      ; invalid-name,
-      line-too-long,
-      ; protected-access,
-      too-few-public-methods,
-      too-many-arguments,
-      broad-except,
-      bare-except,
-      not-callable, ; too many false positive
-      import-outside-toplevel, ; i know what i'm doing >:(
+      bare-except, ; i know what i'm doing >:(
+      broad-except, ; i know what i'm doing >:(
       fixme, ; clutters the report
+      import-outside-toplevel, ; i know what i'm doing >:(
+      line-too-long,
+      not-callable, ; too many false positive
+      ; too-few-public-methods,
+      too-many-ancestors, ; stfu
+      too-many-arguments, ; look things are hard enough already ok
       too-many-instance-attributes, ; ¯\_(ツ)_/¯
-      ; duplicate-code,
-      ; global-statement,
+      too-many-locals, ; look things are hard enough already ok
+      too-many-statements, ; look things are hard enough already ok
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
