@@ -98,10 +98,10 @@ def correct(
     model = HuggingFaceClassifier(
         model_name=model_name,
         n_classes=document["dataset"]["n_classes"],
-        head_name=document["model"]["head_name"],
+        head_name=document["model"]["hparams"]["head_name"],
         image_key=document["dataset"]["image_key"],
         label_key=document["dataset"]["label_key"],
-        logit_key=document["model"]["logit_key"],
+        logit_key=document["model"]["hparams"]["logit_key"],
         optimizer="adam",
         optimizer_kwargs={
             "lr": 5e-5,
@@ -272,8 +272,7 @@ def finetune(
     data = {
         "model": {
             "name": model_name,
-            "logit_key": logit_key,
-            "head_name": head_name,
+            "hparams": dict(model.hparams),
         },
         "dataset": {
             "name": dataset_name,
