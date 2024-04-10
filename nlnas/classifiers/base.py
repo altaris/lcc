@@ -9,7 +9,6 @@ from torch.utils.hooks import RemovableHandle
 from torchmetrics.functional.classification import multiclass_accuracy
 
 from ..correction import louvain_loss
-from ..utils import best_device
 
 Batch: TypeAlias = dict[Any, Tensor] | list[Tensor] | tuple[Tensor, ...]
 
@@ -133,7 +132,6 @@ class BaseClassifier(pl.LightningModule):
             x, self.cor_submodules, latent, keep_gradients=True
         )
         loss_ce = nn.functional.cross_entropy(logits, y.long())
-
         compute_correction_loss = (
             stage == "train" and self.cor_submodules and self.cor_weight > 0
         )
@@ -146,27 +144,19 @@ class BaseClassifier(pl.LightningModule):
             ).mean()
         else:
             loss_lou = torch.tensor(0.0)
-
-        log: dict[str, Tensor] = {}
+        loss = loss_ce + self.cor_weight * loss_lou
         if stage:
-            log[f"{stage}/loss"] = loss_ce
-            if best_device() != "mps":
-                # NotImplementedError: The operator 'aten::_unique2' is not
-                # currently implemented for the MPS device. If you want this op
-                # to be added in priority during the prototype phase of this
-                # feature, please comment on
-                # https://github.com/pytorch/pytorch/issues/77764. As a
-                # temporary fix, you can set the environment variable
-                # `PYTORCH_ENABLE_MPS_FALLBACK=1` to use the CPU as a fallback
-                # for this op. WARNING: this will be slower than running
-                # natively on MPS.
-                log[f"{stage}/acc"] = multiclass_accuracy(
+            log = {
+                f"{stage}/loss": loss,
+                f"{stage}/ce": loss_ce,
+                f"{stage}/acc": multiclass_accuracy(
                     logits, y, num_classes=self.n_classes, average="micro"
-                )
-        if compute_correction_loss:
-            log[f"{stage}/louvain"] = loss_lou
-        self.log_dict(log, prog_bar=True, sync_dist=True)
-        return loss_ce + self.cor_weight * loss_lou
+                ),
+            }
+            if compute_correction_loss:
+                log[f"{stage}/louvain"] = loss_lou
+            self.log_dict(log, prog_bar=True, sync_dist=True)
+        return loss
 
     def configure_optimizers(self):
         cls = OPTIMIZERS[self.hparams["optimizer"].lower()]
