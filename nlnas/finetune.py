@@ -145,7 +145,7 @@ def correct(
         "time": fit_time / timedelta(seconds=1),
         "test": test_results,
     }
-    tb.save_json(Path(output_dir) / "results.json", document)
+    tb.save_json(document, _output_dir / "results.json")
 
 
 def finetune(
