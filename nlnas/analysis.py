@@ -87,7 +87,7 @@ def analyse_ckpt(
     h = tb.GuardedBlockHandler(output_dir / "eval" / "eval.json")
     for _ in h:
         logging.debug(
-            "Evaluating model on train split (first {} samples)", n_samples
+            "Evaluating model on test split (first {} samples)", n_samples
         )
         h.result = evaluate(model, submodule_names, dataset, n_samples)
     outputs: dict = h.result
@@ -293,8 +293,8 @@ def evaluate(
 ) -> dict:
     """
     (Used as a step in `analyse_ckpt`) Evaluates a model on the first
-    `n_samples` samples of the training split of a given dataset. The return
-    dict has the following structure:
+    `n_samples` samples of the *test* split of a given dataset. The return dict
+    has the following structure:
 
         {
             "x": a tensor of shape (n_samples, C, H, W),
@@ -314,8 +314,8 @@ def evaluate(
         dataset (HuggingFaceDataset):
         n_samples (int, optional):
     """
-    dataset.setup("fit")
-    batches = dl_head(dataset.train_dataloader(), n_samples)
+    dataset.setup("test")
+    batches = dl_head(dataset.test_dataloader(), n_samples)
     flat = flatten_batches(batches)
     out_b: dict[str, Tensor] = {}
     y_pred_b = model.forward_intermediate(

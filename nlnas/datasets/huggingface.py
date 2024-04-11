@@ -155,7 +155,7 @@ class HuggingFaceDataset(WrappedDataset):
         super().__init__(
             train=factory(fit_split),
             val=factory(val_split),
-            test=(factory(test_split, False) if test_split else None),
+            test=(factory(test_split) if test_split else None),
             predict=(factory(predict_split, False) if predict_split else None),
             train_dl_kwargs=train_dl_kwargs,
             val_dl_kwargs=val_dl_kwargs,
