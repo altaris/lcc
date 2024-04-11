@@ -26,11 +26,5 @@ from .datasets import (
     dl_head,
 )
 from .plotting import class_scatter, gaussian_mixture_plot
-from .training import (
-    all_checkpoint_paths,
-    best_checkpoint_path,
-    best_epoch,
-    train_model,
-    train_model_guarded,
-)
+from .training import all_checkpoint_paths, best_checkpoint_path, best_epoch
 from .utils import best_device
