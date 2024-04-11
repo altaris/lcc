@@ -170,11 +170,11 @@ class BalancedBatchSampler(Sampler[list[int]]):
     """
 
     batch_size: int
+    distribution_mode: Literal["split", "seed"] = "seed"
     n_batches: int
     n_classes_per_batch: int
     seed: int | None
     y: Tensor
-    distribution_mode: Literal["split", "seed"] = "seed"
 
     def __init__(
         self,

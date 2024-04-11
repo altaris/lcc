@@ -1,21 +1,34 @@
 """Various utilities pertaining to datasets"""
 
+from typing import TypeAlias
+
 import torch
 from loguru import logger as logging
 from torch import Tensor
 from torch.utils.data import DataLoader
 
+Batch: TypeAlias = dict[str, Tensor]
 
-def dl_head(dl: DataLoader, n: int) -> list[Tensor]:
+
+def dl_head(dl: DataLoader, n: int) -> list[Batch]:
     """
-    Gets a batch of length `n` consisting of the first `n` samples of the
-    dataloader.
+    Returns the first `n` samples of a DataLoader *as a list of batches*.
+
+    Args:
+        dl (DataLoader):
+        n (int):
+
+    Warning:
+        Only supports batches that are dicts of tensors.
     """
 
     def _n():
-        return sum(map(lambda b: len(b[0]), batches))
+        if not batches:
+            return 0
+        k = list(batches[0].keys())[0]
+        return sum(map(lambda b: len(b[k]), batches))  # type: ignore
 
-    batches: list[list[Tensor]] = []
+    batches: list[Batch] = []
     it = iter(dl)
     try:
         while _n() < n:
@@ -26,15 +39,19 @@ def dl_head(dl: DataLoader, n: int) -> list[Tensor]:
             n,
             _n(),
         )
-    return list(map(lambda l: torch.concat(l)[:n], zip(*batches)))
+    if (r := _n() - n) > 0:
+        for k in batches[-1].keys():
+            batches[-1][k] = batches[-1][k][:-r]
+    return batches
 
 
-def dl_targets(dl: DataLoader) -> set:
+def flatten_batches(batches: list[Batch]) -> Batch:
     """
-    Returns (distinct) targets of the dataset underlying this dataloader. Has
-    to iterate through the whole dataset, so it can be horribly inefficient =(
+    Flattens a list of batches into a single batch.
+
+    Args:
+        batches (list[Batch]):
     """
-    tgts = set()
-    for batch in iter(dl):
-        tgts.update(batch[-1].tolist())
-    return tgts
+    return {
+        k: torch.concat([b[k] for b in batches]) for k in batches[0].keys()
+    }

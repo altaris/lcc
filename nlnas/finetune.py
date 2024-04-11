@@ -60,7 +60,7 @@ def correct(
                 monitor="val/loss", patience=10, mode="min"
             ),
             pl.callbacks.ModelCheckpoint(
-                save_top_k=1, monitor="val/loss", mode="min", every_n_epochs=1
+                save_top_k=-1, monitor="val/loss", mode="min", every_n_epochs=1
             ),
             pl.callbacks.TQDMProgressBar(),
         ],
@@ -93,10 +93,10 @@ def correct(
     model = HuggingFaceClassifier(
         model_name=model_name,
         n_classes=document["dataset"]["n_classes"],
-        head_name=document["model"]["hparams"]["head_name"],
+        head_name=document["fine_tuning"]["hparams"]["head_name"],
         image_key=document["dataset"]["image_key"],
         label_key=document["dataset"]["label_key"],
-        logit_key=document["model"]["hparams"]["logit_key"],
+        logit_key=document["fine_tuning"]["hparams"]["logit_key"],
         optimizer="adam",
         optimizer_kwargs={
             "lr": 5e-5,
@@ -132,6 +132,7 @@ def correct(
     test_results = trainer.test(model, dataset)
 
     document["correction"] = {
+        "hparams": dict(model.hparams),
         "epochs": max_epochs,
         "batch_size": batch_size,
         "correction_submodules": correction_submodules,
@@ -265,10 +266,7 @@ def finetune(
     test_results = trainer.test(model, dataset)
 
     data = {
-        "model": {
-            "name": model_name,
-            "hparams": dict(model.hparams),
-        },
+        "model": {"name": model_name},
         "dataset": {
             "name": dataset_name,
             "n_classes": n_classes,
@@ -279,6 +277,7 @@ def finetune(
             "label_key": label_key,
         },
         "fine_tuning": {
+            "hparams": dict(model.hparams),
             "epochs": max_epochs,
             "batch_size": batch_size,
             "correction_submodules": correction_submodules,

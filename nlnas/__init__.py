@@ -3,8 +3,10 @@
 .. include:: ../CHANGELOG.md
 """
 
+from .analysis import analyse_ckpt, analyse_training
 from .classifiers import (
     BaseClassifier,
+    HuggingFaceClassifier,
     TorchvisionClassifier,
     WrappedClassifier,
 )
@@ -22,9 +24,7 @@ from .datasets import (
     TorchvisionDataset,
     WrappedDataset,
     dl_head,
-    dl_targets,
 )
-from .nlnas import analyse_ckpt, analyse_training, train_and_analyse_all
 from .plotting import class_scatter, gaussian_mixture_plot
 from .training import (
     all_checkpoint_paths,

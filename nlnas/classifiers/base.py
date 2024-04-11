@@ -1,6 +1,6 @@
 """Base image classifier class that support clustering correction loss"""
 
-from typing import Any, TypeAlias
+from typing import Any, Sequence, TypeAlias
 
 import pytorch_lightning as pl
 import torch
@@ -10,7 +10,7 @@ from torchmetrics.functional.classification import multiclass_accuracy
 
 from ..correction import louvain_loss
 
-Batch: TypeAlias = dict[Any, Tensor] | list[Tensor] | tuple[Tensor, ...]
+Batch: TypeAlias = dict[str, Tensor] | list[Tensor] | tuple[Tensor, ...]
 
 OPTIMIZERS: dict[str, type] = {
     "asgd": torch.optim.ASGD,
@@ -131,6 +131,7 @@ class BaseClassifier(pl.LightningModule):
         logits = self.forward_intermediate(
             x, self.cor_submodules, latent, keep_gradients=True
         )
+        assert isinstance(logits, Tensor)
         loss_ce = nn.functional.cross_entropy(logits, y.long())
         compute_correction_loss = (
             stage == "train" and self.cor_submodules and self.cor_weight > 0
@@ -175,11 +176,11 @@ class BaseClassifier(pl.LightningModule):
 
     def forward_intermediate(
         self,
-        inputs: Tensor | Batch,
+        inputs: Tensor | Batch | list[Tensor] | Sequence[Batch],
         submodules: list[str],
         output_dict: dict,
         keep_gradients: bool = False,
-    ) -> Tensor:
+    ) -> Tensor | list[Tensor]:
         """
         Runs the model and collects the output of specified submodules. The
         intermediate outputs are stored in `output_dict` under the
@@ -187,7 +188,9 @@ class BaseClassifier(pl.LightningModule):
         effects.
 
         Args:
-            x (Tensor | Batch):
+            x (Tensor | Batch | list[Tensor] | list[Batch]): If batched (i.e.
+                `x` is a list), then so is the output of this function and the
+                entries in the `output_dict`
             submodules (list[str]):
             output_dict (dict):
             keep_gradients (bool, optional): If `True`, the tensors in
@@ -196,30 +199,48 @@ class BaseClassifier(pl.LightningModule):
                 CPU.
         """
 
+        def maybe_detach(x: Tensor) -> Tensor:
+            return x if keep_gradients else x.detach().cpu()
+
         def create_hook(key: str):
             def hook(_model: nn.Module, _args: Any, out: Any) -> None:
-                if isinstance(out, (tuple, list)) and len(out) == 1:
-                    # This scenario happens with some implementations of ViTs
-                    out = out[0]
-                if isinstance(out, Tensor):
-                    output_dict[key] = (
-                        out if keep_gradients else out.cpu().detach()
-                    )
-                else:
+                if not isinstance(out, Tensor):
                     raise ValueError(
-                        f"Unsupported latent object type: {type(out)}. "
-                        "Supported types are Tensors or tuples/lists "
-                        "containing a single Tensor."
+                        f"Unsupported latent object type: {type(out)}."
                     )
+                if batched:
+                    if key not in output_dict:
+                        output_dict[key] = []
+                    output_dict[key].append(maybe_detach(out))
+                else:
+                    output_dict[key] = maybe_detach(out)
 
             return hook
 
+        batched = isinstance(inputs, (list, tuple))
         handles: list[RemovableHandle] = []
         for name in submodules:
             submodule = self.get_submodule(name)
             handles.append(submodule.register_forward_hook(create_hook(name)))
-        x = inputs if isinstance(inputs, Tensor) else inputs[self.image_key]
-        logits = self.forward(x)
+        if batched:
+            logits = [  # type: ignore
+                maybe_detach(
+                    self.forward(
+                        batch
+                        if isinstance(batch, Tensor)
+                        else batch[self.image_key]
+                    )
+                )
+                for batch in inputs
+            ]
+        else:
+            logits = maybe_detach(  # type: ignore
+                self.forward(
+                    inputs
+                    if isinstance(inputs, Tensor)
+                    else inputs[self.image_key]
+                )
+            )
         for h in handles:
             h.remove()
         return logits

@@ -191,8 +191,8 @@ def clustering_loss(
 
 
 def otm_matching_predicates(
-    y_a: np.ndarray,
-    y_b: np.ndarray,
+    y_a: np.ndarray | Tensor,
+    y_b: np.ndarray | Tensor,
     matching: dict[int, set[int]] | dict[str, set[int]],
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
@@ -236,6 +236,8 @@ def otm_matching_predicates(
             the $i$-th class of `y_a`. If some keys are strings, they must be
             convertible to ints.
     """
+    y_a = y_a if isinstance(y_a, np.ndarray) else y_a.detach().cpu().numpy()
+    y_b = y_b if isinstance(y_b, np.ndarray) else y_b.detach().cpu().numpy()
     m = {int(k): v for k, v in matching.items()}
     c_a = y_a.max() + 1
     p1 = [y_a == a for a in range(c_a)]

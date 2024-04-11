@@ -16,7 +16,6 @@ import torchvision
 from torch.utils.data import DataLoader, Dataset, random_split
 
 from .transforms import EnsureRGB
-from .utils import dl_targets
 from .wrapped import DEFAULT_DATALOADER_KWARGS
 
 DEFAULT_DOWNLOAD_PATH: Path = Path.home() / "torchvision" / "datasets"
@@ -61,6 +60,17 @@ ALL_DATASETS = {
     "svhn": torchvision.datasets.SVHN,
     "usps": torchvision.datasets.USPS,
 }
+
+
+def _dl_targets(dl: DataLoader) -> set:
+    """
+    Returns (distinct) targets of the dataset underlying this dataloader. Has
+    to iterate through the whole dataset, so it can be horribly inefficient =(
+    """
+    tgts = set()
+    for batch in iter(dl):
+        tgts.update(batch[-1].tolist())
+    return tgts
 
 
 # TODO: Refactor to inherit from `WrappedDataset`
@@ -142,7 +152,7 @@ class TorchvisionDataset(pl.LightningDataModule):
         dataset.
         """
         self.setup("fit")
-        return len(dl_targets(self.val_dataloader()))
+        return len(_dl_targets(self.val_dataloader()))
 
     def predict_dataloader(self) -> DataLoader:
         """
