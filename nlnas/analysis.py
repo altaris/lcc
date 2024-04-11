@@ -1,6 +1,5 @@
 """Main module"""
 
-from glob import glob
 from pathlib import Path
 from typing import Type
 
@@ -9,7 +8,6 @@ import bokeh.plotting as bk
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import regex as re
 import seaborn as sns
 import torch
 import turbo_broccoli as tb
@@ -27,6 +25,7 @@ from .correction import (
 )
 from .datasets import HuggingFaceDataset, dl_head, flatten_batches
 from .plotting import class_matching_plot, class_scatter, make_same_xy_range
+from .training import all_checkpoint_paths
 
 if torch.cuda.is_available():
     from cuml import UMAP
@@ -35,6 +34,7 @@ else:
 
 
 def _acc(y_true: Tensor, y_pred: Tensor) -> float:
+    """Helper function to compute micro-averaged multi-class accuracy"""
     return float(
         multiclass_accuracy(
             y_pred, y_true, num_classes=y_pred.shape[-1], average="micro"
@@ -43,11 +43,8 @@ def _acc(y_true: Tensor, y_pred: Tensor) -> float:
 
 
 def _ce(y_true: Tensor, y_pred: Tensor) -> float:
+    """Helper function to compute cross-entropy loss"""
     return float(nn.functional.cross_entropy(y_pred, y_true.long()))
-
-
-def _is_ckpt_analysis_dir(p: Path | str) -> bool:
-    return Path(p).is_dir() and (re.match(r".*/\d+$", str(p)) is not None)
 
 
 def analyse_ckpt(
@@ -55,7 +52,7 @@ def analyse_ckpt(
     submodule_names: list[str],
     dataset: HuggingFaceDataset,
     output_dir: str | Path,
-    n_samples: int = 5000,
+    n_samples: int = 512,
     knn: int = 25,
     model_cls: Type[BaseClassifier] = BaseClassifier,
 ):
@@ -116,7 +113,6 @@ def analyse_ckpt(
     progress = tqdm(
         outputs["z"].items(), desc="Louvain clustering", leave=False
     )
-    knn = 25
     for sm, z in progress:
         progress.set_postfix({"submodule": sm})
 
@@ -151,7 +147,14 @@ def analyse_ckpt(
             h.result = {"scatter": fig_scatter, "match": fig_match}
 
 
-def analyse_training(output_dir: str | Path, last_epoch: int | None = None):
+def analyse_training(
+    output_dir: str | Path,
+    submodule_names: list[str],
+    dataset: HuggingFaceDataset,
+    n_samples: int = 512,
+    knn: int = 25,
+    model_cls: Type[BaseClassifier] = BaseClassifier,
+):
     """
     Unlike `analyse_ckpt`, this method analyses the training as a whole. Again,
     I don't feel like explaining it all. Suffice it to say that the main
@@ -161,16 +164,24 @@ def analyse_training(output_dir: str | Path, last_epoch: int | None = None):
     Args:
         output_path (str | Path): e.g.
             `out.local/ft/cifar100/microsoft-resnet-18`
-        last_epoch (int, optional): Only considers training epoch up to that
-            epoch
     """
     output_dir = (
         output_dir if isinstance(output_dir, Path) else Path(output_dir)
     )
-    ckpt_analysis_dirs = list(
-        map(Path, filter(_is_ckpt_analysis_dir, glob(str(output_dir / "*"))))
-    )
-    last_epoch = last_epoch or len(ckpt_analysis_dirs) - 1
+    ckpts = all_checkpoint_paths(output_dir)
+    logging.debug("Found {} checkpoints", len(ckpts))
+    progress = tqdm(ckpts, desc="Analysing checkpoints", leave=False)
+    for i, p in enumerate(progress):
+        analyse_ckpt(
+            model=p,
+            submodule_names=submodule_names,
+            dataset=dataset,
+            output_dir=output_dir / str(i),
+            n_samples=n_samples,
+            knn=knn,
+            model_cls=model_cls,
+        )
+    ckpt_an_dir = [output_dir / str(i) for i in range(len(ckpts))]
 
     # METRICS OF MISS/MATCH GROUPS
     h = tb.GuardedBlockHandler(output_dir / "metrics.csv")
@@ -187,9 +198,7 @@ def analyse_training(output_dir: str | Path, last_epoch: int | None = None):
                 "acc_miss",
             ]
         )
-        progress = tqdm(
-            ckpt_analysis_dirs, desc="Collecting metrics", leave=False
-        )
+        progress = tqdm(ckpt_an_dir, desc="Collecting metrics", leave=False)
         for epoch, path in enumerate(progress):
             progress.set_postfix({"epoch": epoch})
             evaluations = tb.load_json(path / "eval" / "eval.json")
@@ -280,7 +289,7 @@ def evaluate(
     model: BaseClassifier,
     submodule_names: list[str],
     dataset: HuggingFaceDataset,
-    n_samples: int = 5000,
+    n_samples: int = 512,
 ) -> dict:
     """
     (Used as a step in `analyse_ckpt`) Evaluates a model on the first
