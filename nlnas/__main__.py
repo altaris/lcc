@@ -31,15 +31,22 @@ def main(logging_level: str):
 @main.command()
 @click.argument("model_name", type=str)
 @click.argument("dataset_name", type=str)
-@click.argument(
-    "ckpt_path",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path),  # type: ignore
-)
 @click.argument("correction_submodules", type=str)
 @click.argument("correction_weight", type=float)
 @click.argument(
     "output_dir",
     type=click.Path(file_okay=False, dir_okay=True, path_type=Path),  # type: ignore
+)
+@click.option(
+    "-c",
+    "--ckpt-path",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path),  # type: ignore
+    default=None,
+    help=(
+        "Path to the checkpoint to start the correction from. If left "
+        "unspecified, the correction will start from the weights available on "
+        "the Hugging Face model hub."
+    ),
 )
 @click.option(
     "-e",
@@ -119,7 +126,7 @@ def main(logging_level: str):
 def correct(
     model_name: str,
     dataset_name: str,
-    ckpt_path: Path,
+    ckpt_path: Path | None,
     correction_submodules: str,
     correction_weight: float,
     output_dir: Path,

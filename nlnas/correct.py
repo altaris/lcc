@@ -16,7 +16,7 @@ from .training import checkpoint_ves
 
 def correct(
     model_name: str,
-    ckpt_path: Path,
+    ckpt_path: Path | None,
     dataset_name: str,
     output_dir: Path,
     correction_submodules: list[str],
@@ -36,7 +36,8 @@ def correct(
 
     Args:
         model_name (str):
-        ckpt_path (Path):
+        ckpt_path (Path | None): If `None`, the correction will start from the
+            weights available on the Hugging Face model hub.
         dataset_name (str):
         output_dir (Path):
         correction_submodules (list[str]):
@@ -90,9 +91,12 @@ def correct(
         cor_weight=correction_weight,
         cor_submodules=correction_submodules,
     )
-    # pylint: disable=no-value-for-parameter
-    model.model = HuggingFaceClassifier.load_from_checkpoint(ckpt_path).model
-    r0_info("Loaded checkpoint '{}'", ckpt_path)
+    if isinstance(ckpt_path, Path):
+        # pylint: disable=no-value-for-parameter
+        model.model = HuggingFaceClassifier.load_from_checkpoint(
+            ckpt_path
+        ).model
+        r0_info("Loaded checkpoint '{}'", ckpt_path)
 
     trainer = make_trainer(_model_name, _output_dir, max_epochs)
     start = datetime.now()
