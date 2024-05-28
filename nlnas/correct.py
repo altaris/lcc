@@ -1,23 +1,26 @@
-"""Classical fine-tuning of HuggingFace models on HuggingFace datasets"""
+"""Latent clustering correction"""
+
+# pylint: disable=duplicate-code
 
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import pytorch_lightning as pl
 import turbo_broccoli as tb
 
 from .classifiers import HuggingFaceClassifier
 from .datasets import HuggingFaceDataset
+from .finetune import make_trainer
 from .logging import r0_info
 from .training import checkpoint_ves
 
-DEFAULT_MAX_GRAD_NORM = 1.0
 
-
-def finetune(
+def correct(
     model_name: str,
+    ckpt_path: Path,
     dataset_name: str,
     output_dir: Path,
+    correction_submodules: list[str],
+    correction_weight: float = 1e-3,
     max_epochs: int = 100,
     batch_size: int = 64,
     train_split: str = "train",
@@ -29,15 +32,15 @@ def finetune(
     head_name: str | None = None,
 ):
     """
-    Loads and fine-tunes a pretrained HuggingFace model on a HuggingFace
-    datasets.
+    Performs latent clustering correction on a pretrained model.
 
     Args:
-        model_name (str): See the [HuggingFace model
-            index](https://huggingface.co/models?pipeline_tag=image-classification)
-        dataset_name (str): See the [HuggingFace dataset
-            index](https://huggingface.co/datasets?task_categories=task_categories:image-classification)
+        model_name (str):
+        ckpt_path (Path):
+        dataset_name (str):
         output_dir (Path):
+        correction_submodules (list[str]):
+        correction_weight (float, optional):
         max_epochs (int, optional):
         batch_size (int, optional):
         train_split (str, optional):
@@ -84,13 +87,18 @@ def finetune(
             "eps": 1e-8,
         },
         scheduler="linearlr",
+        cor_weight=correction_weight,
+        cor_submodules=correction_submodules,
     )
+    # pylint: disable=no-value-for-parameter
+    model.model = HuggingFaceClassifier.load_from_checkpoint(ckpt_path).model
+    r0_info("Loaded checkpoint '{}'", ckpt_path)
 
     trainer = make_trainer(_model_name, _output_dir, max_epochs)
     start = datetime.now()
     trainer.fit(model, dataset)
     fit_time = datetime.now() - start
-    r0_info("Finished fine-tuning in {}", fit_time)
+    r0_info("Finished correction in {}", fit_time)
 
     ckpt = Path(trainer.checkpoint_callback.best_model_path)  # type: ignore
     ckpt = ckpt.relative_to(output_dir)
@@ -112,9 +120,11 @@ def finetune(
             "label_key": label_key,
             "batch_size": batch_size,
         },
-        "fine_tuning": {
+        "correction": {
             "hparams": dict(model.hparams),
             "epochs": max_epochs,
+            "correction_submodules": correction_submodules,
+            "correction_weight": correction_weight,
             "best_checkpoint": {
                 "path": str(ckpt),
                 "version": v,
@@ -126,39 +136,3 @@ def finetune(
         },
     }
     tb.save_json(document, _output_dir / "results.json")
-
-
-def make_trainer(
-    model_name: str, output_dir: Path, max_epochs: int = 512
-) -> pl.Trainer:
-    """
-    Self-explanatory
-
-    Args:
-        model_name (str):
-        output_dir (Path):
-        max_epochs (int, optional):
-    """
-    tb_logger = pl.loggers.TensorBoardLogger(
-        str(output_dir / "tb_logs"), name=model_name
-    )
-    csv_logger = pl.loggers.CSVLogger(
-        str(output_dir / "csv_logs"), name=model_name
-    )
-    trainer = pl.Trainer(
-        max_epochs=max_epochs,
-        callbacks=[
-            pl.callbacks.EarlyStopping(
-                monitor="val/loss", patience=10, mode="min"
-            ),
-            pl.callbacks.ModelCheckpoint(
-                save_top_k=-1, monitor="val/loss", mode="min", every_n_epochs=1
-            ),
-            pl.callbacks.TQDMProgressBar(),
-        ],
-        default_root_dir=str(output_dir),
-        logger=[tb_logger, csv_logger],
-        log_every_n_steps=1,
-        gradient_clip_val=DEFAULT_MAX_GRAD_NORM,
-    )
-    return trainer
