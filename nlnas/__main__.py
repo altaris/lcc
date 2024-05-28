@@ -175,27 +175,6 @@ def correct(
     ),
     type=str,
 )
-@click.option(
-    "-cw",
-    "--correction-weight",
-    default=0,
-    help=(
-        "Latent clustering correction weight. Defaults to 0 (meaning no "
-        "correction is applied)"
-    ),
-    type=float,
-)
-@click.option(
-    "-cs",
-    "--correction-submodules",
-    default="",
-    help=(
-        "Command-separated list of submodule names whose output space will "
-        "undergo latent clustering correction. Defaults to empty string "
-        "(meaning no correction is applied)."
-    ),
-    type=str,
-)
 def finetune(
     model_name: str,
     dataset_name: str,
@@ -209,8 +188,6 @@ def finetune(
     label_key: str,
     logit_key: str,
     head_name: str | None,
-    correction_weight: float,
-    correction_submodules: str,
 ):
     """Fine-tune a HuggingFace model on a HuggingFace dataset."""
     import torch
@@ -232,10 +209,6 @@ def finetune(
         label_key=label_key,
         logit_key=logit_key,
         head_name=head_name,
-        correction_weight=correction_weight,
-        correction_submodules=(
-            correction_submodules.split(",") if correction_submodules else None
-        ),
     )
 
 
