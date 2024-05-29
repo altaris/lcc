@@ -12,13 +12,6 @@ from torch import Tensor
 
 from .clustering import class_otm_matching, clustering_loss
 
-if torch.cuda.is_available():
-    from cuml.neighbors import NearestNeighbors
-    from cuml.preprocessing import MinMaxScaler, StandardScaler
-else:
-    from sklearn.neighbors import NearestNeighbors
-    from sklearn.preprocessing import MinMaxScaler, StandardScaler
-
 
 def louvain_communities(
     z: np.ndarray | Tensor,
@@ -26,6 +19,7 @@ def louvain_communities(
     scaling: (
         Literal["standard", "minmax"] | TransformerMixin | None
     ) = "standard",
+    device: Literal["cpu", "cuda"] | None = None,
 ) -> tuple[list[set[int]], np.ndarray]:
     """
     Returns louvain communities of a set of points.
@@ -43,6 +37,9 @@ def louvain_communities(
             [sklearn.preprocessing.MinMaxScaler](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.MinMaxScaler.html)
             or CUML equivalent. It is also possible to pass an actual class
             that has a `fit_transform` method with a single mandatory argument.
+        device (Literal["cpu", "cuda"] | None, optional): If left to `None`,
+            uses CUDA if it is available, otherwise falls back to CPU. Setting
+            `cuda` while CUDA isn't available will silently fall back to CPU.
 
     Returns:
         Ok so this returns a lot of things:
@@ -61,6 +58,16 @@ def louvain_communities(
            k$, then `u[i, j] = n` where `z[n]` is the `j`-th nearest neighbor
            of `z[i]`.
     """
+    use_cuda = (
+        device == "cuda" or device is None
+    ) and torch.cuda.is_available()
+    if use_cuda:
+        from cuml.neighbors import NearestNeighbors
+        from cuml.preprocessing import MinMaxScaler, StandardScaler
+    else:
+        from sklearn.neighbors import NearestNeighbors
+        from sklearn.preprocessing import MinMaxScaler, StandardScaler
+
     if scaling == "standard":
         scaling = StandardScaler()
     elif scaling == "minmax":
@@ -78,7 +85,7 @@ def louvain_communities(
     graph.remove_edges_from(nx.selfloop_edges(graph))  # exclude self as NN
     communities: list[set[int]] = nx.community.louvain_communities(  # type: ignore
         graph,
-        **({"backend": "cugraph"} if torch.cuda.is_available() else {}),  # type: ignore
+        **({"backend": "cugraph"} if use_cuda else {}),  # type: ignore
     )
     y_louvain = [0] * len(graph)
     for i, c in enumerate(communities):

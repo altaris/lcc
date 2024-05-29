@@ -1,7 +1,7 @@
 """Main module"""
 
 from pathlib import Path
-from typing import Type
+from typing import Literal, Type
 
 import bokeh.layouts as bkl
 import bokeh.plotting as bk
@@ -26,11 +26,6 @@ from .correction import (
 from .datasets import HuggingFaceDataset, dl_head, flatten_batches
 from .plotting import class_matching_plot, class_scatter, make_same_xy_range
 from .training import all_checkpoint_paths
-
-if torch.cuda.is_available():
-    from cuml import UMAP
-else:
-    from umap import UMAP
 
 
 def _acc(y_true: Tensor, y_pred: Tensor) -> float:
@@ -262,7 +257,10 @@ def analyse_training(
             plt.clf()
 
 
-def embed_latent_samples(z: dict[str, Tensor]) -> dict[str, np.ndarray]:
+def embed_latent_samples(
+    z: dict[str, Tensor],
+    device: Literal["cpu", "cuda"] | None = None,
+) -> dict[str, np.ndarray]:
     """
     (Used as a step in `analyse_ckpt`) Embeds latent samples using UMAP. The
     latent embeddings are normalized too. This method isn't guarded.
@@ -270,10 +268,17 @@ def embed_latent_samples(z: dict[str, Tensor]) -> dict[str, np.ndarray]:
     Args:
         z (dict[str, Tensor]): The dict of latent samples, a.k.a just a dict of
             tensors of shape `(N, ...)`
+        device (Literal["cpu", "cuda"] | None, optional): If left to `None`,
+            uses CUDA if it is available, otherwise falls back to CPU. Setting
+            `cuda` while CUDA isn't available will silently fall back to CPU.
 
     Returns:
         A dict with the same keys and tensors of shape `(N, 2)`
     """
+    if (device == "cuda" or device is None) and torch.cuda.is_available():
+        from cuml import UMAP
+    else:
+        from umap import UMAP
     embeddings = {}
     progress = tqdm(z.items(), desc="UMAP embedding", leave=False)
     for k, v in progress:

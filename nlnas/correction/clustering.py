@@ -10,11 +10,6 @@ import numpy as np
 import torch
 from torch import Tensor
 
-if torch.cuda.is_available():
-    from cuml.neighbors import NearestNeighbors
-else:
-    from sklearn.neighbors import NearestNeighbors
-
 
 def _otm_matching(
     graph: nx.DiGraph,
@@ -133,6 +128,7 @@ def clustering_loss(
     y_cl: np.ndarray | Tensor,
     matching: dict[int, set[int]] | dict[str, set[int]],
     k: int = 5,
+    device: Literal["cpu", "cuda"] | None = None,
 ) -> Tensor:
     """
     Mean distance between every missed point and the average distance to their
@@ -156,7 +152,14 @@ def clustering_loss(
         y_cl (np.ndarray | None, optional):
         matching (dict[int, set[int]] | dict[str, set[int]]):
         k (int, optional):
+        device (Literal["cpu", "cuda"] | None, optional): If left to `None`,
+            uses CUDA if it is available, otherwise falls back to CPU. Setting
+            `cuda` while CUDA isn't available will silently fall back to CPU.
     """
+    if (device == "cuda" or device is None) and torch.cuda.is_available():
+        from cuml.neighbors import NearestNeighbors
+    else:
+        from sklearn.neighbors import NearestNeighbors
 
     def _np(a: Tensor) -> np.ndarray:
         return a.cpu().detach().numpy()
