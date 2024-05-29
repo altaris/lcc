@@ -129,7 +129,10 @@ def finetune(
 
 
 def make_trainer(
-    model_name: str, output_dir: Path, max_epochs: int = 512
+    model_name: str,
+    output_dir: Path,
+    max_epochs: int = 512,
+    accelerator: str = "auto",
 ) -> pl.Trainer:
     """
     Self-explanatory
@@ -160,5 +163,6 @@ def make_trainer(
         logger=[tb_logger, csv_logger],
         log_every_n_steps=1,
         gradient_clip_val=DEFAULT_MAX_GRAD_NORM,
+        accelerator=accelerator,
     )
     return trainer

@@ -42,21 +42,12 @@ def louvain_communities(
             `cuda` while CUDA isn't available will silently fall back to CPU.
 
     Returns:
-        Ok so this returns a lot of things:
         1. (`list[set[int]]`) The actual louvain communities, which is a
            partition of the set $\\\\{ 0, 1, ..., N-1 \\\\}$.
         2. (`np.ndarray`) The `(N,)` label vector for the communities. Let's
            call it `y_louvain`. If there are `c` communities, then `y_louvain`
            has integer values in $\\\\{ 0, 1, ..., c-1 \\\\}$, and if
            `y_louvain[i] == j`, then `z[i]` belongs to the `j`-th community
-        4. (`np.ndarray`) The `(N, k)` distance matrix `m` of the rows of `z`
-           to their `k` nearest neighbors: if $0 \\leq i < N$ and $0 \\leq j <
-           k$, then `m[i, j] = np.linalg(z[i] - z[n])` where `z[n]` is the
-           `j`-th nearest neighbor of `z[i]`.
-        5. (`np.ndarray`) The `(N, k)` index matrix `u` of the nearest
-           neighbors of the rows of `z`: if $0 \\leq i < N$ and $0 \\leq j <
-           k$, then `u[i, j] = n` where `z[n]` is the `j`-th nearest neighbor
-           of `z[i]`.
     """
     use_cuda = (
         device == "cuda" or device is None

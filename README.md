@@ -19,33 +19,24 @@ python3.10 -m nlnas finetune \
     --head-name classifier.1
 ```
 
-### Fine-tuning with latent clustering correction
-
-```sh
-python3.10 -m nlnas finetune \
-    microsoft/resnet-18 cifar100 out.local/ftc \
-    --train-split 'train[:80%]' \
-    --val-split 'train[80%:]' \
-    --test-split test \
-    --image-key img \
-    --label-key fine_label \
-    --head-name classifier.1 \
-    --correction-weight 0.001 \
-    --correction-submodules model.resnet.encoder.stages.3 \
-    --batch-size 128
-```
-
 
 ### Latent clustering correction
 
-The correction command uses a `BalancedBatchSampler`.
-
 ```sh
+FILE=out/ft/cifar100/microsoft-resnet-18/results.json
 python3.10 -m nlnas correct \
-    out.local/ft/cifar100/microsoft-resnet-18/results.json out.local/c \
-    model.resnet.encoder.stages.0,model.resnet.encoder.stages.1,model.resnet.encoder.stages.2,model.resnet.encoder.stages.3 0.001 \
-    --batch-size 200 \
-    --n-classes-per-batch 5
+    $(jq -r .model.name < $FILE) \
+    $(jq -r .dataset.name < $FILE) \
+    model.resnet.encoder.stages.3 \
+    0.001 \
+    out/lcc \
+    --ckpt-path out/ft/$(jq -r .fine_tuning.best_checkpoint.path < $FILE) \
+    --train-split $(jq -r .dataset.train_split < $FILE) \
+    --val-split $(jq -r .dataset.val_split < $FILE) \
+    --test-split $(jq -r .dataset.test_split < $FILE) \
+    --image-key $(jq -r .dataset.image_key < $FILE) \
+    --label-key $(jq -r .dataset.label_key < $FILE) \
+    --head-name $(jq -r .fine_tuning.hparams.head_name < $FILE)
 ```
 
 ## Contributing

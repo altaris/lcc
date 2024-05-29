@@ -2,10 +2,16 @@
 
 # pylint: disable=duplicate-code
 
+from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import torch
 import turbo_broccoli as tb
+from torch import Tensor, nn
+from tqdm import tqdm
+
+from nlnas.correction.louvain import louvain_loss
 
 from .classifiers import HuggingFaceClassifier
 from .datasets import HuggingFaceDataset
@@ -64,13 +70,19 @@ def correct(
         test_split=test_split,
         label_key=label_key,
         image_processor=model_name,
-        train_dl_kwargs={
+        val_dl_kwargs={
             "batch_size": batch_size,
             "num_workers": 16,
             "persistent_workers": True,
             "pin_memory": False,
         },
     )
+    dataset.train_dl_kwargs = {
+        "batch_size": dataset.y_true("train").shape[0],
+        "num_workers": 16,
+        "persistent_workers": True,
+        "pin_memory": True,
+    }
     n_classes = dataset.n_classes()
 
     model = HuggingFaceClassifier(
@@ -98,7 +110,9 @@ def correct(
         ).model
         r0_info("Loaded checkpoint '{}'", ckpt_path)
 
-    trainer = make_trainer(_model_name, _output_dir, max_epochs)
+    trainer = make_trainer(
+        _model_name, _output_dir, max_epochs=max_epochs, accelerator="cpu"
+    )
     start = datetime.now()
     trainer.fit(model, dataset)
     fit_time = datetime.now() - start
@@ -110,7 +124,7 @@ def correct(
     r0_info("Best checkpoint path: '{}'", ckpt)
     r0_info("version={}, best_epoch={}, n_steps={}", v, e, s)
 
-    test_results = trainer.test(model, dataset)
+    # test_results = trainer.test(model, dataset)
 
     document = {
         "model": {"name": model_name},
@@ -136,7 +150,7 @@ def correct(
                 "n_steps": s,
             },
             "time": fit_time / timedelta(seconds=1),
-            "test": test_results,
+            # "test": test_results,
         },
     }
     tb.save_json(document, _output_dir / "results.json")
