@@ -2,22 +2,45 @@
 
 # pylint: disable=duplicate-code
 
-from collections import defaultdict
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from uuid import uuid4
 
 import torch
 import turbo_broccoli as tb
-from torch import Tensor, nn
-from tqdm import tqdm
-
-from nlnas.correction.louvain import louvain_loss
+from torch import Tensor
 
 from .classifiers import HuggingFaceClassifier
 from .datasets import HuggingFaceDataset
 from .finetune import make_trainer
 from .logging import r0_info
 from .training import checkpoint_ves
+
+class TemporarySavedTensor:
+    """
+    A tensor saved in a temporary file. The file is deleted when this object is
+    deleted (i.e. via the `__del__` method).
+
+    See also:
+        https://pytorch.org/tutorials/intermediate/autograd_saved_tensors_hooks_tutorial.html#saving-tensors-to-disk
+    """
+
+    name: str
+    path: Path
+
+    def __del__(self):
+        os.remove(self.name)
+
+    def __init__(self, tmp_dir: Path | str, x: Tensor):
+        self.name = str(uuid4())
+        self.path = Path(tmp_dir) / self.name
+        torch.save(x, self.path)
+
+    def load(self) -> Tensor:
+        """Loads the packed tensor from the file."""
+        return torch.load(self.path)
 
 
 def correct(
@@ -114,7 +137,12 @@ def correct(
         _model_name, _output_dir, max_epochs=max_epochs, accelerator="cpu"
     )
     start = datetime.now()
-    trainer.fit(model, dataset)
+    # _fit(model, dataset, max_epochs=max_epochs)
+    with TemporaryDirectory() as tmp:
+        pack_hook = lambda x: TemporarySavedTensor(tmp, x)
+        unpack_hook = lambda obj: obj.load()
+        with torch.autograd.graph.saved_tensors_hooks(pack_hook, unpack_hook):
+            trainer.fit(model, dataset)
     fit_time = datetime.now() - start
     r0_info("Finished correction in {}", fit_time)
 
