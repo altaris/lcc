@@ -63,7 +63,7 @@ def _otm_matching(
 
 
 def class_otm_matching(
-    y_a: np.ndarray, y_b: np.ndarray
+    y_a: np.ndarray | Tensor, y_b: np.ndarray | Tensor
 ) -> dict[int, set[int]]:
     """
     Let `y_a` and `y_b` be `(N,)` integer array. We think of them as classes on
@@ -99,13 +99,17 @@ def class_otm_matching(
         {1: {1, 5}, 2: {2}, 3: set(), 4: {3}}
 
     Args:
-        y_a (np.ndarray): A `(N,)` integer array. Unlike in the examples above,
-            it is best if it only contains values in $\\\\{ 0, 1, ..., c_a - 1
-            \\\\}$ for some $c_a > 0$.
-        y_b (np.ndarray): A `(N,)` integer array. Unlike in the examples above,
-            it is best if it only contains values in $\\\\{ 0, 1, ..., c_b - 1
-            \\\\}$ for some $c_b > 0$.
+        y_a (np.ndarray | Tensor): A `(N,)` integer array. Unlike in the
+            examples above, it is best if it only contains values in
+            $\\\\{ 0, 1, ..., c_a - 1 \\\\}$ for some $c_a > 0$.
+        y_b (np.ndarray | Tensor): A `(N,)` integer array. Unlike in the
+            examples above, it is best if it only contains values in
+            $\\\\{ 0, 1, ..., c_b - 1 \\\\}$ for some $c_b > 0$.
     """
+    if isinstance(y_a, Tensor):
+        y_a = y_a.cpu().detach().numpy()
+    if isinstance(y_b, Tensor):
+        y_b = y_b.cpu().detach().numpy()
     match_graph = nx.DiGraph()
     for i, j in product(np.unique(y_a), np.unique(y_b)):
         n = np.sum((y_a == i) & (y_b == j))
@@ -164,10 +168,8 @@ def clustering_loss(
     def _np(a: Tensor) -> np.ndarray:
         return a.cpu().detach().numpy()
 
-    if isinstance(y_true, Tensor):
-        y_true = y_true.cpu().detach().numpy()
-    if isinstance(y_cl, Tensor):
-        y_cl = y_cl.cpu().detach().numpy()
+    y_true = _np(y_true) if isinstance(y_true, Tensor) else y_true
+    y_cl = _np(y_cl) if isinstance(y_cl, Tensor) else y_cl
     assert isinstance(y_true, np.ndarray)  # For typechecking
     assert isinstance(y_cl, np.ndarray)  # For typechecking
     matching = {int(a): bs for a, bs in matching.items()}

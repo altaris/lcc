@@ -2,45 +2,114 @@
 
 # pylint: disable=duplicate-code
 
-import os
 from datetime import datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from uuid import uuid4
 
+import numpy as np
 import torch
 import turbo_broccoli as tb
-from torch import Tensor
+from safetensors import torch as st
+from torch import Tensor, nn
+from tqdm import tqdm
 
 from .classifiers import HuggingFaceClassifier
+from .correction import (
+    class_otm_matching,
+    clustering_loss,
+    louvain_communities,
+)
 from .datasets import HuggingFaceDataset
 from .finetune import make_trainer
 from .logging import r0_info
 from .training import checkpoint_ves
 
-class TemporarySavedTensor:
-    """
-    A tensor saved in a temporary file. The file is deleted when this object is
-    deleted (i.e. via the `__del__` method).
 
-    See also:
-        https://pytorch.org/tutorials/intermediate/autograd_saved_tensors_hooks_tutorial.html#saving-tensors-to-disk
-    """
-
-    name: str
-    path: Path
-
-    def __del__(self):
-        os.remove(self.name)
-
-    def __init__(self, tmp_dir: Path | str, x: Tensor):
-        self.name = str(uuid4())
-        self.path = Path(tmp_dir) / self.name
-        torch.save(x, self.path)
-
-    def load(self) -> Tensor:
-        """Loads the packed tensor from the file."""
-        return torch.load(self.path)
+def _fit(
+    model: HuggingFaceClassifier,
+    dataset: HuggingFaceDataset,
+    max_epochs: int = 100,
+    k: int = 128,
+):
+    """Main correction training loop"""
+    dataset.setup("fit")
+    y_true = dataset.y_true("train")
+    image_key, label_key = model.image_key, model.label_key
+    optimizer = model.configure_optimizers()
+    for epoch in tqdm(range(max_epochs), "Correction"):
+        with TemporaryDirectory() as path:
+            for idx, batch in enumerate(
+                tqdm(dataset.train_dataloader(), "Evaluating", leave=False)
+            ):
+                out: dict[str, Tensor] = {}
+                model.forward_intermediate(
+                    inputs=batch[image_key],
+                    submodules=model.cor_submodules,
+                    output_dict=out,
+                    keep_gradients=False,
+                )
+                for sm, z in out.items():
+                    st.save_file(
+                        {"": z}, Path(path) / f"{sm}.{epoch:04}.{idx:04}.pt"
+                    )
+            clustering: dict[str, tuple[np.ndarray, dict[int, set[int]]]] = {}
+            for sm in tqdm(model.cor_submodules, "Clustering", leave=False):
+                z = torch.concat(
+                    [
+                        st.load_file(p)[""]
+                        for p in tqdm(
+                            sorted(Path(path).glob(f"{sm}.{epoch:04}.*.pt")),
+                            "Loading",
+                            leave=False,
+                        )
+                    ]
+                )
+                _, y_louvain = louvain_communities(z, k=k)
+                y_louvain = y_louvain[: len(y_true)]
+                # TODO: See `correction.louvain.louvain_loss`
+                matching = class_otm_matching(y_true, y_louvain)
+                clustering[sm] = (y_louvain, matching)
+            idx = 0
+            progress = tqdm(
+                tqdm(
+                    dataset.train_dataloader(), "Updating weights", leave=False
+                )
+            )
+            for batch in progress:
+                x, y_true, out = batch[image_key], batch[label_key], {}
+                logits = model.forward_intermediate(
+                    inputs=batch[image_key],
+                    submodules=model.cor_submodules,
+                    output_dict=out,
+                    keep_gradients=False,
+                )
+                assert isinstance(logits, Tensor)  # for typechecking
+                loss_ce = nn.functional.cross_entropy(logits, y_true)
+                loss_cl = torch.stack(
+                    [
+                        clustering_loss(
+                            z=z,
+                            y_true=y_true,
+                            y_cl=clustering[sm][0][idx : idx + len(x)],
+                            matching=clustering[sm][1],
+                            k=k,
+                            device="cpu",  # TODO: pass everything to CUDA
+                        )
+                        for sm, z in out.items()
+                    ]
+                )
+                loss = loss_ce + model.cor_weight * loss_cl
+                loss.backward()
+                optimizer.step()
+                optimizer.zero_grad()
+                progress.set_postfix(
+                    {
+                        "corr/loss": float(loss.round(decimals=2)),
+                        "corr/ce": float(loss_ce.round(decimals=2)),
+                        "corr/cl": float(loss_cl.round(decimals=2)),
+                    }
+                )
+                idx += len(x)
 
 
 def correct(
@@ -81,6 +150,8 @@ def correct(
         logit_key (str, optional):
         head_name (str | None, optional):
     """
+    torch.multiprocessing.set_sharing_strategy("file_system")
+
     _dataset_name = dataset_name.replace("/", "-")
     _model_name = model_name.replace("/", "-")
     _output_dir = output_dir / _dataset_name / _model_name
@@ -93,19 +164,7 @@ def correct(
         test_split=test_split,
         label_key=label_key,
         image_processor=model_name,
-        val_dl_kwargs={
-            "batch_size": batch_size,
-            "num_workers": 16,
-            "persistent_workers": True,
-            "pin_memory": False,
-        },
     )
-    dataset.train_dl_kwargs = {
-        "batch_size": dataset.y_true("train").shape[0],
-        "num_workers": 16,
-        "persistent_workers": True,
-        "pin_memory": True,
-    }
     n_classes = dataset.n_classes()
 
     model = HuggingFaceClassifier(
@@ -137,12 +196,7 @@ def correct(
         _model_name, _output_dir, max_epochs=max_epochs, accelerator="cpu"
     )
     start = datetime.now()
-    # _fit(model, dataset, max_epochs=max_epochs)
-    with TemporaryDirectory() as tmp:
-        pack_hook = lambda x: TemporarySavedTensor(tmp, x)
-        unpack_hook = lambda obj: obj.load()
-        with torch.autograd.graph.saved_tensors_hooks(pack_hook, unpack_hook):
-            trainer.fit(model, dataset)
+    _fit(model, dataset, max_epochs=max_epochs)
     fit_time = datetime.now() - start
     r0_info("Finished correction in {}", fit_time)
 
