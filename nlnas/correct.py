@@ -64,16 +64,12 @@ def _fit(
                         )
                     ]
                 )
-                _, y_louvain = louvain_communities(z, k=k)
-                y_louvain = y_louvain[: len(y_true)]
-                # TODO: See `correction.louvain.louvain_loss`
-                matching = class_otm_matching(y_true, y_louvain)
-                clustering[sm] = (y_louvain, matching)
+                _, y_clst = louvain_communities(z, k=k)
+                matching = class_otm_matching(dataset.y_true("train"), y_clst)
+                clustering[sm] = (y_clst, matching)
             idx = 0
             progress = tqdm(
-                tqdm(
-                    dataset.train_dataloader(), "Updating weights", leave=False
-                )
+                dataset.train_dataloader(), "Updating weights", leave=False
             )
             for batch in progress:
                 x, y_true, out = batch[image_key], batch[label_key], {}
@@ -81,7 +77,7 @@ def _fit(
                     inputs=batch[image_key],
                     submodules=model.cor_submodules,
                     output_dict=out,
-                    keep_gradients=False,
+                    keep_gradients=True,
                 )
                 assert isinstance(logits, Tensor)  # for typechecking
                 loss_ce = nn.functional.cross_entropy(logits, y_true)
@@ -90,18 +86,19 @@ def _fit(
                         clustering_loss(
                             z=z,
                             y_true=y_true,
-                            y_cl=clustering[sm][0][idx : idx + len(x)],
+                            y_clst=clustering[sm][0][idx : idx + len(x)],
                             matching=clustering[sm][1],
                             k=k,
+                            n_true_classes=dataset.n_classes(),
                             device="cpu",  # TODO: pass everything to CUDA
                         )
                         for sm, z in out.items()
                     ]
                 )
                 loss = loss_ce + model.cor_weight * loss_cl
+                optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-                optimizer.zero_grad()
                 progress.set_postfix(
                     {
                         "corr/loss": float(loss.round(decimals=2)),
@@ -181,7 +178,7 @@ def correct(
             "betas": (0.9, 0.999),
             "eps": 1e-8,
         },
-        scheduler="linearlr",
+        # scheduler="linearlr",
         cor_weight=correction_weight,
         cor_submodules=correction_submodules,
     )

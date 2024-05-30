@@ -85,7 +85,13 @@ def louvain_communities(
     return communities, np.array(y_louvain)
 
 
-def louvain_loss(z: Tensor, y_true: np.ndarray | Tensor, k: int = 5) -> Tensor:
+def louvain_loss(
+    z: Tensor,
+    y_true: np.ndarray | Tensor,
+    k: int = 5,
+    n_true_classes: int | None = None,
+    device: Literal["cpu", "cuda"] | None = None,
+) -> Tensor:
     """
     Calls `nlnas.correction.clustering.clustering_loss` with the Louvain
     clustering data.
@@ -99,4 +105,6 @@ def louvain_loss(z: Tensor, y_true: np.ndarray | Tensor, k: int = 5) -> Tensor:
     # This seems to only happen if z has nan's, in which case
     # len(y_louvain) = len(y_true) + 1
     matching = class_otm_matching(y_true, y_louvain)
-    return clustering_loss(z, y_true, y_louvain, matching, k)
+    return clustering_loss(
+        z, y_true, y_louvain, matching, k, n_true_classes, device
+    )

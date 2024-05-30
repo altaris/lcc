@@ -67,49 +67,43 @@ def class_otm_matching(
 ) -> dict[int, set[int]]:
     """
     Let `y_a` and `y_b` be `(N,)` integer array. We think of them as classes on
-    some dataset, say `x`, which we call respectively a-classes and b-classes.
-    This method performs a one-to-many matching from the classes in `y_a` to
-    the classes in `y_b` to overall maximize the cardinality of the
+    some dataset, say `x`, which we call respectively *a-classes* and
+    $b-classes*. This method performs a one-to-many matching from the classes
+    in `y_a` to the classes in `y_b` to overall maximize the cardinality of the
     intersection between a-classes and the union of their matched b-classes.
 
     Example:
 
         >>> y_a = np.array([ 1,  1,  1,  1,  2,  2,  3,  4,  4])
         >>> y_b = np.array([10, 50, 10, 20, 20, 20, 30, 30, 30])
-        >>> otm_matching(y_a, y_b)
+        >>> class_otm_matching(y_a, y_b)
         {1: {10, 50}, 2: {20}, 3: set(), 4: {30}}
 
         Here, `y_a` assigns class `1` to samples 0 to 3, label `2` to samples 4
         and 5 etc. On the other hand, `y_b` assigns its own classes to the
         dataset. What is the best way to regroup classes of `y_b` to
-        approximate the labelling of `y_a`? The `otm_matching` return value
-        argues that classes `10` and `15` should be regrouped under `1` (they
-        fit neatly), label `20` should be renamed to `2` (eventhough it "leaks"
-        a little, in that sample 3 is labelled with `1` and `20`), and class
-        `30` should be renamed to `4`. No class in `y_b` is assigned to class
-        `3` in this matching.
+        approximate the labelling of `y_a`? The `class_otm_matching` return
+        value argues that classes `10` and `15` should be regrouped under `1`
+        (they fit neatly), label `20` should be renamed to `2` (eventhough it
+        "leaks" a little, in that sample 3 is labelled with `1` and `20`), and
+        class `30` should be renamed to `4`. No class in `y_b` is assigned to
+        class `3` in this matching.
 
     Note:
-        The values in `y_a` and `y_b` don't actually need to be distinct: the
-        following works fine
+        There are no restriction on the values of `y_a` and `y_b`. In
+        particular, they need not be distinct: the following works fine
 
         >>> y_a = np.array([1, 1, 1, 1, 2, 2, 3, 4, 4])
         >>> y_b = np.array([1, 5, 1, 2, 2, 2, 3, 3, 3])
-        >>> otm_matching(y_a, y_b)
+        >>> class_otm_matching(y_a, y_b)
         {1: {1, 5}, 2: {2}, 3: set(), 4: {3}}
 
     Args:
-        y_a (np.ndarray | Tensor): A `(N,)` integer array. Unlike in the
-            examples above, it is best if it only contains values in
-            $\\\\{ 0, 1, ..., c_a - 1 \\\\}$ for some $c_a > 0$.
-        y_b (np.ndarray | Tensor): A `(N,)` integer array. Unlike in the
-            examples above, it is best if it only contains values in
-            $\\\\{ 0, 1, ..., c_b - 1 \\\\}$ for some $c_b > 0$.
+        y_a (np.ndarray | Tensor): A `(N,)` integer array.
+        y_b (np.ndarray | Tensor): A `(N,)` integer array.
     """
-    if isinstance(y_a, Tensor):
-        y_a = y_a.cpu().detach().numpy()
-    if isinstance(y_b, Tensor):
-        y_b = y_b.cpu().detach().numpy()
+    y_a = y_a.cpu().detach().numpy() if isinstance(y_a, Tensor) else y_a
+    y_b = y_b.cpu().detach().numpy() if isinstance(y_b, Tensor) else y_b
     match_graph = nx.DiGraph()
     for i, j in product(np.unique(y_a), np.unique(y_b)):
         n = np.sum((y_a == i) & (y_b == j))
@@ -129,9 +123,10 @@ def class_otm_matching(
 def clustering_loss(
     z: Tensor,
     y_true: np.ndarray | Tensor,
-    y_cl: np.ndarray | Tensor,
+    y_clst: np.ndarray | Tensor,
     matching: dict[int, set[int]] | dict[str, set[int]],
     k: int = 5,
+    n_true_classes: int | None = None,
     device: Literal["cpu", "cuda"] | None = None,
 ) -> Tensor:
     """
@@ -150,12 +145,25 @@ def clustering_loss(
     The clustering loss is the average of these terms, divided by
     $\\\\sqrt{d}$, where $d$ is the dimension of the latent space.
 
+    Warning:
+        This method has a few pitfalls:
+        * the values of `y_true` must be between `0` and `n_true_classes - 1`
+          (see below);
+        * the values of `y_clst` must be in the union of the sets in
+          `matching`;
+        * the keys of `matching` must be integers (or int strings) between `0`
+          and `n_true_classes - 1` (see below).
+
     Args:
         z (Tensor):
-        y_true (np.ndarray | Tensor):
-        y_cl (np.ndarray | None, optional):
+        y_true (np.ndarray | Tensor): `int` array of true labels
+        y_clst (np.ndarray | None, optional): `int` array of cluster classes,
+            whose values are in the union of the sets in `matching`.
         matching (dict[int, set[int]] | dict[str, set[int]]):
         k (int, optional):
+        n_true_classes (int | None, optional): Number of true classes. If left
+            to `None`, then it is assumed that `y_true` contains all the
+            classes, and so `n_true_classes = y_true.max() + 1`.
         device (Literal["cpu", "cuda"] | None, optional): If left to `None`,
             uses CUDA if it is available, otherwise falls back to CPU. Setting
             `cuda` while CUDA isn't available will silently fall back to CPU.
@@ -169,11 +177,13 @@ def clustering_loss(
         return a.cpu().detach().numpy()
 
     y_true = _np(y_true) if isinstance(y_true, Tensor) else y_true
-    y_cl = _np(y_cl) if isinstance(y_cl, Tensor) else y_cl
+    y_clst = _np(y_clst) if isinstance(y_clst, Tensor) else y_clst
     assert isinstance(y_true, np.ndarray)  # For typechecking
-    assert isinstance(y_cl, np.ndarray)  # For typechecking
+    assert isinstance(y_clst, np.ndarray)  # For typechecking
     matching = {int(a): bs for a, bs in matching.items()}
-    p1, p2, p3, _ = otm_matching_predicates(y_true, y_cl, matching)
+    p1, p2, p3, _ = otm_matching_predicates(
+        y_true, y_clst, matching, c_a=n_true_classes or y_true.max() + 1
+    )
     p12, losses = p1 & p2, []
     for a in matching:
         if not (p12[a].any() and p3[a].any()):
@@ -199,15 +209,17 @@ def otm_matching_predicates(
     y_a: np.ndarray | Tensor,
     y_b: np.ndarray | Tensor,
     matching: dict[int, set[int]] | dict[str, set[int]],
+    c_a: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
-    Let `y_a` be `(N,)` integer array with values in $\\\\{ 0, 1, ..., c_a-1
-    \\\\}$. If `y_a[i] == j`, then it is understood that the `i`-th sample (in
+    Let `y_a` be `(N,)` integer array with values in $\\\\{ 0, 1, ..., c_a - 1
+    \\\\}$ (if the argument `c_a` is `None`, it is inferred to be `y_a.max() +
+    1`). If `y_a[i] == j`, then it is understood that the `i`-th sample (in
     some dataset, say `x`) is in class `j`, which for disambiguation we'll call
     the a-class `j`.
 
     Likewise, let `y_b` be `(N,)` integer array with values $\\\\{ 0, 1, ...,
-    c_b-1 \\\\}$. If `y_b[i] == j`, then it is understood that the `i`-th
+    c_b - 1 \\\\}$. If `y_b[i] == j`, then it is understood that the `i`-th
     sample `x[i]` is in b-class `j`.
 
     Finally, let `matching` be a (possibley one-to-many) matching between the
@@ -240,11 +252,16 @@ def otm_matching_predicates(
             understood to be the set of all classes of `y_b` that matched with
             the $i$-th class of `y_a`. If some keys are strings, they must be
             convertible to ints.
+        c_a (int | None, optional): Number of a-classes. Useful if `y_true`
+            does not contain all the possible classes of the dataset at hand.
+            If `None`, then `y_a` is assumed to contain all classes, and so
+            `c_a = y_a.max() + 1`.
     """
     y_a = y_a if isinstance(y_a, np.ndarray) else y_a.detach().cpu().numpy()
     y_b = y_b if isinstance(y_b, np.ndarray) else y_b.detach().cpu().numpy()
+    c_a = c_a or int(y_a.max() + 1)
+    assert isinstance(c_a, int)  # For typechecking
     m = {int(k): v for k, v in matching.items()}
-    c_a = y_a.max() + 1
     p1 = [y_a == a for a in range(c_a)]
     p2 = [
         (
