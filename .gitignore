@@ -169,6 +169,7 @@ cython_debug/
 *.code-workspace
 out
 out.local
+out.test
 playground.ipynb
 notes.txt
 pyproject.toml
