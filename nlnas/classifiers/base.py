@@ -137,15 +137,15 @@ class BaseClassifier(pl.LightningModule):
             stage == "train" and self.cor_submodules and self.cor_weight > 0
         )
         if compute_correction_loss:
-            loss_lou = torch.stack(
+            loss_cl = torch.stack(
                 [
                     louvain_loss(v, y, **self.cor_kwargs)
                     for v in latent.values()
                 ]
             ).mean()
         else:
-            loss_lou = torch.tensor(0.0)
-        loss = loss_ce + self.cor_weight * loss_lou
+            loss_cl = torch.tensor(0.0)
+        loss = loss_ce + self.cor_weight * loss_cl
         if stage:
             log = {
                 f"{stage}/loss": loss,
@@ -155,7 +155,7 @@ class BaseClassifier(pl.LightningModule):
                 ),
             }
             if compute_correction_loss:
-                log[f"{stage}/louvain"] = loss_lou
+                log[f"{stage}/cl"] = loss_cl
             self.log_dict(log, prog_bar=True, sync_dist=True)
         return loss
 

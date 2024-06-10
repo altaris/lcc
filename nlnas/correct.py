@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 import numpy as np
 import torch
 import turbo_broccoli as tb
+from loguru import logger as logging
 from safetensors import torch as st
 from torch import Tensor, nn
 from tqdm import tqdm
@@ -33,46 +34,23 @@ def _fit(
 ):
     """Main correction training loop"""
     dataset.setup("fit")
-    y_true = dataset.y_true("train")
     image_key, label_key = model.image_key, model.label_key
     optimizer = model.configure_optimizers()
-    for epoch in tqdm(range(max_epochs), "Correction"):
+    for _ in tqdm(range(max_epochs), "Correction"):
         with TemporaryDirectory() as path:
-            for idx, batch in enumerate(
-                tqdm(dataset.train_dataloader(), "Evaluating", leave=False)
-            ):
-                out: dict[str, Tensor] = {}
-                model.forward_intermediate(
-                    inputs=batch[image_key],
-                    submodules=model.cor_submodules,
-                    output_dict=out,
-                    keep_gradients=False,
-                )
-                for sm, z in out.items():
-                    st.save_file(
-                        {"": z}, Path(path) / f"{sm}.{epoch:04}.{idx:04}.pt"
-                    )
-            clustering: dict[str, tuple[np.ndarray, dict[int, set[int]]]] = {}
-            for sm in tqdm(model.cor_submodules, "Clustering", leave=False):
-                z = torch.concat(
-                    [
-                        st.load_file(p)[""]
-                        for p in tqdm(
-                            sorted(Path(path).glob(f"{sm}.{epoch:04}.*.pt")),
-                            "Loading",
-                            leave=False,
-                        )
-                    ]
-                )
-                _, y_clst = louvain_communities(z, k=k)
-                matching = class_otm_matching(dataset.y_true("train"), y_clst)
-                clustering[sm] = (y_clst, matching)
+            logging.debug(
+                "Setting temporary evaluation directory to '{}'", path
+            )
+            clustering = full_dataset_latent_clustering(
+                model, dataset, Path(path), k
+            )
             idx = 0
             progress = tqdm(
                 dataset.train_dataloader(), "Updating weights", leave=False
             )
             for batch in progress:
-                x, y_true, out = batch[image_key], batch[label_key], {}
+                x, y_true = batch[image_key], batch[label_key]
+                out: dict[str, Tensor] = {}
                 logits = model.forward_intermediate(
                     inputs=batch[image_key],
                     submodules=model.cor_submodules,
@@ -233,3 +211,76 @@ def correct(
         },
     }
     tb.save_json(document, _output_dir / "results.json")
+
+
+def full_dataset_latent_clustering(
+    model: HuggingFaceClassifier,
+    dataset: HuggingFaceDataset,
+    output_dir: Path,
+    k: int = 128,
+) -> dict[str, tuple[np.ndarray, dict[int, set[int]]]]:
+    """
+    Performs latent clustering and matching (against true labels) on the full
+    dataset in one go. Since holding all latent representation tensors in
+    memory isn't realistic, some (aka. a shitload of) temporary tensor files
+    are created in `output_dir`.
+
+    Warning:
+        The temporary tensor files created by this method are not deleted. You
+        need to clean them up manually.
+
+    Warning:
+        Don't forget to execute `dataset.setup("fit")` before calling this
+        method =)
+
+    Args:
+        model (HuggingFaceClassifier):
+        dataset (HuggingFaceDataset):
+        output_dir (Path):
+        k (int, optional):
+
+    Returns:
+        dict[str, tuple[np.ndarray, dict[int, set[int]]]]: A dictionary that
+            maps a submodule name to a tuple containing 1. the cluster labels,
+            and 2. the matching dict as returned by
+            `nlnas.correction.class_otm_matching`. The submodule in question
+            are those specified in `model.cor_submodules`.
+    """
+    for idx, batch in enumerate(
+        tqdm(dataset.train_dataloader(), "Evaluating", leave=False)
+    ):
+        out: dict[str, Tensor] = {}
+        model.forward_intermediate(
+            inputs=batch[model.image_key],
+            submodules=model.cor_submodules,
+            output_dict=out,
+            keep_gradients=False,
+        )
+        for sm, z in out.items():
+            st.save_file({"": z}, output_dir / f"{sm}.{idx:04}.pt")
+    clustering: dict[str, tuple[np.ndarray, dict[int, set[int]]]] = {}
+    for sm in tqdm(model.cor_submodules, "Clustering", leave=False):
+        z = consolidate_latent_batches(output_dir, sm)
+        _, y_clst = louvain_communities(z, k=k)
+        matching = class_otm_matching(dataset.y_true("train"), y_clst)
+        clustering[sm] = (y_clst, matching)
+    return clustering
+
+
+def consolidate_latent_batches(output_dir: Path, submodule: str):
+    """
+    Scans a directory for latent representation `.pt` files and consolidates
+    them into a single tensor. The batch files are generated by
+    `full_dataset_latent_clustering` and are named like
+    `<submodule>.<batch_index>.pt`.
+    """
+    return torch.concat(
+        [
+            st.load_file(p)[""]
+            for p in tqdm(
+                sorted(output_dir.glob(f"{submodule}.*.pt")),
+                "Loading",
+                leave=False,
+            )
+        ]
+    )
