@@ -119,7 +119,14 @@ class BaseClassifier(pl.LightningModule):
         super().__init__(**kwargs)
         self.save_hyperparameters(ignore=["model"])
         self.n_classes = n_classes
-        self.cor_submodules = cor_submodules or []
+        self.cor_submodules = (
+            []
+            if cor_submodules is None
+            else [
+                (sm if sm.startswith("model.") else "model." + sm)
+                for sm in cor_submodules
+            ]
+        )
         self.cor_weight, self.cor_kwargs = cor_weight, cor_kwargs or {}
         self.image_key, self.label_key = image_key, label_key
         self.logit_key = logit_key

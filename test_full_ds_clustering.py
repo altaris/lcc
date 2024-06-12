@@ -11,10 +11,10 @@ LOGIT_KEY = "logits"
 HEAD_NAME = "classifier.1"
 
 CORRECTION_SUBMODULES = [  # See also `nlnas.utils.pretty_print_submodules`
-    "model.resnet.encoder.stages.0",
-    "model.resnet.encoder.stages.1",
-    "model.resnet.encoder.stages.2",
-    "model.resnet.encoder.stages.3",
+    "resnet.encoder.stages.0",
+    "resnet.encoder.stages.1",
+    "resnet.encoder.stages.2",
+    "resnet.encoder.stages.3",
 ]
 CORRECTION_WEIGHT = 1e-5
 
