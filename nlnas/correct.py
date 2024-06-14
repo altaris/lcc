@@ -74,7 +74,7 @@ def _fit(
                         )
                         for sm, z in out.items()
                     ]
-                )
+                ).mean()
                 loss = loss_ce + model.cor_weight * loss_cl
                 optimizer.zero_grad()
                 loss.backward()
