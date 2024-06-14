@@ -10,6 +10,10 @@ and call Hugging Face models directly. If you do not provide an
 `image_processor`, then it is recommended that you use a Hugging Face pipeline
 instead.
 
+Since Hugging Face datasets are dict datasets, batches are dicts of tensors
+(see the Hugging Face dataset hub for the list of keys). `HuggingFaceDataset`
+adds an extra key `_idx` that has the index of the samples in the dataset.
+
 See also:
     https://huggingface.co/datasets?task_categories=task_categories:image-classification
 """
@@ -137,18 +141,19 @@ class HuggingFaceDataset(WrappedDataset):
             """
 
             def wrapped() -> Dataset:
-                d = load_dataset(
+                ds = load_dataset(
                     dataset_name,
                     split=split,
                     cache_dir=str(cache_dir),
                     trust_remote_code=True,
                 )
-                d.set_transform(make_transform(self.image_processor))
+                ds.set_transform(make_transform(self.image_processor))
                 if apply_filter and classes:
-                    d = d.filter(
+                    ds = ds.filter(
                         lambda l: l in classes, input_columns=label_key
                     )
-                return d
+                ds = ds.add_column("_idx", range(len(ds)))
+                return ds
 
             return wrapped
 
