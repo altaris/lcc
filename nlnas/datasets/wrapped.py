@@ -22,13 +22,11 @@ Default parameters for [pytorch
 dataloaders](https://pytorch.org/docs/stable/data.html?highlight=dataloader#torch.utils.data.DataLoader).
 """
 
-DatasetOrDataLoaderOrFactory: TypeAlias = (
+DatasetOrDatasetFactory: TypeAlias = (
     Callable[[], Dataset]
     | Dataset
     | Callable[[], HuggingFaceDataset]
     | HuggingFaceDataset
-    | Callable[[], DataLoader]
-    | DataLoader
 )
 """
 Types that are acceptable as dataset or dataloader arguments when
@@ -39,28 +37,23 @@ constructing a `WrappedDataset`
 class WrappedDataset(pl.LightningDataModule):
     """See module documentation"""
 
-    train: DatasetOrDataLoaderOrFactory
-    val: DatasetOrDataLoaderOrFactory
-    test: DatasetOrDataLoaderOrFactory | None
-    predict: DatasetOrDataLoaderOrFactory | None
+    train: DatasetOrDatasetFactory
+    val: DatasetOrDatasetFactory
+    test: DatasetOrDatasetFactory | None
+    predict: DatasetOrDatasetFactory | None
     train_dl_kwargs: dict[str, Any]
     val_dl_kwargs: dict[str, Any]
     test_dl_kwargs: dict[str, Any]
     predict_dl_kwargs: dict[str, Any]
 
-    train_dl: DataLoader | None = None
-    val_dl: DataLoader | None = None
-    test_dl: DataLoader | None = None
-    predict_dl: DataLoader | None = None
-
     _prepared: bool = False
 
     def __init__(
         self,
-        train: DatasetOrDataLoaderOrFactory,
-        val: DatasetOrDataLoaderOrFactory | None = None,
-        test: DatasetOrDataLoaderOrFactory | None = None,
-        predict: DatasetOrDataLoaderOrFactory | None = None,
+        train: DatasetOrDatasetFactory,
+        val: DatasetOrDatasetFactory | None = None,
+        test: DatasetOrDatasetFactory | None = None,
+        predict: DatasetOrDatasetFactory | None = None,
         train_dl_kwargs: dict[str, Any] | None = None,
         val_dl_kwargs: dict[str, Any] | None = None,
         test_dl_kwargs: dict[str, Any] | None = None,
@@ -68,15 +61,15 @@ class WrappedDataset(pl.LightningDataModule):
     ) -> None:
         """
         Args:
-            train (DatasetOrDataLoaderOrFactory): A dataset or dataloader for
+            train (DatasetOrDatasetFactory): A dataset or dataloader for
                 training. Can be a callable without argument that returns said
                 dataset or dataloader. In this case, it will be called during
                 the preparation phase (so only on rank 0).
-            val (DatasetOrDataLoaderOrFactory | None, optional): Defaults to
+            val (DatasetOrDatasetFactory | None, optional): Defaults to
                 whatever was passed to the `train` argument
-            test (DatasetOrDataLoaderOrFactory | None, optional): Defaults to
+            test (DatasetOrDatasetFactory | None, optional): Defaults to
                 `None`
-            predict (DatasetOrDataLoaderOrFactory | None, optional): Defaults
+            predict (DatasetOrDatasetFactory | None, optional): Defaults
                 to `None`
             train_dl_kwargs (dict[str, Any] | None, optional): If
                 `train`is a dataset or callable that return datasets, this
@@ -112,25 +105,30 @@ class WrappedDataset(pl.LightningDataModule):
         elif split == "val":
             obj, kw = self.val, self.val_dl_kwargs
         elif split == "test":
+            if self.test is None:
+                raise RuntimeError(
+                    "Cannot get test dataloader: no test dataset or dataset "
+                    "factory has not been specified"
+                )
             obj, kw = self.test, self.test_dl_kwargs
         elif split == "predict":
+            if self.predict is None:
+                raise RuntimeError(
+                    "Cannot get prediction dataloader: no prediction dataset "
+                    "or dataset factory has not been specified"
+                )
             obj, kw = self.predict, self.predict_dl_kwargs
         else:
             raise ValueError(f"Unknown split: '{split}'")
         obj = obj() if callable(obj) else obj
-        return obj if isinstance(obj, DataLoader) else DataLoader(obj, **kw)
+        return DataLoader(obj, **kw)
 
     def predict_dataloader(self) -> DataLoader:
         """
-        Returns the prediction dataloader. The prediction dataset must have
-        been loaded before calling this method using `setup('predict')`
+        Self-explanatory. Make sure you called `prepare_data` before calling
+        this.
         """
-        if self.predict_dl is None:
-            raise RuntimeError(
-                "The prediction dataset has not been loaded. Call "
-                "`setup('predict')` before calling this method"
-            )
-        return self.predict_dl
+        return self._get_dl("predict")
 
     def prepare_data(self) -> None:
         """
@@ -142,80 +140,35 @@ class WrappedDataset(pl.LightningDataModule):
             return
         if callable(self.train):
             logging.debug("Preparing the training dataset/split")
-            self.train()
+            self.train = self.train()
         if callable(self.val):
             logging.debug("Preparing the validation dataset/split")
-            self.val()
+            self.val = self.val()
         if callable(self.test):
             logging.debug("Preparing the testing dataset/split")
-            self.test()
+            self.test = self.test()
         if callable(self.predict):
             logging.debug("Preparing the prediction dataset/split")
-            self.predict()
+            self.predict = self.predict()
         self._prepared = True
-
-    def setup(self, stage: str) -> None:
-        """
-        Overrides
-        [pl.LightningDataModule.setup](https://lightning.ai/docs/pytorch/stable/data/datamodule.html#setup).
-        This is automatically called so don't worry about it.
-        """
-        if stage == "fit":
-            self.train_dl = self._get_dl("train")
-            self.val_dl = self._get_dl("val")
-        elif stage == "validate":
-            self.val_dl = self._get_dl("val")
-        elif stage == "test":
-            if self.test is None:
-                raise RuntimeError(
-                    "Cannot setup datamodule in 'test' mode: no test dataset "
-                    "was provided"
-                )
-            self.test_dl = self._get_dl("test")
-        elif stage == "predict":
-            if self.predict is None:
-                raise RuntimeError(
-                    "Cannot setup datamodule in 'predict' mode: no predict "
-                    "dataset was provided"
-                )
-            self.predict_dl = self._get_dl("predict")
-        else:
-            raise ValueError(f"Unknown stage: '{stage}'")
 
     def test_dataloader(self) -> DataLoader:
         """
-        Returns the test dataloader. The test dataset must have been loaded
-        before calling this method using `setup('test')`
+        Self-explanatory. Make sure you called `prepare_data` before calling
+        this.
         """
-        if self.test_dl is None:
-            raise RuntimeError(
-                "The test dataset has not been loaded. Call "
-                "`setup('test')` before calling this method"
-            )
-        return self.test_dl
+        return self._get_dl("predict")
 
     def train_dataloader(self) -> DataLoader:
         """
-        Returns the training dataloader. The training dataset must have been
-        loaded before calling this method using `setup('fit')`
+        Self-explanatory. Make sure you called `prepare_data` before calling
+        this.
         """
-        if self.train_dl is None:
-            raise RuntimeError(
-                "The training dataset has not been loaded. Call "
-                "`setup('fit')` before calling this method"
-            )
-        return self.train_dl
+        return self._get_dl("train")
 
     def val_dataloader(self) -> DataLoader:
         """
-        Returns the valudation dataloader. The valudation dataset must have
-        been loaded before calling this method using `setup('fit')` or
-        `setup('validate')`
+        Self-explanatory. Make sure you called `prepare_data` before calling
+        this.
         """
-        if self.val_dl is None:
-            raise RuntimeError(
-                "The valudation dataset has not been loaded. Call "
-                "`setup('fit')` or `setup('validate')` before calling this "
-                "method"
-            )
-        return self.val_dl
+        return self._get_dl("val")
