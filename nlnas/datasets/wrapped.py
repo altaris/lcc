@@ -157,7 +157,7 @@ class WrappedDataset(pl.LightningDataModule):
         Self-explanatory. Make sure you called `prepare_data` before calling
         this.
         """
-        return self._get_dl("predict")
+        return self._get_dl("test")
 
     def train_dataloader(self) -> DataLoader:
         """
