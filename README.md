@@ -22,7 +22,10 @@ python3.10 -m nlnas finetune \
 
 ### Latent clustering correction
 
+(note that for now, CUDA cannot be used for LCC)
+
 ```sh
+CUDA_VISIBLE_DEVICES=
 FILE=out/ft/cifar100/microsoft-resnet-18/results.json
 python3.10 -m nlnas correct \
     $(jq -r .model.name < $FILE) \
