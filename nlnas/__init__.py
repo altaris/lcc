@@ -9,6 +9,7 @@ from .classifiers import (
     HuggingFaceClassifier,
     TorchvisionClassifier,
     WrappedClassifier,
+    full_dataset_latent_clustering,
 )
 from .correction import (
     class_otm_matching,

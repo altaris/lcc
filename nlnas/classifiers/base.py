@@ -1,16 +1,26 @@
 """Base image classifier class that support clustering correction loss"""
 
-from typing import Any, Sequence, TypeAlias
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import Any, Literal, Sequence, TypeAlias
 
+import numpy as np
 import pytorch_lightning as pl
 import torch
+from safetensors import torch as st
 from torch import Tensor, nn
 from torch.utils.hooks import RemovableHandle
 from torchmetrics.functional.classification import multiclass_accuracy
 
-from ..correction import louvain_loss
+from ..correction import (  # louvain_loss,
+    class_otm_matching,
+    clustering_loss,
+    louvain_communities,
+)
+from ..datasets.huggingface import HuggingFaceDataset
+from ..utils import load_tensor_batched, make_tqdm
 
-Batch: TypeAlias = dict[str, Tensor] | list[Tensor] | tuple[Tensor, ...]
+Batch: TypeAlias = dict[str, Tensor]  # | list[Tensor] | tuple[Tensor, ...]
 
 OPTIMIZERS: dict[str, type] = {
     "asgd": torch.optim.ASGD,
@@ -66,6 +76,11 @@ class BaseClassifier(pl.LightningModule):
     image_key: Any
     label_key: Any
     logit_key: Any
+
+    # Used during training with correction
+    _y_true: Tensor
+    _n_classes: int
+    _clustering: dict[str, tuple[np.ndarray, dict[int, set[int]]]]
 
     # pylint: disable=unused-argument
     def __init__(
@@ -140,16 +155,23 @@ class BaseClassifier(pl.LightningModule):
         )
         assert isinstance(logits, Tensor)
         loss_ce = nn.functional.cross_entropy(logits, y.long())
-        compute_correction_loss = (
+        compute_cl = (
             stage == "train" and self.cor_submodules and self.cor_weight > 0
         )
-        if compute_correction_loss:
-            loss_cl = torch.stack(
-                [
-                    louvain_loss(v, y, **self.cor_kwargs)
-                    for v in latent.values()
-                ]
-            ).mean()
+        if compute_cl:
+            idx = batch["_idx"]
+            l = [
+                clustering_loss(
+                    z=z,
+                    y_true=y,
+                    y_clst=self._clustering[sm][0][idx],
+                    matching=self._clustering[sm][1],
+                    k=8,  # TODO: dehardcode
+                    n_true_classes=self._n_classes,
+                )
+                for sm, z in latent.items()
+            ]
+            loss_cl = torch.stack(l).mean()
         else:
             loss_cl = torch.tensor(0.0)
         loss = loss_ce + self.cor_weight * loss_cl
@@ -161,7 +183,7 @@ class BaseClassifier(pl.LightningModule):
                     logits, y, num_classes=self.n_classes, average="micro"
                 ),
             }
-            if compute_correction_loss:
+            if compute_cl:
                 log[f"{stage}/cl"] = loss_cl
             self.log_dict(log, prog_bar=True, sync_dist=True)
         return loss
@@ -269,6 +291,55 @@ class BaseClassifier(pl.LightningModule):
             self.log("lr", _lr(opts))
         return super().on_train_batch_end(*args, **kwargs)
 
+    def on_train_start(self) -> None:
+        """
+        Stores the entire dataset label vector in `_y_true` and the number
+        of classes in `_n_classes`
+        """
+        if self.cor_submodules and self.cor_weight > 0:
+            dm = self.trainer.datamodule  # type: ignore
+            assert isinstance(dm, HuggingFaceDataset)
+            self._y_true = dm.y_true("train")
+            self._n_classes = dm.n_classes("train")
+        return super().on_train_start()
+
+    def on_train_epoch_start(self) -> None:
+        """
+        Performs dataset-wide clustering and stores the results in
+        `_clustering`.
+
+        Warning:
+            Because full dataset latent clustering must be run on the CPU, the
+            whole model must be moved to the CPU for this step. This makes
+            training on multiple GPU a bit difficult. At best, the model can be
+            ran on a single GPU and switch back and forth between CPU and GPU.
+            But if the model is ran on multiple GPUs, then FDSL will end up
+            being done multiple times, once per process.
+        """
+        if self.cor_submodules and self.cor_weight > 0:
+            with TemporaryDirectory() as tmp:
+                self._clustering = full_dataset_latent_clustering(
+                    self,
+                    self.trainer.datamodule,  # type: ignore
+                    tmp,
+                    tqdm_style="console",
+                )
+            # ↓ fake clustering
+            # self._clustering = {
+            #     sm: (
+            #         np.zeros_like(self.trainer.datamodule.y_true("train")),
+            #         {i: {i} for i in range(self._n_classes)},
+            #     )
+            #     for sm in self.cor_submodules
+            # }
+        return super().on_train_epoch_start()
+
+    def on_train_epoch_end(self) -> None:
+        """Cleans up training epoch specific temporary attributes."""
+        if hasattr(self, "_clustering"):
+            del self._clustering
+        return super().on_train_epoch_end()
+
     # pylint: disable=arguments-differ
     def test_step(self, batch: Batch, *_, **__) -> Tensor:
         return self._evaluate(batch, "test")
@@ -279,3 +350,63 @@ class BaseClassifier(pl.LightningModule):
 
     def validation_step(self, batch: Batch, *_, **__) -> Tensor:
         return self._evaluate(batch, "val")
+
+
+def full_dataset_latent_clustering(
+    model: BaseClassifier,
+    dataset: HuggingFaceDataset,
+    output_dir: str | Path,
+    k: int = 8,
+    tqdm_style: Literal["notebook", "console", "none"] | None = None,
+) -> dict[str, tuple[np.ndarray, dict[int, set[int]]]]:
+    """
+    Performs latent clustering and matching (against true labels) on the full
+    dataset in one go. Since holding all latent representation tensors in
+    memory isn't realistic, some (aka. a shitload of) temporary tensor files
+    are created in `output_dir`.
+
+    Warning:
+        The temporary tensor files created by this method are not deleted. You
+        need to clean them up manually.
+
+    Warning:
+        Don't forget to execute `dataset.setup("fit")` before calling this
+        method =)
+
+    Args:
+        model (BaseClassifier):
+        dataset (HuggingFaceDataset):
+        output_dir (str | Path):
+        k (int, optional):
+
+    Returns:
+        dict[str, tuple[np.ndarray, dict[int, set[int]]]]: A dictionary that
+            maps a submodule name to a tuple containing 1. the cluster labels,
+            and 2. the matching dict as returned by
+            `nlnas.correction.class_otm_matching`. The submodule in question
+            are those specified in `model.cor_submodules`.
+    """
+    output_dir = Path(output_dir)
+    tqdm = make_tqdm(tqdm_style)
+    with torch.no_grad():
+        model.eval()
+        for idx, batch in enumerate(
+            tqdm(dataset.train_dataloader(), "Evaluating", leave=False)
+        ):
+            out: dict[str, Tensor] = {}
+            model.forward_intermediate(
+                inputs=batch[model.image_key],
+                submodules=model.cor_submodules,
+                output_dict=out,
+                keep_gradients=False,
+            )
+            for sm, z in out.items():
+                st.save_file({"": z}, output_dir / f"{sm}.{idx:04}.st")
+        model.train()
+    clst: dict[str, tuple[np.ndarray, dict[int, set[int]]]] = {}
+    for sm in tqdm(model.cor_submodules, "Clustering", leave=False):
+        z = load_tensor_batched(output_dir, sm, tqdm_style="console")
+        _, y_clst = louvain_communities(z, k=k)
+        matching = class_otm_matching(dataset.y_true("train"), y_clst)
+        clst[sm] = (y_clst, matching)
+    return clst

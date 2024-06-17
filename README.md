@@ -27,7 +27,7 @@ FILE=out/ft/cifar100/microsoft-resnet-18/results.json
 python3.10 -m nlnas correct \
     $(jq -r .model.name < $FILE) \
     $(jq -r .dataset.name < $FILE) \
-    resnet.encoder.stages.3 \
+    resnet.encoder.stages.3,classifier.1 \
     0.001 \
     out/lcc \
     --ckpt-path out/ft/$(jq -r .fine_tuning.best_checkpoint.path < $FILE) \
