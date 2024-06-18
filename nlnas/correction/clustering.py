@@ -182,7 +182,7 @@ def clustering_loss(
     assert isinstance(y_clst, np.ndarray)  # For typechecking
     matching = {int(a): bs for a, bs in matching.items()}
     p1, p2, p3, _ = otm_matching_predicates(
-        y_true, y_clst, matching, c_a=n_true_classes or y_true.max() + 1
+        y_true, y_clst, matching, c_a=n_true_classes or int(y_true.max() + 1)
     )
     p12, losses = p1 & p2, []
     for a in matching:

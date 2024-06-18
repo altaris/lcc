@@ -12,7 +12,7 @@ from torch import Tensor, nn
 from torch.utils.hooks import RemovableHandle
 from torchmetrics.functional.classification import multiclass_accuracy
 
-from ..correction import (  # louvain_loss,
+from ..correction import (
     class_otm_matching,
     clustering_loss,
     louvain_communities,
@@ -20,7 +20,7 @@ from ..correction import (  # louvain_loss,
 from ..datasets.huggingface import HuggingFaceDataset
 from ..utils import load_tensor_batched, make_tqdm
 
-Batch: TypeAlias = dict[str, Tensor]  # | list[Tensor] | tuple[Tensor, ...]
+Batch: TypeAlias = dict[str, Tensor]
 
 OPTIMIZERS: dict[str, type] = {
     "asgd": torch.optim.ASGD,
@@ -159,19 +159,21 @@ class BaseClassifier(pl.LightningModule):
             stage == "train" and self.cor_submodules and self.cor_weight > 0
         )
         if compute_cl:
-            idx = batch["_idx"]
-            l = [
-                clustering_loss(
-                    z=z,
-                    y_true=y,
-                    y_clst=self._clustering[sm][0][idx],
-                    matching=self._clustering[sm][1],
-                    k=8,  # TODO: dehardcode
+            idx, lst = batch["_idx"], []
+            for sm, z in latent.items():
+                y_clst = self._clustering[sm][0][idx]
+                match = self._clustering[sm][1]
+                p = y_clst >= 0  # Exclude outliers
+                u = clustering_loss(
+                    z=z[p],
+                    y_true=y[p],
+                    y_clst=y_clst[p],
+                    matching=match,
+                    k=16,  # TODO: dehardcode
                     n_true_classes=self._n_classes,
                 )
-                for sm, z in latent.items()
-            ]
-            loss_cl = torch.stack(l).mean()
+                lst.append(u)
+            loss_cl = torch.stack(lst).mean()
         else:
             loss_cl = torch.tensor(0.0)
         loss = loss_ce + self.cor_weight * loss_cl
@@ -319,11 +321,19 @@ class BaseClassifier(pl.LightningModule):
         if self.cor_submodules and self.cor_weight > 0:
             with TemporaryDirectory() as tmp:
                 self._clustering = full_dataset_latent_clustering(
-                    self,
-                    self.trainer.datamodule,  # type: ignore
-                    tmp,
+                    model=self,
+                    dataset=self.trainer.datamodule,  # type: ignore
+                    output_dir=tmp,
+                    method="dbscan",
+                    device="cuda",
+                    scaling="standard",
                     tqdm_style="console",
                 )
+            nor = [  # Non-outlier ratio
+                (y_clst >= 0).sum() / len(y_clst)
+                for _, (y_clst, _) in self._clustering.items()
+            ]
+            self.log("train/nor", np.mean(nor), on_epoch=True)
             # ↓ fake clustering
             # self._clustering = {
             #     sm: (
@@ -356,7 +366,9 @@ def full_dataset_latent_clustering(
     model: BaseClassifier,
     dataset: HuggingFaceDataset,
     output_dir: str | Path,
-    k: int = 8,
+    method: Literal["louvain", "dbscan", "hdbscan"] = "louvain",
+    device: Literal["cpu", "cuda"] | None = None,
+    scaling: Literal["standard", "minmax"] | None = "standard",
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> dict[str, tuple[np.ndarray, dict[int, set[int]]]]:
     """
@@ -386,6 +398,7 @@ def full_dataset_latent_clustering(
             `nlnas.correction.class_otm_matching`. The submodule in question
             are those specified in `model.cor_submodules`.
     """
+
     output_dir = Path(output_dir)
     tqdm = make_tqdm(tqdm_style)
     with torch.no_grad():
@@ -406,7 +419,54 @@ def full_dataset_latent_clustering(
     clst: dict[str, tuple[np.ndarray, dict[int, set[int]]]] = {}
     for sm in tqdm(model.cor_submodules, "Clustering", leave=False):
         z = load_tensor_batched(output_dir, sm, tqdm_style="console")
-        _, y_clst = louvain_communities(z, k=k)
+        y_clst = get_cluster_labels(z, method, scaling, device)
         matching = class_otm_matching(dataset.y_true("train"), y_clst)
         clst[sm] = (y_clst, matching)
     return clst
+
+
+def get_cluster_labels(
+    z: np.ndarray | Tensor,
+    method: Literal["louvain", "dbscan", "hdbscan"] = "louvain",
+    scaling: Literal["standard", "minmax"] | None = "standard",
+    device: Literal["cpu", "cuda"] | None = None,
+    **kwargs,
+) -> np.ndarray:
+    """
+    Self-explanatory
+
+    Args:
+        z (np.ndarray | Tensor):
+        method (Literal[&quot;louvain&quot;, &quot;dbscan&quot;, &quot;hdbscan&quot;], optional):
+        scaling (Literal[&quot;standard&quot;, &quot;minmax&quot;] | None, optional):
+        device (Literal[&quot;cpu&quot;, &quot;cuda&quot;] | None, optional):
+        **kwargs: Passed to the clustering object
+    """
+    use_cuda = (
+        device == "cuda" or device is None
+    ) and torch.cuda.is_available()
+
+    if use_cuda:
+        from cuml.cluster import DBSCAN, HDBSCAN
+        from cuml.preprocessing import MinMaxScaler, StandardScaler
+    else:
+        from sklearn.cluster import DBSCAN, HDBSCAN
+        from sklearn.preprocessing import MinMaxScaler, StandardScaler
+
+    if isinstance(z, Tensor):
+        z = z.cpu().detach().numpy()
+    z = z.reshape(len(z), -1)
+    if scaling == "standard":
+        z = StandardScaler().fit_transform(z)
+    elif scaling == "minmax":
+        z = MinMaxScaler().fit_transform(z)
+
+    if method == "louvain":
+        y_clst = louvain_communities(z, **kwargs)[1]
+    elif method == "dbscan":
+        y_clst = DBSCAN(**kwargs).fit(z).labels_
+    elif method == "hdbscan":
+        y_clst = HDBSCAN(**kwargs).fit(z).labels_
+    else:
+        raise ValueError(f"Unsupported clustering method '{method}'")
+    return y_clst
