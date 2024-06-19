@@ -26,7 +26,7 @@ python3.10 -m nlnas finetune \
 
 ```sh
 CUDA_VISIBLE_DEVICES=
-FILE=out/ft/cifar100/microsoft-resnet-18/results.json
+FILE=out/ft/cifar100/microsoft-resnet-18/results.0.json
 python3.10 -m nlnas correct \
     $(jq -r .model.name < $FILE) \
     $(jq -r .dataset.name < $FILE) \
