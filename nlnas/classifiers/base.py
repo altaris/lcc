@@ -21,6 +21,7 @@ from ..datasets.huggingface import HuggingFaceDataset
 from ..utils import load_tensor_batched, make_tqdm
 
 Batch: TypeAlias = dict[str, Tensor]
+ClusteringMethod: TypeAlias = Literal["louvain", "dbscan", "hdbscan"]
 
 OPTIMIZERS: dict[str, type] = {
     "asgd": torch.optim.ASGD,
@@ -96,6 +97,7 @@ class BaseClassifier(pl.LightningModule):
         optimizer_kwargs: dict[str, Any] | None = None,
         scheduler: str | None = None,
         scheduler_kwargs: dict[str, Any] | None = None,
+        clustering_method: ClusteringMethod = "hdbscan",
         **kwargs: Any,
     ) -> None:
         """
@@ -128,6 +130,10 @@ class BaseClassifier(pl.LightningModule):
                 `SCHEDULERS`. If left to `None`, then no scheduler is used.
             scheduler_kwargs (dict, optional): Forwarded to the scheduler, if
                 any.
+            clustering_method (ClusteringMethod, optional): See
+                `full_dataset_latent_clustering`. Only relevant if
+                `cor_submodules` is specified (i.e. the model is to undergo
+                latent clustering correction).
             kwargs: Forwarded to
                 [`pl.LightningModule`](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#)
         """
@@ -324,7 +330,7 @@ class BaseClassifier(pl.LightningModule):
                     model=self,
                     dataset=self.trainer.datamodule,  # type: ignore
                     output_dir=tmp,
-                    method="dbscan",
+                    method=self.hparams["clustering_method"],
                     device="cuda",
                     scaling="standard",
                     tqdm_style="console",
@@ -366,7 +372,7 @@ def full_dataset_latent_clustering(
     model: BaseClassifier,
     dataset: HuggingFaceDataset,
     output_dir: str | Path,
-    method: Literal["louvain", "dbscan", "hdbscan"] = "louvain",
+    method: ClusteringMethod = "louvain",
     device: Literal["cpu", "cuda"] | None = None,
     scaling: Literal["standard", "minmax"] | None = "standard",
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
@@ -427,7 +433,7 @@ def full_dataset_latent_clustering(
 
 def get_cluster_labels(
     z: np.ndarray | Tensor,
-    method: Literal["louvain", "dbscan", "hdbscan"] = "louvain",
+    method: ClusteringMethod = "louvain",
     scaling: Literal["standard", "minmax"] | None = "standard",
     device: Literal["cpu", "cuda"] | None = None,
     **kwargs,
