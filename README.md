@@ -19,7 +19,6 @@ python3.10 -m nlnas finetune \
     --head-name classifier.1
 ```
 
-
 ### Latent clustering correction
 
 (note that for now, CUDA cannot be used for LCC)
@@ -32,6 +31,24 @@ python3.10 -m nlnas correct \
     $(jq -r .dataset.name < $FILE) \
     resnet.encoder.stages.3,classifier.1 \
     0.001 \
+    out/lcc \
+    --ckpt-path out/ft/$(jq -r .fine_tuning.best_checkpoint.path < $FILE) \
+    --train-split $(jq -r .dataset.train_split < $FILE) \
+    --val-split $(jq -r .dataset.val_split < $FILE) \
+    --test-split $(jq -r .dataset.test_split < $FILE) \
+    --image-key $(jq -r .dataset.image_key < $FILE) \
+    --label-key $(jq -r .dataset.label_key < $FILE) \
+    --head-name $(jq -r .fine_tuning.hparams.head_name < $FILE)
+```
+
+```sh
+CUDA_VISIBLE_DEVICES=
+FILE=out/ft/cifar100/google-mobilenet_v2_1.0_224/results.0.json
+python3.10 -m nlnas correct \
+    $(jq -r .model.name < $FILE) \
+    $(jq -r .dataset.name < $FILE) \
+    model.mobilenet_v2.layer.15,model.mobilenet_v2.conv_1x1,model.classifier \
+    0.01 \
     out/lcc \
     --ckpt-path out/ft/$(jq -r .fine_tuning.best_checkpoint.path < $FILE) \
     --train-split $(jq -r .dataset.train_split < $FILE) \
