@@ -1,6 +1,6 @@
 """Classical fine-tuning of HuggingFace models on HuggingFace datasets"""
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 import pytorch_lightning as pl
@@ -9,7 +9,7 @@ import turbo_broccoli as tb
 from .classifiers import HuggingFaceClassifier
 from .datasets import HuggingFaceDataset
 from .logging import r0_info
-from .training import checkpoint_ves
+from .training import NoCheckpointFound, best_checkpoint_path, checkpoint_ves
 
 DEFAULT_MAX_GRAD_NORM = 1.0
 
@@ -69,35 +69,50 @@ def finetune(
     )
     n_classes = dataset.n_classes()
 
-    model = HuggingFaceClassifier(
-        model_name=model_name,
-        n_classes=n_classes,
-        head_name=head_name,
-        image_key=image_key,
-        label_key=label_key,
-        logit_key=logit_key,
-        optimizer="adam",
-        optimizer_kwargs={
-            "lr": 5e-5,
-            "weight_decay": 0,
-            "betas": (0.9, 0.999),
-            "eps": 1e-8,
-        },
-        scheduler="linearlr",
+    try:
+        ckpt, _ = best_checkpoint_path(_output_dir)
+        # pylint: disable=no-value-for-parameter
+        model = HuggingFaceClassifier.load_from_checkpoint(ckpt)  # type: ignore
+        v, e, s = checkpoint_ves(ckpt)
+        r0_info("Found best checkpoint: '{}'", ckpt)
+        r0_info("version={}, best_epoch={}, n_steps={}", v, e, s)
+    except NoCheckpointFound:
+        r0_info(
+            "No checkpoint found in {}, starting fine-tuning from scratch",
+            _output_dir,
+        )
+        model = HuggingFaceClassifier(
+            model_name=model_name,
+            n_classes=n_classes,
+            head_name=head_name,
+            image_key=image_key,
+            label_key=label_key,
+            logit_key=logit_key,
+            optimizer="adam",
+            optimizer_kwargs={
+                "lr": 5e-5,
+                "weight_decay": 0,
+                "betas": (0.9, 0.999),
+                "eps": 1e-8,
+            },
+            scheduler="linearlr",
+        )
+        trainer = make_trainer(_model_name, _output_dir, max_epochs)
+        start = datetime.now()
+        trainer.fit(model, dataset)
+        fit_time = datetime.now() - start
+        r0_info("Finished fine-tuning in {}", fit_time)
+        ckpt = Path(trainer.checkpoint_callback.best_model_path)  # type: ignore
+        ckpt = ckpt.relative_to(output_dir)
+        v, e, s = checkpoint_ves(ckpt)
+        r0_info("Best checkpoint path: '{}'", ckpt)
+        r0_info("version={}, best_epoch={}, n_steps={}", v, e, s)
+
+    trainer = pl.Trainer(
+        callbacks=pl.callbacks.TQDMProgressBar(),
+        default_root_dir=str(_output_dir),
+        devices=1,
     )
-
-    trainer = make_trainer(_model_name, _output_dir, max_epochs)
-    start = datetime.now()
-    trainer.fit(model, dataset)
-    fit_time = datetime.now() - start
-    r0_info("Finished fine-tuning in {}", fit_time)
-
-    ckpt = Path(trainer.checkpoint_callback.best_model_path)  # type: ignore
-    ckpt = ckpt.relative_to(output_dir)
-    v, e, s = checkpoint_ves(ckpt)
-    r0_info("Best checkpoint path: '{}'", ckpt)
-    r0_info("version={}, best_epoch={}, n_steps={}", v, e, s)
-
     test_results = trainer.test(model, dataset)
 
     document = {
@@ -121,7 +136,7 @@ def finetune(
                 "best_epoch": e,
                 "n_steps": s,
             },
-            "time": fit_time / timedelta(seconds=1),
+            # "time": fit_time / timedelta(seconds=1),
             "test": test_results,
         },
     }

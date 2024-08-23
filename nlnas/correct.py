@@ -90,7 +90,7 @@ def correct(
     )
     if isinstance(ckpt_path, Path):
         # pylint: disable=no-value-for-parameter
-        model.model = HuggingFaceClassifier.load_from_checkpoint(
+        model.model = HuggingFaceClassifier.load_from_checkpoint(  # type: ignore
             ckpt_path
         ).model
         r0_info("Loaded checkpoint '{}'", ckpt_path)

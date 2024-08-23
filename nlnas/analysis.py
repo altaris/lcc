@@ -74,7 +74,7 @@ def analyse_ckpt(
     """
     output_dir = Path(output_dir)
     if not isinstance(model, BaseClassifier):
-        model = model_cls.load_from_checkpoint(model)
+        model = model_cls.load_from_checkpoint(model)  # type: ignore
     assert isinstance(model, BaseClassifier)  # For typechecking
     model.eval()
 

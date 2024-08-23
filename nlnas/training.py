@@ -18,13 +18,19 @@ def all_checkpoint_paths(output_path: str | Path) -> list[Path]:
     Args:
         output_path (str | Path): e.g.
             `out.local/ft/cifar100/microsoft-resnet-18`
+
+    Raises:
+        NoCheckpointFound: If no checkpoint is found
     """
     r, d = re.compile(r"/epoch=(\d+)-step=\d+\.ckpt$"), {}
     for p in Path(output_path).glob("**/*.ckpt"):
         if m := re.search(r, str(p)):
             epoch = int(m.group(1))
             d[epoch] = p
-    return [d[i] for i in sorted(list(d.keys()))]
+    ckpts = [d[i] for i in sorted(list(d.keys()))]
+    if not ckpts:
+        raise NoCheckpointFound
+    return ckpts
 
 
 def best_checkpoint_path(
