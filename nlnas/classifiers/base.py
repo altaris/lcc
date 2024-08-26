@@ -412,10 +412,17 @@ def full_dataset_latent_clustering(
         for idx, batch in enumerate(
             tqdm(dataset.train_dataloader(), "Evaluating", leave=False)
         ):
+            todo = [
+                sm
+                for sm in model.cor_submodules
+                if not (output_dir / f"{sm}.{idx:04}.st").exists()
+            ]
+            if not todo:
+                continue
             out: dict[str, Tensor] = {}
             model.forward_intermediate(
                 inputs=batch[model.image_key],
-                submodules=model.cor_submodules,
+                submodules=todo,
                 output_dict=out,
                 keep_gradients=False,
             )
