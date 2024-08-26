@@ -1,6 +1,7 @@
 """Base image classifier class that support clustering correction loss"""
 
 from pathlib import Path
+from re import S
 from tempfile import TemporaryDirectory
 from typing import Any, Literal, Sequence, TypeAlias
 
@@ -375,13 +376,15 @@ def full_dataset_latent_clustering(
     method: ClusteringMethod = "louvain",
     device: Literal["cpu", "cuda"] | None = None,
     scaling: Literal["standard", "minmax"] | None = "standard",
+    classes: list[int] | None = None,
+    split: Literal["train", "val", "test"] = "train",
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> dict[str, tuple[np.ndarray, dict[int, set[int]]]]:
     """
     Performs latent clustering and matching (against true labels) on the full
     dataset in one go. Since holding all latent representation tensors in
     memory isn't realistic, some (aka. a shitload of) temporary tensor files
-    are created in `output_dir`.
+    are created in `<output_dir>/train`.
 
     Warning:
         The temporary tensor files created by this method are not deleted. You
@@ -396,6 +399,11 @@ def full_dataset_latent_clustering(
         dataset (HuggingFaceDataset):
         output_dir (str | Path):
         k (int, optional):
+        classes (list[int] | None, optional): If specified, then only the
+            specified classes are considered for clustering (however, all
+            samples are still evaluated regardless of class). Use this if there
+            are too many classes, or if the dataset is just too large to fit in
+            memory (e.g.  ImageNet).
 
     Returns:
         dict[str, tuple[np.ndarray, dict[int, set[int]]]]: A dictionary that
@@ -404,14 +412,19 @@ def full_dataset_latent_clustering(
             `nlnas.correction.class_otm_matching`. The submodule in question
             are those specified in `model.cor_submodules`.
     """
-
-    output_dir = Path(output_dir)
-    tqdm = make_tqdm(tqdm_style)
+    if split == "train":
+        dl = dataset.train_dataloader()
+    elif split == "val":
+        dl = dataset.val_dataloader()
+    elif split == "test":
+        dl = dataset.test_dataloader()
+    else:
+        raise ValueError(f"Unsupported split '{split}'")
+    output_dir, tqdm = Path(output_dir) / split, make_tqdm(tqdm_style)
+    output_dir.mkdir(parents=True, exist_ok=True)
     with torch.no_grad():
         model.eval()
-        for idx, batch in enumerate(
-            tqdm(dataset.train_dataloader(), "Evaluating", leave=False)
-        ):
+        for idx, batch in enumerate(tqdm(dl, "Evaluating", leave=False)):
             todo = [
                 sm
                 for sm in model.cor_submodules
@@ -430,10 +443,17 @@ def full_dataset_latent_clustering(
                 st.save_file({"": z}, output_dir / f"{sm}.{idx:04}.st")
         model.train()
     clst: dict[str, tuple[np.ndarray, dict[int, set[int]]]] = {}
+    y_true = dataset.y_true(split)
+    mask = (
+        None if classes is None else torch.isin(y_true, torch.tensor(classes))
+    )
+    y_true = y_true[mask] if mask is not None else y_true
     for sm in tqdm(model.cor_submodules, "Clustering", leave=False):
-        z = load_tensor_batched(output_dir, sm, tqdm_style="console")
+        z = load_tensor_batched(
+            output_dir, sm, mask=mask, tqdm_style="console"
+        )
         y_clst = get_cluster_labels(z, method, scaling, device)
-        matching = class_otm_matching(dataset.y_true("train"), y_clst)
+        matching = class_otm_matching(y_true[: z.shape[0]], y_clst)
         clst[sm] = (y_clst, matching)
     return clst
 
@@ -475,7 +495,7 @@ def get_cluster_labels(
         z = MinMaxScaler().fit_transform(z)
 
     if method == "louvain":
-        y_clst = louvain_communities(z, **kwargs)[1]
+        y_clst = louvain_communities(z, device=device, **kwargs)[1]
     elif method == "dbscan":
         y_clst = DBSCAN(**kwargs).fit(z).labels_
     elif method == "hdbscan":

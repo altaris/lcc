@@ -28,20 +28,47 @@ def load_tensor_batched(
     output_dir: str | Path,
     prefix: str = "batch",
     extension: str = "st",
+    key: str = "",
+    mask: np.ndarray | Tensor | None = None,
+    max_n_batches: int | None = None,
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ):
-    """Inverse of `save_tensor_batched`."""
-    t = make_tqdm(tqdm_style)
-    return torch.concat(
-        [
-            st.load_file(p)[""]
-            for p in t(
-                sorted(Path(output_dir).glob(f"{prefix}.*.{extension}")),
-                "Loading",
-                leave=False,
-            )
-        ]
-    )
+    """
+    Inverse of `save_tensor_batched`. The batch files should be named following
+    the following pattern: `output_dir/<prefix>.<batch_idx>.<extension>`.
+
+    Args:
+        output_dir (str | Path):
+        prefix (str, optional):
+        extension (str, optional):
+        key (str, optional): The key to use when loading the file. Batches are
+            stored in safetensor files, which are essentially dictionaries. This
+            arg specifies which key contains the data of interest.
+        mask (np.ndarray | Tensor | None, optional): If provided, a boolean mask
+            is applied on each batch. Use this if the full tensor is too large
+            to fit in memory while only parts of it are actually required. The
+            length if the mask should be at least the length of the full tensor.
+        max_n_batches (int | None, optional): If provided, only the first
+            `max_n_batches` are loaded
+        tqdm_style (Literal[&quot;notebook&quot;, &quot;console&quot;, &quot;none&quot;] | None, optional):
+
+    Returns:
+        A `torch.Tensor`.
+    """
+    paths = list(sorted(Path(output_dir).glob(f"{prefix}.*.{extension}")))
+    if max_n_batches is not None:
+        paths = paths[:max_n_batches]
+    n_loaded_rows = 0  # number of loaded rows BEFORE applying the mask
+    batches = []
+    for path in make_tqdm(tqdm_style)(paths, "Loading", leave=False):
+        batch = st.load_file(path)[key]
+        n_loaded_rows += batch.shape[0]
+        if mask is not None:
+            # TODO: need to copy the masked tensor to make sure the original one
+            # is garbage collected?
+            batch = batch[mask[n_loaded_rows - batch.shape[0] : n_loaded_rows]]
+        batches.append(batch)
+    return torch.concat(batches)
 
 
 def make_tqdm(
@@ -49,7 +76,7 @@ def make_tqdm(
 ) -> Callable:
     """Returns the appropriate tqdm factory function based on the style"""
 
-    def _fake_tqdm(x: Any, *args, **kwargs):  # pylint: disable=unused-argument
+    def _fake_tqdm(x: Any, *_, **__):
         return x
 
     if style is None or style == "none":
@@ -123,8 +150,9 @@ def save_tensor_batched(
     x: Tensor | np.ndarray,
     output_dir: str | Path,
     prefix: str = "batch",
-    batch_size: int = 256,
     extension: str = "st",
+    key: str = "",
+    batch_size: int = 256,
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> None:
     """
@@ -139,12 +167,16 @@ def save_tensor_batched(
         x (Tensor):
         output_dir (str):
         prefix (str, optional):
-        batch_size (int, optional):
         extension (str, optional):
+        key (str, optional): The key to use when loading the file. Batches are
+            stored in safetensor files, which are essentially dictionaries. This
+            arg specifies which key contains the data of interest.
+        batch_size (int, optional):
     """
     batches = (Tensor(x) if isinstance(x, np.ndarray) else x).split(batch_size)
     t = make_tqdm(tqdm_style)
     for i, batch in enumerate(t(batches, "Saving", leave=False)):
-        st.save_file(
-            {"": batch}, Path(output_dir) / f"{prefix}.{i:04}.{extension}"
-        )
+        data = {
+            key: batch,
+        }
+        st.save_file(data, Path(output_dir) / f"{prefix}.{i:04}.{extension}")
