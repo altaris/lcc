@@ -10,12 +10,23 @@
 
 ```sh
 python3.10 -m nlnas finetune \
-    microsoft/resnet-18 cifar100 out.local/ft \
+    microsoft/resnet-18 cifar100 out/ft \
     --train-split 'train[:80%]' \
     --val-split 'train[80%:]' \
     --test-split test \
     --image-key img \
     --label-key fine_label \
+    --head-name classifier.1
+```
+
+```sh
+python3.10 -m nlnas finetune \
+    microsoft/resnet-18 ILSVRC/imagenet-1k out/ft \
+    --train-split 'train[:80%]' \
+    --val-split 'train[80%:]' \
+    --test-split validation \
+    --image-key image \
+    --label-key label \
     --head-name classifier.1
 ```
 
