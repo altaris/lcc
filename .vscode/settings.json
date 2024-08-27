@@ -1,22 +1,24 @@
 {
     "files.exclude": {
-        "**/__pycache__": true,
         "**/.ipynb_checkpoints": true,
         "**/.mypy_cache": true,
+        "**/__pycache__": true,
         "experiments/nlnas": true,
         "lightning_logs": true,
+        "out": true,
+        "out.*": true
     },
     "files.watcherExclude": {
-        "**/__pycache__": true,
         "**/.git/objects/**": true,
         "**/.git/subtree-cache/**": true,
         "**/.hg/store/**": true,
         "**/.ipynb_checkpoints": true,
         "**/.mypy_cache": true,
+        "**/__pycache__": true,
         "**/node_modules/*/**": true,
         "lightning_logs": true,
-        "out.local": true,
         "out": true,
+        "out.*": true
     },
-    "python.analysis.typeCheckingMode": "off",
+    "python.analysis.typeCheckingMode": "off"
 }
