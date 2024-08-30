@@ -4,12 +4,19 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](https://choosealicense.com/licenses/mit/)
 [![Code style](https://img.shields.io/badge/style-black-black)](https://pypi.org/project/black)
 
+## Installation
+
+```sh
+pip install -r requirements.txt -r requirements.dev.txt
+pip install --extra-index-url https://pypi.nvidia.com -r requirements.cuda12.txt
+```
+
 ## Usage
 
 ### Fine-tuning
 
 ```sh
-python3.10 -m nlnas finetune \
+python -m nlnas finetune \
     microsoft/resnet-18 cifar100 out/ft \
     --train-split 'train[:80%]' \
     --val-split 'train[80%:]' \
@@ -20,7 +27,18 @@ python3.10 -m nlnas finetune \
 ```
 
 ```sh
-python3.10 -m nlnas finetune \
+python -m nlnas finetune \
+    google/mobilenet_v2_1.0_224 cifar100 out/ft \
+    --train-split 'train[:80%]' \
+    --val-split 'train[80%:]' \
+    --test-split test \
+    --image-key img \
+    --label-key fine_label \
+    --head-name classifier
+```
+
+```sh
+python -m nlnas finetune \
     microsoft/resnet-18 ILSVRC/imagenet-1k out/ft \
     --train-split 'train[:80%]' \
     --val-split 'train[80%:]' \
@@ -30,6 +48,17 @@ python3.10 -m nlnas finetune \
     --head-name classifier.1
 ```
 
+```sh
+python -m nlnas finetune \
+    google/mobilenet_v2_1.0_224 ILSVRC/imagenet-1k out/ft \
+    --train-split 'train[:80%]' \
+    --val-split 'train[80%:]' \
+    --test-split validation \
+    --image-key image \
+    --label-key label \
+    --head-name classifier
+```
+
 ### Latent clustering correction
 
 (note that for now, CUDA cannot be used for LCC)
@@ -37,7 +66,7 @@ python3.10 -m nlnas finetune \
 ```sh
 CUDA_VISIBLE_DEVICES=
 FILE=out/ft/cifar100/microsoft-resnet-18/results.0.json
-python3.10 -m nlnas correct \
+python -m nlnas correct \
     $(jq -r .model.name < $FILE) \
     $(jq -r .dataset.name < $FILE) \
     resnet.encoder.stages.3,classifier.1 \
@@ -55,7 +84,7 @@ python3.10 -m nlnas correct \
 ```sh
 CUDA_VISIBLE_DEVICES=
 FILE=out/ft/cifar100/google-mobilenet_v2_1.0_224/results.0.json
-python3.10 -m nlnas correct \
+python -m nlnas correct \
     $(jq -r .model.name < $FILE) \
     $(jq -r .dataset.name < $FILE) \
     model.mobilenet_v2.layer.15,model.mobilenet_v2.conv_1x1,model.classifier \
@@ -74,7 +103,7 @@ python3.10 -m nlnas correct \
 
 ### Dependencies
 
-- `python3.10` or newer;
+- `python3.10`;
 - `requirements.txt` for runtime dependencies;
 - `requirements.dev.txt` for development dependencies.
 - `make` (optional);
@@ -84,10 +113,10 @@ Simply run
 ```sh
 virtualenv venv -p python3.10
 . ./venv/bin/activate
-python3.10 -m pip install --upgrade pip
-python3.10 -m pip install -r requirements.txt
-python3.10 -m pip install -r requirements.dev.txt
-python3.10 -m pip install --no-cache-dir --extra-index-url https://pypi.nvidia.com -r requirements.cuda12.txt
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m pip install -r requirements.dev.txt
+python -m pip install --no-cache-dir --extra-index-url https://pypi.nvidia.com -r requirements.cuda12.txt
 ```
 
 ### Documentation

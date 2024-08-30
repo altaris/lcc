@@ -172,7 +172,7 @@ out.local
 out.test
 playground.ipynb
 notes.txt
-pyproject.toml
+*.jupyterlab-workspace
 
 # Pytorch Lightning stuff
 lightning_logs/
