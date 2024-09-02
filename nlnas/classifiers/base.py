@@ -1,7 +1,6 @@
 """Base image classifier class that support clustering correction loss"""
 
 from pathlib import Path
-from re import S
 from tempfile import TemporaryDirectory
 from typing import Any, Literal, Sequence, TypeAlias
 
@@ -424,7 +423,7 @@ def full_dataset_latent_clustering(
     output_dir.mkdir(parents=True, exist_ok=True)
     with torch.no_grad():
         model.eval()
-        for idx, batch in enumerate(tqdm(dl, "Evaluating", leave=False)):
+        for idx, batch in enumerate(tqdm(dl, "Evaluating")):
             todo = [
                 sm
                 for sm in model.cor_submodules
@@ -448,7 +447,7 @@ def full_dataset_latent_clustering(
         None if classes is None else torch.isin(y_true, torch.tensor(classes))
     )
     y_true = y_true[mask] if mask is not None else y_true
-    for sm in tqdm(model.cor_submodules, "Clustering", leave=False):
+    for sm in tqdm(model.cor_submodules, "Clustering"):
         z = load_tensor_batched(
             output_dir, sm, mask=mask, tqdm_style="console"
         )
@@ -495,11 +494,9 @@ def get_cluster_labels(
         z = MinMaxScaler().fit_transform(z)
 
     if method == "louvain":
-        y_clst = louvain_communities(z, device=device, **kwargs)[1]
-    elif method == "dbscan":
-        y_clst = DBSCAN(**kwargs).fit(z).labels_
-    elif method == "hdbscan":
-        y_clst = HDBSCAN(**kwargs).fit(z).labels_
-    else:
-        raise ValueError(f"Unsupported clustering method '{method}'")
-    return y_clst
+        return louvain_communities(z, device=device, **kwargs)[1]
+    if method == "dbscan":
+        return DBSCAN(**kwargs).fit(z).labels_
+    if method == "hdbscan":
+        return HDBSCAN(**kwargs).fit(z).labels_
+    raise ValueError(f"Unsupported clustering method '{method}'")
