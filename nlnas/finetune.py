@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pytorch_lightning as pl
 import turbo_broccoli as tb
@@ -108,12 +109,13 @@ def finetune(
         r0_info("Best checkpoint path: '{}'", ckpt)
         r0_info("version={}, best_epoch={}, n_steps={}", v, e, s)
 
-    trainer = pl.Trainer(
-        callbacks=pl.callbacks.TQDMProgressBar(),
-        default_root_dir=str(_output_dir),
-        devices=1,
-    )
-    test_results = trainer.test(model, dataset)
+    with TemporaryDirectory() as tmp:
+        trainer = pl.Trainer(
+            callbacks=pl.callbacks.TQDMProgressBar(),
+            default_root_dir=tmp,
+            devices=1,
+        )
+        test_results = trainer.test(model, dataset)
 
     document = {
         "model": {"name": model_name},
