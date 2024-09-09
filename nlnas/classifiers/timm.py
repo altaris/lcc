@@ -29,10 +29,29 @@ class TimmClassifier(WrappedClassifier):
         super().__init__(model, n_classes, head_name, **kwargs)
         self.save_hyperparameters()
 
-    def image_processor(self, is_training: bool = True) -> Callable:
+    @staticmethod
+    def get_image_processor(model_name: str, **kwargs) -> Callable:
         """Returns an image processor for the model"""
-        config = timm.data.resolve_model_data_config(self.model)
-        return timm.data.create_transform(**config, is_training=is_training)
+        model = timm.create_model(model_name, pretrained=False)
+        conf = timm.data.resolve_model_data_config(model)
+        conf["is_training"], conf["no_aug"] = True, True
+        timm_transform = timm.data.create_transform(**conf)
+
+        def _transform(batch: dict[str, Any]) -> dict[str, Any]:
+            return {
+                k: (
+                    (
+                        [timm_transform(img) for img in v]
+                        if isinstance(v, list)
+                        else timm_transform(v)
+                    )
+                    if k in ["img", "image"]  # TODO: pass image_key from DS
+                    else v
+                )
+                for k, v in batch.items()
+            }
+
+        return _transform
 
     # pylint: disable=arguments-differ
     # pylint: disable=missing-function-docstring

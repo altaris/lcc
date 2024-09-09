@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any, Literal, Sequence, TypeAlias
+from typing import Any, Callable, Literal, Sequence, TypeAlias
 
 import numpy as np
 import pytorch_lightning as pl
@@ -281,6 +281,14 @@ class BaseClassifier(pl.LightningModule):
         for h in handles:
             h.remove()
         return logits
+
+    @staticmethod
+    def get_image_processor(model_name: str, **kwargs) -> Callable:
+        """
+        Returns an image processor for the model. By defaults, returns the
+        identity function.
+        """
+        return lambda input: input
 
     def on_train_batch_end(self, *args, **kwargs) -> None:
         def _lr(o: torch.optim.Optimizer) -> float:

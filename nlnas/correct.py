@@ -8,7 +8,7 @@ from pathlib import Path
 import torch
 import turbo_broccoli as tb
 
-from .classifiers import HuggingFaceClassifier
+from .classifiers import BaseClassifier, HuggingFaceClassifier, TimmClassifier
 from .datasets import HuggingFaceDataset
 from .finetune import make_trainer
 from .logging import r0_info
@@ -60,17 +60,23 @@ def correct(
     _output_dir = output_dir / _dataset_name / _model_name
     _output_dir.mkdir(parents=True, exist_ok=True)
 
+    classifier_cls: type[BaseClassifier]
+    if model_name.startswith("timm/"):
+        classifier_cls = TimmClassifier
+    else:
+        classifier_cls = HuggingFaceClassifier
+
     dataset = HuggingFaceDataset(
         dataset_name=dataset_name,
         fit_split=train_split,
         val_split=val_split,
         test_split=test_split,
         label_key=label_key,
-        image_processor=model_name,
+        image_processor=classifier_cls.get_image_processor(model_name),
     )
     n_classes = dataset.n_classes()
 
-    model = HuggingFaceClassifier(
+    model = classifier_cls(
         model_name=model_name,
         n_classes=n_classes,
         head_name=head_name,
@@ -90,7 +96,7 @@ def correct(
     )
     if isinstance(ckpt_path, Path):
         # pylint: disable=no-value-for-parameter
-        model.model = HuggingFaceClassifier.load_from_checkpoint(  # type: ignore
+        model.model = classifier_cls.load_from_checkpoint(  # type: ignore
             ckpt_path
         ).model
         r0_info("Loaded checkpoint '{}'", ckpt_path)
@@ -127,7 +133,7 @@ def correct(
         },
         "correction": {
             "hparams": dict(model.hparams),
-            "epochs": max_epochs,
+            "max_epochs": max_epochs,
             "correction_submodules": correction_submodules,
             "correction_weight": correction_weight,
             "best_checkpoint": {
@@ -140,4 +146,4 @@ def correct(
             "test": test_results,
         },
     }
-    tb.save_json(document, _output_dir / f"results.{v}.json")
+    tb.save_json(document, _output_dir / "results.json")

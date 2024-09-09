@@ -7,6 +7,7 @@ from .analysis import analyse_ckpt, analyse_training
 from .classifiers import (
     BaseClassifier,
     HuggingFaceClassifier,
+    TimmClassifier,
     TorchvisionClassifier,
     WrappedClassifier,
     full_dataset_latent_clustering,

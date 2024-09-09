@@ -36,68 +36,9 @@ See also:
 """
 
 
-def make_transform(
-    image_processor: Callable | str | None = None,
-) -> Callable:
-    """
-    Creates a transform that passes a batch through an image processor if
-    specified, or does nothing otherwise
-    """
-    if image_processor is None:
-        return lambda x: x
-    if callable(image_processor):
-        return image_processor
-
-    if image_processor.startswith("timm/"):
-        import timm
-
-        model = timm.create_model(image_processor, pretrained=False)
-        data_config = timm.data.resolve_model_data_config(model)
-        _timm_transform = timm.data.create_transform(
-            **data_config, is_training=True
-        )
-
-        def _transform(batch: dict[str, Any]) -> dict[str, Any]:
-            return {
-                k: (
-                    (
-                        [_timm_transform(img) for img in v]
-                        if isinstance(v, list)
-                        else _timm_transform(v)
-                    )
-                    if k in ["img", "image"]  # TODO: pass image_key
-                    else v
-                )
-                for k, v in batch.items()
-            }
-
-        return _transform
-
-    # Huggingface image preprocessor in the default case
-
-    from transformers import AutoImageProcessor
-
-    _hf_transorm = AutoImageProcessor.from_pretrained("microsoft/resnet-18")
-
-    def _transform(batch: dict[str, Any]) -> dict[str, Any]:
-        return {
-            k: (
-                _hf_transorm(
-                    [img.convert("RGB") for img in v], return_tensors="pt"
-                )["pixel_values"]
-                if k in ["img", "image"]  # TODO: pass image_key
-                else v
-            )
-            for k, v in batch.items()
-        }
-
-    return _transform
-
-
 class HuggingFaceDataset(WrappedDataset):
     """See module documentation"""
 
-    image_processor: Callable
     label_key: str
 
     _datasets: dict[str, Dataset] = {}  # Cache
@@ -109,7 +50,7 @@ class HuggingFaceDataset(WrappedDataset):
         val_split: str = "validation",
         test_split: str | None = None,
         predict_split: str | None = None,
-        image_processor: Callable | str | None = None,
+        image_processor: Callable | None = None,
         train_dl_kwargs: dict[str, Any] | None = None,
         val_dl_kwargs: dict[str, Any] | None = None,
         test_dl_kwargs: dict[str, Any] | None = None,
@@ -133,7 +74,7 @@ class HuggingFaceDataset(WrappedDataset):
             predict_split (str | None, optional): Analogous to `fit_split`. If
                 left to `None`, setting up this datamodule at the `predict`
                 stage will raise a `RuntimeError`
-            image_processor (Callable | str | None, optional):
+            image_processor (Callable | None, optional):
             train_dl_kwargs (dict[str, Any] | None, optional):
             val_dl_kwargs (dict[str, Any] | None, optional):
             test_dl_kwargs (dict[str, Any] | None, optional):
@@ -174,7 +115,8 @@ class HuggingFaceDataset(WrappedDataset):
                     cache_dir=str(cache_dir),
                     trust_remote_code=True,
                 )
-                ds.set_transform(self.image_processor)
+                if image_processor is not None:
+                    ds.set_transform(image_processor)
                 if apply_filter and classes:
                     ds = ds.filter(
                         lambda l: l in classes, input_columns=label_key
@@ -197,11 +139,6 @@ class HuggingFaceDataset(WrappedDataset):
             val_dl_kwargs=val_dl_kwargs,
             test_dl_kwargs=test_dl_kwargs,
             predict_dl_kwargs=predict_dl_kwargs,
-        )
-        self.image_processor = (
-            make_transform(image_processor)
-            if isinstance(image_processor, str)
-            else image_processor
         )
         self.label_key = label_key
 

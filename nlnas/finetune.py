@@ -7,7 +7,7 @@ from tempfile import TemporaryDirectory
 import pytorch_lightning as pl
 import turbo_broccoli as tb
 
-from .classifiers import HuggingFaceClassifier, TimmClassifier
+from .classifiers import BaseClassifier, HuggingFaceClassifier, TimmClassifier
 from .datasets import HuggingFaceDataset
 from .logging import r0_info
 from .training import NoCheckpointFound, best_checkpoint_path, checkpoint_ves
@@ -54,10 +54,11 @@ def finetune(
     _output_dir = output_dir / _dataset_name / _model_name
     _output_dir.mkdir(parents=True, exist_ok=True)
 
+    classifier_cls: type[BaseClassifier]
     if model_name.startswith("timm/"):
-        ClassifierCls = TimmClassifier
+        classifier_cls = TimmClassifier
     else:
-        ClassifierCls = HuggingFaceClassifier
+        classifier_cls = HuggingFaceClassifier
 
     dataset = HuggingFaceDataset(
         dataset_name=dataset_name,
@@ -65,7 +66,7 @@ def finetune(
         val_split=val_split,
         test_split=test_split,
         label_key=label_key,
-        image_processor=model_name,
+        image_processor=classifier_cls.get_image_processor(model_name),
         train_dl_kwargs={
             "batch_size": batch_size,
             "num_workers": 16,
@@ -78,7 +79,7 @@ def finetune(
     try:
         ckpt, _ = best_checkpoint_path(_output_dir)
         # pylint: disable=no-value-for-parameter
-        model = ClassifierCls.load_from_checkpoint(ckpt)  # type: ignore
+        model = classifier_cls.load_from_checkpoint(ckpt)  # type: ignore
         v, e, s = checkpoint_ves(ckpt)
         r0_info("Found best checkpoint: '{}'", ckpt)
         r0_info("version={}, best_epoch={}, n_steps={}", v, e, s)
@@ -87,7 +88,7 @@ def finetune(
             "No checkpoint found in {}, starting fine-tuning from scratch",
             _output_dir,
         )
-        model = ClassifierCls(
+        model = classifier_cls(
             model_name=model_name,
             n_classes=n_classes,
             head_name=head_name,
@@ -136,7 +137,7 @@ def finetune(
         },
         "fine_tuning": {
             "hparams": dict(model.hparams),
-            "epochs": max_epochs,
+            "max_epochs": max_epochs,
             "best_checkpoint": {
                 "path": str(ckpt),
                 "version": v,
