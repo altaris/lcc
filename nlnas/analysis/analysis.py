@@ -3,29 +3,26 @@
 from pathlib import Path
 from typing import Literal, Type
 
-import bokeh.layouts as bkl
-import bokeh.plotting as bk
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import torch
 import turbo_broccoli as tb
-from bokeh.io import export_png
 from loguru import logger as logging
 from torch import Tensor, nn
 from torchmetrics.functional.classification import multiclass_accuracy
 from tqdm import tqdm
 
-from .classifiers import BaseClassifier
-from .correction import (
+from ..classifiers import BaseClassifier
+from ..correction import (
     class_otm_matching,
     louvain_communities,
     otm_matching_predicates,
 )
-from .datasets import HuggingFaceDataset, dl_head, flatten_batches
-from .plotting import class_matching_plot, class_scatter, make_same_xy_range
-from .training import all_checkpoint_paths
+from ..datasets import HuggingFaceDataset, dl_head, flatten_batches
+from ..training import all_checkpoint_paths
+from .plotting import louvain_clustering_plots, plot_latent_samples
 
 
 def _acc(y_true: Tensor, y_pred: Tensor) -> float:
@@ -322,80 +319,13 @@ def evaluate(
     dataset.setup("test")
     batches = dl_head(dataset.test_dataloader(), n_samples)
     flat = flatten_batches(batches)
-    out_b: dict[str, Tensor] = {}
-    y_pred_b = model.forward_intermediate(
-        batches, submodule_names, out_b, keep_gradients=False
+    out: dict[str, Tensor] = {}
+    y_pred = model.forward_intermediate(
+        batches, submodule_names, out, keep_gradients=False
     )
     return {
         "x": flat[model.image_key],
         "y_true": flat[model.label_key],
-        "z": {k: torch.concat(v) for k, v in out_b.items()},  # type: ignore
-        "y_pred": torch.concat(y_pred_b),  # type: ignore
+        "z": {k: torch.concat(v) for k, v in out.items()},  # type: ignore
+        "y_pred": torch.concat(y_pred),  # type: ignore
     }
-
-
-def louvain_clustering_plots(
-    z: np.ndarray,
-    y_true: np.ndarray,
-    y_louvain: np.ndarray,
-    matching: dict[int, set[int]],
-    knn: int,
-    output_dir: Path,
-) -> tuple:
-    """
-    (Used as a step in `analyse_ckpt`) Makes two plots
-    1. Side-by-side scatter plots of the ground truth and Louvain communities
-    2. A class matching plot, see `nlnas.plotting.class_matching_plot`
-
-    Saves the PNGs and returns the bokeh figures in this order.
-
-    Args:
-        z (np.ndarray): An array of latent embeddings, which has shape `(N, 2)`
-        y_true (np.ndarray): A `(N,)` tensor of true labels
-        y_louvain (np.ndarray): A `(N,)` tensor of Louvain labels
-        matching (dict[int, set[int]]): See
-            `nlnas.correction.clustering.class_otm_matching`
-        knn (int): Number of neighbots that have been consitered when
-            creating `y_louvain`. This is used in the title of the plot.
-    """
-    fig_true = bk.figure(title="Ground truth")
-    class_scatter(fig_true, z, y_true, palette="viridis")
-    fig_louvain = bk.figure(
-        title=(f"Louvain communities ({y_louvain.max() + 1}), k = {knn}"),
-    )
-    class_scatter(fig_louvain, z, y_louvain)
-    make_same_xy_range(fig_true, fig_louvain)
-    fig_scatter = bkl.row(fig_true, fig_louvain)
-    fig_match = class_matching_plot(z, y_true, y_louvain, matching)
-    export_png(fig_scatter, filename=output_dir / "scatter.png")
-    export_png(fig_match, filename=output_dir / "match.png")
-    return fig_scatter, fig_match
-
-
-def plot_latent_samples(
-    e: dict[str, np.ndarray],
-    y_true: Tensor,
-    output_dir: Path,
-) -> dict[str, bk.figure]:
-    """
-    (Used as a step in `analyse_ckpt`) Plots UMAP embeddings of latent samples.
-    `e` should be the output of `embed_latent_samples`. Saves the PNGs and
-    return the bokeh figures.
-
-    Args:
-        e (dict[str, np.ndarray]): A dict of tensors of shape `(N, 2)`
-        y_true (Tensor): A true label tensor of shape `(N,)`
-        output_dir (Path): The directory to save the PNGs
-
-    Returns:
-        A dict of bokeh figures. The keys are the same as `e`.
-    """
-    figures = {}
-    progress = tqdm(e.items(), desc="UMAP plotting", leave=False)
-    for k, v in progress:
-        progress.set_postfix({"submodule": k})
-        figure = bk.figure(title=k, toolbar_location=None)
-        class_scatter(figure, v, y_true.numpy())
-        figures[k] = figure
-        export_png(figure, filename=output_dir / (k + ".png"))
-    return figures
