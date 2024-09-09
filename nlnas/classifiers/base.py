@@ -293,10 +293,11 @@ class BaseClassifier(pl.LightningModule):
                     f"lr_{i}": _lr(opt)
                     for i, opt in enumerate(opts)
                     if isinstance(opt, torch.optim.Optimizer)
-                }
+                },
+                sync_dist=True,
             )
         elif isinstance(opts, torch.optim.Optimizer):
-            self.log("lr", _lr(opts))
+            self.log("lr", _lr(opts), sync_dist=True)
         return super().on_train_batch_end(*args, **kwargs)
 
     def on_train_start(self) -> None:
