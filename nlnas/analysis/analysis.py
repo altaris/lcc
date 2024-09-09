@@ -14,6 +14,8 @@ from torch import Tensor, nn
 from torchmetrics.functional.classification import multiclass_accuracy
 from tqdm import tqdm
 
+from nlnas.correction.clustering import DEFAULT_K
+
 from ..classifiers import BaseClassifier
 from ..correction import (
     class_otm_matching,
@@ -45,7 +47,7 @@ def analyse_ckpt(
     dataset: HuggingFaceDataset,
     output_dir: str | Path,
     n_samples: int = 512,
-    knn: int = 25,
+    knn: int = 2,
     model_cls: Type[BaseClassifier] = BaseClassifier,
 ):
     """
@@ -144,7 +146,7 @@ def analyse_training(
     submodule_names: list[str],
     dataset: HuggingFaceDataset,
     n_samples: int = 512,
-    knn: int = 25,
+    knn: int = DEFAULT_K,
     model_cls: Type[BaseClassifier] = BaseClassifier,
 ):
     """

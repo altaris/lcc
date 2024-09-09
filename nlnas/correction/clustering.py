@@ -10,6 +10,8 @@ import numpy as np
 import torch
 from torch import Tensor
 
+DEFAULT_K: int = 2
+
 
 def _otm_matching(
     graph: nx.DiGraph,
@@ -125,7 +127,7 @@ def clustering_loss(
     y_true: np.ndarray | Tensor,
     y_clst: np.ndarray | Tensor,
     matching: dict[int, set[int]] | dict[str, set[int]],
-    k: int = 5,
+    k: int = DEFAULT_K,
     n_true_classes: int | None = None,
     device: Literal["cpu", "cuda"] | None = None,
 ) -> Tensor:

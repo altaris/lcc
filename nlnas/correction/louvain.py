@@ -10,12 +10,12 @@ import torch
 from sklearn.base import TransformerMixin
 from torch import Tensor
 
-from .clustering import class_otm_matching, clustering_loss
+from .clustering import DEFAULT_K, class_otm_matching, clustering_loss
 
 
 def louvain_communities(
     z: np.ndarray | Tensor,
-    k: int = 50,
+    k: int = DEFAULT_K,
     scaling: (
         Literal["standard", "minmax"] | TransformerMixin | None
     ) = "standard",
@@ -88,7 +88,7 @@ def louvain_communities(
 def louvain_loss(
     z: Tensor,
     y_true: np.ndarray | Tensor,
-    k: int = 5,
+    k: int = DEFAULT_K,
     n_true_classes: int | None = None,
     device: Literal["cpu", "cuda"] | None = None,
 ) -> Tensor:
