@@ -7,7 +7,7 @@ from tempfile import TemporaryDirectory
 import pytorch_lightning as pl
 import turbo_broccoli as tb
 
-from .classifiers import HuggingFaceClassifier
+from .classifiers import HuggingFaceClassifier, TimmClassifier
 from .datasets import HuggingFaceDataset
 from .logging import r0_info
 from .training import NoCheckpointFound, best_checkpoint_path, checkpoint_ves
@@ -54,6 +54,11 @@ def finetune(
     _output_dir = output_dir / _dataset_name / _model_name
     _output_dir.mkdir(parents=True, exist_ok=True)
 
+    if model_name.startswith("timm/"):
+        ClassifierCls = TimmClassifier
+    else:
+        ClassifierCls = HuggingFaceClassifier
+
     dataset = HuggingFaceDataset(
         dataset_name=dataset_name,
         fit_split=train_split,
@@ -73,7 +78,7 @@ def finetune(
     try:
         ckpt, _ = best_checkpoint_path(_output_dir)
         # pylint: disable=no-value-for-parameter
-        model = HuggingFaceClassifier.load_from_checkpoint(ckpt)  # type: ignore
+        model = ClassifierCls.load_from_checkpoint(ckpt)  # type: ignore
         v, e, s = checkpoint_ves(ckpt)
         r0_info("Found best checkpoint: '{}'", ckpt)
         r0_info("version={}, best_epoch={}, n_steps={}", v, e, s)
@@ -82,7 +87,7 @@ def finetune(
             "No checkpoint found in {}, starting fine-tuning from scratch",
             _output_dir,
         )
-        model = HuggingFaceClassifier(
+        model = ClassifierCls(
             model_name=model_name,
             n_classes=n_classes,
             head_name=head_name,

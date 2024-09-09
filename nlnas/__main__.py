@@ -305,11 +305,17 @@ def finetune(
 )
 def pretty_print(model_name: str, include_non_trainable: bool, max_depth: int):
     """Pretty prints a HuggingFace model's structure"""
-    from transformers import AutoModelForImageClassification
 
     from .utils import pretty_print_submodules
 
-    model = AutoModelForImageClassification.from_pretrained(model_name)
+    if model_name.startswith("timm/"):
+        import timm
+
+        model = timm.create_model(model_name)
+    else:
+        from transformers import AutoModelForImageClassification
+
+        model = AutoModelForImageClassification.from_pretrained(model_name)
     pretty_print_submodules(
         model,
         exclude_non_trainable=not include_non_trainable,

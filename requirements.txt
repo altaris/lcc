@@ -14,6 +14,6 @@ scikit-learn
 seaborn
 selenium==4.8.2
 tensorboard
+timm
 torch
-torchvision
 transformers
