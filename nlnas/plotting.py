@@ -1,10 +1,14 @@
 """Plotting utilities"""
 
+from pathlib import Path
+from typing import Any
+
 import bokeh.layouts as bkl
 import bokeh.models as bkm
 import bokeh.palettes as bkp
 import bokeh.plotting as bk
 import numpy as np
+from loguru import logger as logging
 from scipy.stats import multivariate_normal
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import MinMaxScaler
@@ -97,6 +101,43 @@ def class_scatter(
         )
     figure.axis.visible = axis_visible
     figure.xgrid.visible = figure.ygrid.visible = grid_visible
+
+
+def export_png(obj: Any, filename: str | Path) -> Path:
+    """
+    A replacement for `bokeh.io.export_png` which can sometimes be a bit buggy.
+    Instanciates its own Firefox webdriver. A bit slower but more reliable.
+
+    If Selenium is not installed, or if the Firefox webdriver is not installed,
+    or if any other error occurs, this method will fall back to the default
+    bokeh implementation.
+    """
+    from bokeh.io import export_png as _export_png
+
+    webdriver: Any = None
+    try:
+        from selenium.webdriver import Firefox, FirefoxOptions
+
+        opts = FirefoxOptions()
+        opts.add_argument("--headless")
+        webdriver = Firefox(options=opts)
+        _export_png(obj, filename=str(filename), webdriver=webdriver)
+    except Exception as e:
+        if isinstance(e, ModuleNotFoundError):
+            logging.error(
+                "Selenium is not installed. Falling back to default bokeh "
+                "implementation"
+            )
+        else:
+            logging.error(
+                f"Failed to export PNG using explicit Selenium driver: {e}\n"
+                "Falling back to default bokeh implementation"
+            )
+        _export_png(obj, filename=str(filename))
+    finally:
+        if webdriver is not None:
+            webdriver.close()  # type: ignore
+    return Path(filename)
 
 
 # pylint: disable=too-many-locals

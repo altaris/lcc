@@ -5,11 +5,15 @@ from pathlib import Path
 import bokeh.layouts as bkl
 import bokeh.plotting as bk
 import numpy as np
-from bokeh.io import export_png
 from torch import Tensor
 from tqdm import tqdm
 
-from ..plotting import class_matching_plot, class_scatter, make_same_xy_range
+from ..plotting import (
+    class_matching_plot,
+    class_scatter,
+    export_png,
+    make_same_xy_range,
+)
 
 
 def louvain_clustering_plots(
