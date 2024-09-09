@@ -35,9 +35,9 @@ class TorchvisionClassifier(WrappedClassifier):
                 performed after construction. This can be useful to see the
                 model's computation graph on tensorboard.
             model_config (dict[str, Any], optional):
-            cor_submodules (list[str] | None, optional): See `BaseClassifier`
-            cor_weight (float, optional): See `BaseClassifier`
-            cor_kwargs (dict[str, Any] | None, optional): See `BaseClassifier`
+            lcc_submodules (list[str] | None, optional): See `BaseClassifier`
+            lcc_weight (float, optional): See `BaseClassifier`
+            lcc_kwargs (dict[str, Any] | None, optional): See `BaseClassifier`
         """
         self.save_hyperparameters(
             "model_name", "n_classes", "input_shape", "model_config"

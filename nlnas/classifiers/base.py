@@ -70,9 +70,9 @@ class BaseClassifier(pl.LightningModule):
 
     n_classes: int
 
-    cor_submodules: list[str]
-    cor_weight: float
-    cor_kwargs: dict[str, Any]
+    lcc_submodules: list[str]
+    lcc_weight: float
+    lcc_kwargs: dict[str, Any]
 
     image_key: Any
     label_key: Any
@@ -87,9 +87,9 @@ class BaseClassifier(pl.LightningModule):
     def __init__(
         self,
         n_classes: int,
-        cor_submodules: list[str] | None = None,
-        cor_weight: float = 1e-1,
-        cor_kwargs: dict[str, Any] | None = None,
+        lcc_submodules: list[str] | None = None,
+        lcc_weight: float = 1e-1,
+        lcc_kwargs: dict[str, Any] | None = None,
         image_key: Any = 0,
         label_key: Any = 1,
         logit_key: Any = None,
@@ -103,11 +103,11 @@ class BaseClassifier(pl.LightningModule):
         """
         Args:
             n_classes (int):
-            cor_submodules (list[str] | None, optional): Submodules to consider
+            lcc_submodules (list[str] | None, optional): Submodules to consider
                 for the latent correction loss
-            cor_weight (float, optional): Weight of the correction loss.
-                Ignored if `cor_submodules` is left to `None` or is `[]`
-            cor_kwargs (dict, optional): Passed to the correction loss function
+            lcc_weight (float, optional): Weight of the correction loss.
+                Ignored if `lcc_submodules` is left to `None` or is `[]`
+            lcc_kwargs (dict, optional): Passed to the correction loss function
             image_key (Any, optional): A batch passed to the model can be a
                 tuple (most common) or a dict. This parameter specifies the key
                 to use to retrieve the input tensor.
@@ -132,7 +132,7 @@ class BaseClassifier(pl.LightningModule):
                 any.
             clustering_method (ClusteringMethod, optional): See
                 `full_dataset_latent_clustering`. Only relevant if
-                `cor_submodules` is specified (i.e. the model is to undergo
+                `lcc_submodules` is specified (i.e. the model is to undergo
                 latent clustering correction).
             kwargs: Forwarded to
                 [`pl.LightningModule`](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#)
@@ -140,15 +140,15 @@ class BaseClassifier(pl.LightningModule):
         super().__init__(**kwargs)
         self.save_hyperparameters(ignore=["model"])
         self.n_classes = n_classes
-        self.cor_submodules = (
+        self.lcc_submodules = (
             []
-            if cor_submodules is None
+            if lcc_submodules is None
             else [
                 (sm if sm.startswith("model.") else "model." + sm)
-                for sm in cor_submodules
+                for sm in lcc_submodules
             ]
         )
-        self.cor_weight, self.cor_kwargs = cor_weight, cor_kwargs or {}
+        self.lcc_weight, self.lcc_kwargs = lcc_weight, lcc_kwargs or {}
         self.image_key, self.label_key = image_key, label_key
         self.logit_key = logit_key
 
@@ -157,12 +157,12 @@ class BaseClassifier(pl.LightningModule):
         x, y = batch[self.image_key], batch[self.label_key].to(self.device)
         latent: dict[str, Tensor] = {}
         logits = self.forward_intermediate(
-            x, self.cor_submodules, latent, keep_gradients=True
+            x, self.lcc_submodules, latent, keep_gradients=True
         )
         assert isinstance(logits, Tensor)
         loss_ce = nn.functional.cross_entropy(logits, y.long())
         compute_cl = (
-            stage == "train" and self.cor_submodules and self.cor_weight > 0
+            stage == "train" and self.lcc_submodules and self.lcc_weight > 0
         )
         if compute_cl:
             idx, lst = batch["_idx"], []
@@ -182,7 +182,7 @@ class BaseClassifier(pl.LightningModule):
             loss_cl = torch.stack(lst).mean()
         else:
             loss_cl = torch.tensor(0.0)
-        loss = loss_ce + self.cor_weight * loss_cl
+        loss = loss_ce + self.lcc_weight * loss_cl
         if stage:
             log = {
                 f"{stage}/loss": loss,
@@ -313,7 +313,7 @@ class BaseClassifier(pl.LightningModule):
         Stores the entire dataset label vector in `_y_true` and the number
         of classes in `_n_classes`
         """
-        if self.cor_submodules and self.cor_weight > 0:
+        if self.lcc_submodules and self.lcc_weight > 0:
             dm = self.trainer.datamodule  # type: ignore
             assert isinstance(dm, HuggingFaceDataset)
             self._y_true = dm.y_true("train")
@@ -333,7 +333,7 @@ class BaseClassifier(pl.LightningModule):
             But if the model is ran on multiple GPUs, then FDSL will end up
             being done multiple times, once per process.
         """
-        if self.cor_submodules and self.cor_weight > 0:
+        if self.lcc_submodules and self.lcc_weight > 0:
             with TemporaryDirectory() as tmp:
                 self._clustering = full_dataset_latent_clustering(
                     model=self,
@@ -355,7 +355,7 @@ class BaseClassifier(pl.LightningModule):
             #         np.zeros_like(self.trainer.datamodule.y_true("train")),
             #         {i: {i} for i in range(self._n_classes)},
             #     )
-            #     for sm in self.cor_submodules
+            #     for sm in self.lcc_submodules
             # }
         return super().on_train_epoch_start()
 
@@ -418,7 +418,7 @@ def full_dataset_latent_clustering(
             maps a submodule name to a tuple containing 1. the cluster labels,
             and 2. the matching dict as returned by
             `nlnas.correction.class_otm_matching`. The submodule in question
-            are those specified in `model.cor_submodules`.
+            are those specified in `model.lcc_submodules`.
     """
     if split == "train":
         dl = dataset.train_dataloader()
@@ -435,7 +435,7 @@ def full_dataset_latent_clustering(
         for idx, batch in enumerate(tqdm(dl, "Evaluating")):
             todo = [
                 sm
-                for sm in model.cor_submodules
+                for sm in model.lcc_submodules
                 if not (output_dir / f"{sm}.{idx:04}.st").exists()
             ]
             if not todo:
@@ -456,7 +456,7 @@ def full_dataset_latent_clustering(
         None if classes is None else torch.isin(y_true, torch.tensor(classes))
     )
     y_true = y_true[mask] if mask is not None else y_true
-    for sm in tqdm(model.cor_submodules, "Clustering"):
+    for sm in tqdm(model.lcc_submodules, "Clustering"):
         z = load_tensor_batched(
             output_dir, sm, mask=mask, tqdm_style="console"
         )

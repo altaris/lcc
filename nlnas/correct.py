@@ -20,8 +20,8 @@ def correct(
     ckpt_path: Path | None,
     dataset_name: str,
     output_dir: Path,
-    correction_submodules: list[str],
-    correction_weight: float = 1e-3,
+    lcc_submodules: list[str],
+    lcc_weight: float = 1e-3,
     max_epochs: int = 100,
     batch_size: int = 64,
     train_split: str = "train",
@@ -41,8 +41,8 @@ def correct(
             weights available on the Hugging Face model hub.
         dataset_name (str):
         output_dir (Path):
-        correction_submodules (list[str]):
-        correction_weight (float, optional):
+        lcc_submodules (list[str]):
+        lcc_weight (float, optional):
         max_epochs (int, optional):
         batch_size (int, optional):
         train_split (str, optional):
@@ -91,8 +91,8 @@ def correct(
             "eps": 1e-8,
         },
         # scheduler="linearlr",
-        cor_weight=correction_weight,
-        cor_submodules=correction_submodules,
+        lcc_weight=lcc_weight,
+        lcc_submodules=lcc_submodules,
     )
     if isinstance(ckpt_path, Path):
         # pylint: disable=no-value-for-parameter
@@ -134,8 +134,8 @@ def correct(
         "correction": {
             "hparams": dict(model.hparams),
             "max_epochs": max_epochs,
-            "correction_submodules": correction_submodules,
-            "correction_weight": correction_weight,
+            "lcc_submodules": lcc_submodules,
+            "lcc_weight": lcc_weight,
             "best_checkpoint": {
                 "path": str(ckpt),
                 "version": v,

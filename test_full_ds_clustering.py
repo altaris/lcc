@@ -1,7 +1,7 @@
 """
 Loads a pretrained model and performs full-dataset latent clustering.
 1. The whole dataset is evaluated and the latent representations (for the layers
-specified in CORRECTION_SUBMODULES) are saved.
+specified in LCC_SUBMODULES) are saved.
 2. For each selected submodule, the latent representations are clustered using
 the Louvain method.
 
@@ -32,7 +32,7 @@ HF_DATASET_NAME = "cifar100"
 
 
 HF_MODEL_NAME = "timm/mobilenetv3_small_050.lamb_in1k"
-CORRECTION_SUBMODULES = [
+LCC_SUBMODULES = [
     # "blocks.0",
     "blocks.1",
     # "blocks.2",
@@ -45,7 +45,7 @@ CORRECTION_SUBMODULES = [
 
 
 # HF_MODEL_NAME = "microsoft/resnet-18"
-# CORRECTION_SUBMODULES = [  # See also `nlnas.utils.pretty_print_submodules`
+# LCC_SUBMODULES = [  # See also `nlnas.utils.pretty_print_submodules`
 #     "resnet.encoder.stages.0",
 #     "resnet.encoder.stages.1",
 #     "resnet.encoder.stages.2",
@@ -54,7 +54,7 @@ CORRECTION_SUBMODULES = [
 # ]
 
 # HF_MODEL_NAME = "google/mobilenet_v2_1.0_224"
-# CORRECTION_SUBMODULES = [  # See also `nlnas.utils.pretty_print_submodules`
+# LCC_SUBMODULES = [  # See also `nlnas.utils.pretty_print_submodules`
 #     "mobilenet_v2.layer.0",
 #     # "mobilenet_v2.layer.1",
 #     # "mobilenet_v2.layer.2",
@@ -95,7 +95,7 @@ LABEL_KEY = FT_RESULTS["dataset"]["label_key"]
 
 LOGIT_KEY = FT_RESULTS["fine_tuning"]["hparams"]["logit_key"]
 HEAD_NAME = FT_RESULTS["fine_tuning"]["hparams"]["head_name"]
-CORRECTION_WEIGHT = FT_RESULTS["fine_tuning"]["hparams"]["cor_weight"]
+LCC_WEIGHT = 1  # just need a nonzero value
 
 CKPT_PATH = (
     Path("./out") / "ft" / FT_RESULTS["fine_tuning"]["best_checkpoint"]["path"]
@@ -133,8 +133,8 @@ if __name__ == "__main__":
         image_key=IMAGE_KEY,
         label_key=LABEL_KEY,
         logit_key=LOGIT_KEY,
-        cor_submodules=CORRECTION_SUBMODULES,
-        cor_weight=CORRECTION_WEIGHT,
+        lcc_submodules=LCC_SUBMODULES,
+        lcc_weight=LCC_WEIGHT,
     )
     # pylint: disable=no-value-for-parameter
     model.model = ClassifierClass.load_from_checkpoint(CKPT_PATH).model

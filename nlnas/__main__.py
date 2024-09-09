@@ -31,8 +31,8 @@ def main(logging_level: str):
 @main.command()
 @click.argument("model_name", type=str)
 @click.argument("dataset_name", type=str)
-@click.argument("correction_submodules", type=str)
-@click.argument("correction_weight", type=float)
+@click.argument("lcc_submodules", type=str)
+@click.argument("lcc_weight", type=float)
 @click.argument(
     "output_dir",
     type=click.Path(file_okay=False, dir_okay=True, path_type=Path),  # type: ignore
@@ -127,8 +127,8 @@ def correct(
     model_name: str,
     dataset_name: str,
     ckpt_path: Path | None,
-    correction_submodules: str,
-    correction_weight: float,
+    lcc_submodules: str,
+    lcc_weight: float,
     output_dir: Path,
     max_epochs: int,
     batch_size: int,
@@ -155,8 +155,8 @@ def correct(
         ckpt_path=ckpt_path,
         dataset_name=dataset_name,
         output_dir=output_dir,
-        correction_submodules=correction_submodules.split(","),
-        correction_weight=correction_weight,
+        lcc_submodules=lcc_submodules.split(","),
+        lcc_weight=lcc_weight,
         max_epochs=max_epochs,
         batch_size=batch_size,
         train_split=train_split,
