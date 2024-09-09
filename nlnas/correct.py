@@ -21,7 +21,8 @@ def correct(
     dataset_name: str,
     output_dir: Path,
     lcc_submodules: list[str],
-    lcc_weight: float = 1e-3,
+    lcc_weight: float = 1,
+    ce_weight: float = 1,
     max_epochs: int = 100,
     batch_size: int = 64,
     train_split: str = "train",
@@ -43,6 +44,7 @@ def correct(
         output_dir (Path):
         lcc_submodules (list[str]):
         lcc_weight (float, optional):
+        ce_weight (float, optional):
         max_epochs (int, optional):
         batch_size (int, optional):
         train_split (str, optional):
@@ -90,9 +92,10 @@ def correct(
             "betas": (0.9, 0.999),
             "eps": 1e-8,
         },
-        # scheduler="linearlr",
+        scheduler="linearlr",
         lcc_weight=lcc_weight,
         lcc_submodules=lcc_submodules,
+        ce_weight=ce_weight,
     )
     if isinstance(ckpt_path, Path):
         # pylint: disable=no-value-for-parameter
@@ -136,6 +139,7 @@ def correct(
             "max_epochs": max_epochs,
             "lcc_submodules": lcc_submodules,
             "lcc_weight": lcc_weight,
+            "ce_weight": ce_weight,
             "best_checkpoint": {
                 "path": str(ckpt),
                 "version": v,

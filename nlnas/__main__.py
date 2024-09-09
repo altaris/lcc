@@ -33,6 +33,7 @@ def main(logging_level: str):
 @click.argument("dataset_name", type=str)
 @click.argument("lcc_submodules", type=str)
 @click.argument("lcc_weight", type=float)
+@click.argument("ce_weight", type=float)
 @click.argument(
     "output_dir",
     type=click.Path(file_okay=False, dir_okay=True, path_type=Path),  # type: ignore
@@ -129,6 +130,7 @@ def correct(
     ckpt_path: Path | None,
     lcc_submodules: str,
     lcc_weight: float,
+    ce_weight: float,
     output_dir: Path,
     max_epochs: int,
     batch_size: int,
@@ -157,6 +159,7 @@ def correct(
         output_dir=output_dir,
         lcc_submodules=lcc_submodules.split(","),
         lcc_weight=lcc_weight,
+        ce_weight=ce_weight,
         max_epochs=max_epochs,
         batch_size=batch_size,
         train_split=train_split,

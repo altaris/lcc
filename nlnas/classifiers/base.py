@@ -73,6 +73,7 @@ class BaseClassifier(pl.LightningModule):
     lcc_submodules: list[str]
     lcc_weight: float
     lcc_kwargs: dict[str, Any]
+    ce_weight: float
 
     image_key: Any
     label_key: Any
@@ -88,8 +89,9 @@ class BaseClassifier(pl.LightningModule):
         self,
         n_classes: int,
         lcc_submodules: list[str] | None = None,
-        lcc_weight: float = 1e-1,
+        lcc_weight: float = 1,
         lcc_kwargs: dict[str, Any] | None = None,
+        ce_weight: float = 1,
         image_key: Any = 0,
         label_key: Any = 1,
         logit_key: Any = None,
@@ -97,17 +99,23 @@ class BaseClassifier(pl.LightningModule):
         optimizer_kwargs: dict[str, Any] | None = None,
         scheduler: str | None = None,
         scheduler_kwargs: dict[str, Any] | None = None,
-        clustering_method: ClusteringMethod = "hdbscan",
+        clustering_method: ClusteringMethod = "louvain",
         **kwargs: Any,
     ) -> None:
         """
         Args:
             n_classes (int):
             lcc_submodules (list[str] | None, optional): Submodules to consider
-                for the latent correction loss
-            lcc_weight (float, optional): Weight of the correction loss.
-                Ignored if `lcc_submodules` is left to `None` or is `[]`
-            lcc_kwargs (dict, optional): Passed to the correction loss function
+                for the latent correction loss. If `None` or `[]`, LCC is not
+                performed
+            lcc_weight (float, optional): Weight of the clustering loss in the
+                clustering-CE loss. Ignored if `lcc_submodules` is `None` or
+                `[]`
+            lcc_kwargs (dict, optional): Passed to the correction loss function.
+                Ignored if `lcc_submodules` is `None` or `[]`
+            ce_weight (float, optional): Weight of the cross-entropy loss in the
+                clustering-CE loss. Ignored if `lcc_submodules` is `None` or
+                `[]`
             image_key (Any, optional): A batch passed to the model can be a
                 tuple (most common) or a dict. This parameter specifies the key
                 to use to retrieve the input tensor.
@@ -149,6 +157,7 @@ class BaseClassifier(pl.LightningModule):
             ]
         )
         self.lcc_weight, self.lcc_kwargs = lcc_weight, lcc_kwargs or {}
+        self.ce_weight = ce_weight
         self.image_key, self.label_key = image_key, label_key
         self.logit_key = logit_key
 
@@ -175,14 +184,13 @@ class BaseClassifier(pl.LightningModule):
                     y_true=y[p],
                     y_clst=y_clst[p],
                     matching=match,
-                    k=16,  # TODO: dehardcode
                     n_true_classes=self._n_classes,
                 )
                 lst.append(u)
-            loss_cl = torch.stack(lst).mean()
+            loss_clst = torch.stack(lst).mean()
+            loss = self.ce_weight * loss_ce + self.lcc_weight * loss_clst
         else:
-            loss_cl = torch.tensor(0.0)
-        loss = loss_ce + self.lcc_weight * loss_cl
+            loss_clst, loss = torch.tensor(0.0), loss_ce
         if stage:
             log = {
                 f"{stage}/loss": loss,
@@ -192,7 +200,7 @@ class BaseClassifier(pl.LightningModule):
                 ),
             }
             if compute_cl:
-                log[f"{stage}/cl"] = loss_cl
+                log[f"{stage}/cl"] = loss_clst
             self.log_dict(log, prog_bar=True, sync_dist=True)
         return loss
 
