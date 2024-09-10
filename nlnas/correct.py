@@ -1,7 +1,5 @@
 """Latent clustering correction"""
 
-# pylint: disable=duplicate-code
-
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -17,6 +15,7 @@ from .logging import r0_info
 from .training import checkpoint_ves
 
 
+# pylint: disable=duplicate-code
 def correct(
     model_name: str,
     ckpt_path: Path | None,

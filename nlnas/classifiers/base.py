@@ -483,6 +483,7 @@ def full_dataset_latent_clustering(
     return clst
 
 
+# pylint: disable=duplicate-code
 def get_cluster_labels(
     z: np.ndarray | Tensor,
     method: ClusteringMethod = "louvain",
