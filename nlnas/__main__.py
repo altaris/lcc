@@ -46,7 +46,7 @@ def main(logging_level: str):
 @click.option(
     "-cw",
     "--ce-weight",
-    default=1e-3,
+    default=1,
     help=(
         "Weight of the CE loss term. Defaults to 1e-3. Ignored if LCC isn't "
         "performed."

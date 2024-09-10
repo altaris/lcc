@@ -96,13 +96,6 @@ def correct(
         label_key=label_key,
         logit_key=logit_key,
         optimizer="adam",
-        optimizer_kwargs={
-            "lr": 5e-5,
-            "weight_decay": 0,
-            "betas": (0.9, 0.999),
-            "eps": 1e-8,
-        },
-        scheduler="linearlr",
         clst_weight=clst_weight,
         lcc_submodules=lcc_submodules,
         ce_weight=ce_weight,
