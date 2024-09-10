@@ -183,28 +183,34 @@ def clustering_loss(
     assert isinstance(y_true, np.ndarray)  # For typechecking
     assert isinstance(y_clst, np.ndarray)  # For typechecking
     matching = {int(a): bs for a, bs in matching.items()}
-    p1, p2, p3, _ = otm_matching_predicates(
+
+    p1, p2, p_mc, _ = otm_matching_predicates(
         y_true, y_clst, matching, c_a=n_true_classes or int(y_true.max() + 1)
     )
-    p12, losses = p1 & p2, []
-    for a in matching:
-        if not (p12[a].any() and p3[a].any()):
-            continue  # No matched Louvain class for a, or no misses
-        z_match, z_miss = z[p12[a]], z[p3[a]]  # both non empty
-        z_match, z_miss = z_match.flatten(1), z_miss.flatten(1)
-        index = NearestNeighbors(n_neighbors=min(k + 1, z_match.shape[0]))
-        index.fit(_np(z_match))
-        _, idx = index.kneighbors(_np(z_miss))
-        idx = idx[:, 1:]  # exclude self as nearest neighbor
-        if idx.size == 0:
-            # Can happen if z_match or z_miss only have 1 row, which can happen
-            # for clusters with only one element
+    p_cc = p1 & p2
+    # Reminder: p_cc and p_mc have shape (n_true_classes, n_samples) and
+    # * p_cc[i_true, j] is True if z[j] is in true class i_true and correctly
+    #   clustered (i.e. in a cluster matched with true class i_true);
+    # * p_mc[i_true, j] is True if z[j] is in true class i_true and
+    #   missclustered (i.e. not in any cluster matched with true class i_true)
+    # WARNING: p_cc != ~p_mc ;)
+    losses = []
+    for p_cc_i, p_mc_i in zip(p_cc, p_mc):
+        if p_cc_i.sum() < k:  # Not enough corr. clst. samples in this class
             continue
-        targets = z_match[torch.tensor(idx)].mean(dim=1)
-        losses.append(torch.norm(z_miss - targets, dim=-1).mean())
+        if not p_mc_i.any():  # No missclst. samples in this class
+            continue
+        z_cc_i, z_mc_i = z[p_cc_i], z[p_mc_i]
+        index = NearestNeighbors(n_neighbors=k)
+        index.fit(_np(z_cc_i))
+        _, knni = index.kneighbors(_np(z_mc_i))
+        u = z_cc_i[knni]  # k corr. clst. NNs of missclst. samples
+        u = u.mean(dim=1)  # z_mc_i[j] should go towards u[j]
+        loss = torch.norm(z_mc_i - u, dim=-1).sum() / sqrt(z.shape[-1])
+        losses.append(loss)
     if not losses:
         return torch.tensor(0.0, requires_grad=True).to(z.device)
-    return torch.stack(losses).mean() / sqrt(z.shape[-1])
+    return torch.stack(losses).sum() / len(z)
 
 
 def otm_matching_predicates(

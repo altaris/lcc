@@ -97,9 +97,13 @@ class WrappedDataset(pl.LightningDataModule):
             predict_dl_kwargs or self.train_dl_kwargs.copy()
         )
 
-    def _get_dl(
+    def get_dataloader(
         self, split: Literal["train", "val", "test", "predict"]
     ) -> DataLoader:
+        """
+        Get a dataloader by name. The usual methods `train_dataloader` etc. call
+        this. Make sure you called `prepare_data` before calling this.
+        """
         if split == "train":
             obj, kw = self.train, self.train_dl_kwargs
         elif split == "val":
@@ -128,7 +132,7 @@ class WrappedDataset(pl.LightningDataModule):
         Self-explanatory. Make sure you called `prepare_data` before calling
         this.
         """
-        return self._get_dl("predict")
+        return self.get_dataloader("predict")
 
     def prepare_data(self) -> None:
         """
@@ -157,18 +161,18 @@ class WrappedDataset(pl.LightningDataModule):
         Self-explanatory. Make sure you called `prepare_data` before calling
         this.
         """
-        return self._get_dl("test")
+        return self.get_dataloader("test")
 
     def train_dataloader(self) -> DataLoader:
         """
         Self-explanatory. Make sure you called `prepare_data` before calling
         this.
         """
-        return self._get_dl("train")
+        return self.get_dataloader("train")
 
     def val_dataloader(self) -> DataLoader:
         """
         Self-explanatory. Make sure you called `prepare_data` before calling
         this.
         """
-        return self._get_dl("val")
+        return self.get_dataloader("val")

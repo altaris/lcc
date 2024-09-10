@@ -437,14 +437,7 @@ def full_dataset_latent_clustering(
             `nlnas.correction.class_otm_matching`. The submodule in question
             are those specified in `model.lcc_submodules`.
     """
-    if split == "train":
-        dl = dataset.train_dataloader()
-    elif split == "val":
-        dl = dataset.val_dataloader()
-    elif split == "test":
-        dl = dataset.test_dataloader()
-    else:
-        raise ValueError(f"Unsupported split '{split}'")
+    dl = dataset.get_dataloader(split)
     output_dir, tqdm = Path(output_dir) / split, make_tqdm(tqdm_style)
     output_dir.mkdir(parents=True, exist_ok=True)
     with torch.no_grad():
