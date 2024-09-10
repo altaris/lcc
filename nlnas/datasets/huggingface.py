@@ -163,8 +163,8 @@ class HuggingFaceDataset(WrappedDataset):
         Returns the number of classes in a given split
 
         Args:
-            split (Literal[&quot;train&quot;, &quot;val&quot;,
-                &quot;test&quot;], optional): Not the true name of the split
+            split (Literal["train", "val",
+                "test"], optional): Not the true name of the split
                 (as specified on the dataset's HuggingFace page), just either
                 `train`, `val`, or `test`.
         """
@@ -178,8 +178,8 @@ class HuggingFaceDataset(WrappedDataset):
         Gets the vector of true labels of a given split.
 
         Args:
-            split (Literal[&quot;train&quot;, &quot;val&quot;,
-                &quot;test&quot;], optional): Not the true name of the split
+            split (Literal["train", "val",
+                "test"], optional): Not the true name of the split
                 (as specified on the dataset's HuggingFace page), just either
                 `train`, `val`, or `test`.
 

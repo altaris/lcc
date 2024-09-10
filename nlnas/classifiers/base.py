@@ -496,9 +496,9 @@ def get_cluster_labels(
 
     Args:
         z (np.ndarray | Tensor):
-        method (Literal[&quot;louvain&quot;, &quot;dbscan&quot;, &quot;hdbscan&quot;], optional):
-        scaling (Literal[&quot;standard&quot;, &quot;minmax&quot;] | None, optional):
-        device (Literal[&quot;cpu&quot;, &quot;cuda&quot;] | None, optional):
+        method (Literal["louvain", "dbscan", "hdbscan"], optional):
+        scaling (Literal["standard", "minmax"] | None, optional):
+        device (Literal["cpu", "cuda"] | None, optional):
         **kwargs: Passed to the clustering object
     """
     use_cuda = (

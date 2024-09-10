@@ -50,7 +50,7 @@ def load_tensor_batched(
             length if the mask should be at least the length of the full tensor.
         max_n_batches (int | None, optional): If provided, only the first
             `max_n_batches` are loaded
-        tqdm_style (Literal[&quot;notebook&quot;, &quot;console&quot;, &quot;none&quot;] | None, optional):
+        tqdm_style (Literal["notebook", "console", "none"] | None, optional):
 
     Returns:
         A `torch.Tensor`.

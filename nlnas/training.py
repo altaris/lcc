@@ -45,7 +45,7 @@ def best_checkpoint_path(
         output_path (str | Path): e.g.
             `out.local/ft/cifar100/microsoft-resnet-18`
         metric (str, optional):
-        mode (Literal[&quot;min&quot;, &quot;max&quot;], optional):
+        mode (Literal["min", "max"], optional):
 
     Returns:
         tuple[Path, int]: _description_
