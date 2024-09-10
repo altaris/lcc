@@ -32,11 +32,26 @@ def main(logging_level: str):
 @click.argument("model_name", type=str)
 @click.argument("dataset_name", type=str)
 @click.argument("lcc_submodules", type=str)
-@click.argument("clst_weight", type=float)
-@click.argument("ce_weight", type=float)
 @click.argument(
     "output_dir",
     type=click.Path(file_okay=False, dir_okay=True, path_type=Path),  # type: ignore
+)
+@click.option(
+    "-lw",
+    "--clst-weight",
+    default=1,
+    help="Weight of the clustering loss term. Defaults to 1.",
+    type=float,
+)
+@click.option(
+    "-cw",
+    "--ce-weight",
+    default=1e-3,
+    help=(
+        "Weight of the CE loss term. Defaults to 1e-3. Ignored if LCC isn't "
+        "performed."
+    ),
+    type=float,
 )
 @click.option(
     "-c",
@@ -129,7 +144,7 @@ def correct(
     dataset_name: str,
     ckpt_path: Path | None,
     lcc_submodules: str,
-    lcc_weight: float,
+    clst_weight: float,
     ce_weight: float,
     output_dir: Path,
     max_epochs: int,
@@ -158,7 +173,7 @@ def correct(
         dataset_name=dataset_name,
         output_dir=output_dir,
         lcc_submodules=lcc_submodules.split(","),
-        lcc_weight=lcc_weight,
+        clst_weight=clst_weight,
         ce_weight=ce_weight,
         max_epochs=max_epochs,
         batch_size=batch_size,

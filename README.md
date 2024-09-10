@@ -65,13 +65,13 @@ python -m nlnas finetune \
 
 ```sh
 CUDA_VISIBLE_DEVICES=
-FILE=out/ft/cifar100/microsoft-resnet-18/results.0.json
+FILE=out/ft/cifar100/microsoft-resnet-18/results.json
 python -m nlnas correct \
     $(jq -r .model.name < $FILE) \
     $(jq -r .dataset.name < $FILE) \
     resnet.encoder.stages.3,classifier.1 \
-    0.001 \
     out/lcc \
+    --clst-weight 1 --ce-weight 1e-3 \
     --ckpt-path out/ft/$(jq -r .fine_tuning.best_checkpoint.path < $FILE) \
     --train-split $(jq -r .dataset.train_split < $FILE) \
     --val-split $(jq -r .dataset.val_split < $FILE) \
@@ -83,13 +83,31 @@ python -m nlnas correct \
 
 ```sh
 CUDA_VISIBLE_DEVICES=
-FILE=out/ft/cifar100/google-mobilenet_v2_1.0_224/results.0.json
+FILE=out/ft/cifar100/google-mobilenet_v2_1.0_224/results.json
 python -m nlnas correct \
     $(jq -r .model.name < $FILE) \
     $(jq -r .dataset.name < $FILE) \
     model.mobilenet_v2.layer.15,model.mobilenet_v2.conv_1x1,model.classifier \
-    0.01 \
     out/lcc \
+    --clst-weight 1 --ce-weight 1e-3 \
+    --ckpt-path out/ft/$(jq -r .fine_tuning.best_checkpoint.path < $FILE) \
+    --train-split $(jq -r .dataset.train_split < $FILE) \
+    --val-split $(jq -r .dataset.val_split < $FILE) \
+    --test-split $(jq -r .dataset.test_split < $FILE) \
+    --image-key $(jq -r .dataset.image_key < $FILE) \
+    --label-key $(jq -r .dataset.label_key < $FILE) \
+    --head-name $(jq -r .fine_tuning.hparams.head_name < $FILE)
+```
+
+```sh
+CUDA_VISIBLE_DEVICES=
+FILE=out/ft/cifar100/timm-mobilenetv3_small_050.lamb_in1k/results.json
+python -m nlnas correct \
+    $(jq -r .model.name < $FILE) \
+    $(jq -r .dataset.name < $FILE) \
+    classifier \
+    out/lcc \
+    --clst-weight 1 --ce-weight 1e-3 \
     --ckpt-path out/ft/$(jq -r .fine_tuning.best_checkpoint.path < $FILE) \
     --train-split $(jq -r .dataset.train_split < $FILE) \
     --val-split $(jq -r .dataset.val_split < $FILE) \
