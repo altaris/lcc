@@ -21,7 +21,7 @@ def correct(
     dataset_name: str,
     output_dir: Path,
     lcc_submodules: list[str],
-    lcc_weight: float = 1,
+    clst_weight: float = 1,
     ce_weight: float = 1,
     max_epochs: int = 100,
     batch_size: int = 64,
@@ -43,7 +43,7 @@ def correct(
         dataset_name (str):
         output_dir (Path):
         lcc_submodules (list[str]):
-        lcc_weight (float, optional):
+        clst_weight (float, optional):
         ce_weight (float, optional):
         max_epochs (int, optional):
         batch_size (int, optional):
@@ -93,7 +93,7 @@ def correct(
             "eps": 1e-8,
         },
         scheduler="linearlr",
-        lcc_weight=lcc_weight,
+        clst_weight=clst_weight,
         lcc_submodules=lcc_submodules,
         ce_weight=ce_weight,
     )
@@ -138,7 +138,7 @@ def correct(
             "hparams": dict(model.hparams),
             "max_epochs": max_epochs,
             "lcc_submodules": lcc_submodules,
-            "lcc_weight": lcc_weight,
+            "clst_weight": clst_weight,
             "ce_weight": ce_weight,
             "best_checkpoint": {
                 "path": str(ckpt),

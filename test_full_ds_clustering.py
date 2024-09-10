@@ -95,7 +95,7 @@ LABEL_KEY = FT_RESULTS["dataset"]["label_key"]
 
 LOGIT_KEY = FT_RESULTS["fine_tuning"]["hparams"]["logit_key"]
 HEAD_NAME = FT_RESULTS["fine_tuning"]["hparams"]["head_name"]
-LCC_WEIGHT = 1  # just need a nonzero value
+CLST_WEIGHT = 1  # just need a nonzero value
 
 CKPT_PATH = (
     Path("./out") / "ft" / FT_RESULTS["fine_tuning"]["best_checkpoint"]["path"]
@@ -134,7 +134,7 @@ if __name__ == "__main__":
         label_key=LABEL_KEY,
         logit_key=LOGIT_KEY,
         lcc_submodules=LCC_SUBMODULES,
-        lcc_weight=LCC_WEIGHT,
+        clst_weight=CLST_WEIGHT,
     )
     # pylint: disable=no-value-for-parameter
     model.model = ClassifierClass.load_from_checkpoint(CKPT_PATH).model

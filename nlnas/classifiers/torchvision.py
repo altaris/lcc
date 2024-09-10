@@ -36,7 +36,7 @@ class TorchvisionClassifier(WrappedClassifier):
                 model's computation graph on tensorboard.
             model_config (dict[str, Any], optional):
             lcc_submodules (list[str] | None, optional): See `BaseClassifier`
-            lcc_weight (float, optional): See `BaseClassifier`
+            clst_weight (float, optional): See `BaseClassifier`
             lcc_kwargs (dict[str, Any] | None, optional): See `BaseClassifier`
         """
         self.save_hyperparameters(

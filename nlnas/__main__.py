@@ -32,7 +32,7 @@ def main(logging_level: str):
 @click.argument("model_name", type=str)
 @click.argument("dataset_name", type=str)
 @click.argument("lcc_submodules", type=str)
-@click.argument("lcc_weight", type=float)
+@click.argument("clst_weight", type=float)
 @click.argument("ce_weight", type=float)
 @click.argument(
     "output_dir",

@@ -71,7 +71,7 @@ class BaseClassifier(pl.LightningModule):
     n_classes: int
 
     lcc_submodules: list[str]
-    lcc_weight: float
+    clst_weight: float
     lcc_kwargs: dict[str, Any]
     ce_weight: float
 
@@ -89,7 +89,7 @@ class BaseClassifier(pl.LightningModule):
         self,
         n_classes: int,
         lcc_submodules: list[str] | None = None,
-        lcc_weight: float = 1,
+        clst_weight: float = 1,
         lcc_kwargs: dict[str, Any] | None = None,
         ce_weight: float = 1,
         image_key: Any = 0,
@@ -108,7 +108,7 @@ class BaseClassifier(pl.LightningModule):
             lcc_submodules (list[str] | None, optional): Submodules to consider
                 for the latent correction loss. If `None` or `[]`, LCC is not
                 performed
-            lcc_weight (float, optional): Weight of the clustering loss in the
+            clst_weight (float, optional): Weight of the clustering loss in the
                 clustering-CE loss. Ignored if `lcc_submodules` is `None` or
                 `[]`
             lcc_kwargs (dict, optional): Passed to the correction loss function.
@@ -156,7 +156,7 @@ class BaseClassifier(pl.LightningModule):
                 for sm in lcc_submodules
             ]
         )
-        self.lcc_weight, self.lcc_kwargs = lcc_weight, lcc_kwargs or {}
+        self.clst_weight, self.lcc_kwargs = clst_weight, lcc_kwargs or {}
         self.ce_weight = ce_weight
         self.image_key, self.label_key = image_key, label_key
         self.logit_key = logit_key
@@ -171,7 +171,7 @@ class BaseClassifier(pl.LightningModule):
         assert isinstance(logits, Tensor)
         loss_ce = nn.functional.cross_entropy(logits, y.long())
         compute_cl = (
-            stage == "train" and self.lcc_submodules and self.lcc_weight > 0
+            stage == "train" and self.lcc_submodules and self.clst_weight > 0
         )
         if compute_cl:
             idx, lst = batch["_idx"], []
@@ -188,7 +188,7 @@ class BaseClassifier(pl.LightningModule):
                 )
                 lst.append(u)
             loss_clst = torch.stack(lst).mean()
-            loss = self.ce_weight * loss_ce + self.lcc_weight * loss_clst
+            loss = self.ce_weight * loss_ce + self.clst_weight * loss_clst
         else:
             loss_clst, loss = torch.tensor(0.0), loss_ce
         if stage:
@@ -321,7 +321,7 @@ class BaseClassifier(pl.LightningModule):
         Stores the entire dataset label vector in `_y_true` and the number
         of classes in `_n_classes`
         """
-        if self.lcc_submodules and self.lcc_weight > 0:
+        if self.lcc_submodules and self.clst_weight > 0:
             dm = self.trainer.datamodule  # type: ignore
             assert isinstance(dm, HuggingFaceDataset)
             self._y_true = dm.y_true("train")
@@ -341,7 +341,7 @@ class BaseClassifier(pl.LightningModule):
             But if the model is ran on multiple GPUs, then FDSL will end up
             being done multiple times, once per process.
         """
-        if self.lcc_submodules and self.lcc_weight > 0:
+        if self.lcc_submodules and self.clst_weight > 0:
             with TemporaryDirectory() as tmp:
                 self._clustering = full_dataset_latent_clustering(
                     model=self,
