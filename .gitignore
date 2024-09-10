@@ -176,3 +176,6 @@ notes.txt
 
 # Pytorch Lightning stuff
 lightning_logs/
+
+# Documentation
+docs/html

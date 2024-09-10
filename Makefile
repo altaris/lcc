@@ -1,6 +1,6 @@
 SRC_PATH 	= nlnas
 VENV_PATH	= venv
-DOCS_PATH 	= docs
+DOCS_PATH 	= docs/html
 
 PDOC		= pdoc -d google --math
 PYTHON		= python3.10
