@@ -4,6 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Callable, Literal, Sequence, TypeAlias
 
+import joblib
 import numpy as np
 import pytorch_lightning as pl
 import torch
@@ -18,7 +19,7 @@ from ..correction import (
     louvain_communities,
 )
 from ..datasets.huggingface import HuggingFaceDataset
-from ..utils import load_tensor_batched, make_tqdm
+from ..utils import get_reasonable_n_jobs, load_tensor_batched, make_tqdm
 
 Batch: TypeAlias = dict[str, Tensor]
 ClusteringMethod: TypeAlias = Literal["louvain", "dbscan", "hdbscan"]
@@ -342,7 +343,15 @@ class BaseClassifier(pl.LightningModule):
             being done multiple times, once per process.
         """
         if self.lcc_submodules and self.clst_weight > 0:
-            with TemporaryDirectory() as tmp:
+            joblib_config = {
+                "backend": "loky",
+                "n_jobs": get_reasonable_n_jobs(),
+                "verbose": 0,
+            }
+            with (
+                joblib.parallel_backend(**joblib_config),
+                TemporaryDirectory() as tmp,
+            ):
                 self._clustering = full_dataset_latent_clustering(
                     model=self,
                     dataset=self.trainer.datamodule,  # type: ignore

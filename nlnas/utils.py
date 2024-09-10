@@ -71,6 +71,19 @@ def load_tensor_batched(
     return torch.concat(batches)
 
 
+def get_reasonable_n_jobs() -> int:
+    """
+    Gets a reasonable number of jobs for parallel processing. Reasonable means
+    it's not going to slam your system (hopefully).
+    """
+    n = os.cpu_count()
+    if n is None:
+        return 1
+    if n <= 8:
+        return n // 2
+    return int(n * 2 / 3)
+
+
 def make_tqdm(
     style: Literal["notebook", "console", "none"] | None = "console"
 ) -> Callable:
