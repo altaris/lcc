@@ -26,7 +26,7 @@ echo "CE_WEIGHT:      $CE_WEIGHT"
 echo "=================================================="
 echo
 
-export CUDA_VISIBLE_DEVICES=
+export CUDA_VISIBLE_DEVICES=0
 
 python -m nlnas correct \
     $(jq -r .model.name < $FILE) \

@@ -2,11 +2,13 @@
 
 # pylint: disable=duplicate-code
 
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import torch
 import turbo_broccoli as tb
+from loguru import logger as logging
 
 from .classifiers import BaseClassifier, HuggingFaceClassifier, TimmClassifier
 from .datasets import HuggingFaceDataset
@@ -55,6 +57,15 @@ def correct(
         logit_key (str, optional):
         head_name (str | None, optional):
     """
+    if (n_cuda_devices := torch.cuda.device_count()) > 1:
+        logging.critical(
+            "Latent cluster correction only support CPU or single GPU "
+            f"training , but found {n_cuda_devices} CUDA devices. Please set "
+            "CUDA_VISIBLE_DEVICES to a single device, for example: "
+            "export CUDA_VISIBLE_DEVICES=0"
+        )
+        sys.exit(1)
+
     torch.multiprocessing.set_sharing_strategy("file_system")
 
     _dataset_name = dataset_name.replace("/", "-")

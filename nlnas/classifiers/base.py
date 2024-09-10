@@ -175,7 +175,7 @@ class BaseClassifier(pl.LightningModule):
             stage == "train" and self.lcc_submodules and self.clst_weight > 0
         )
         if compute_cl:
-            idx, lst = batch["_idx"], []
+            idx, lst = batch["_idx"].cpu().numpy(), []
             for sm, z in latent.items():
                 y_clst = self._clustering[sm][0][idx]
                 match = self._clustering[sm][1]
@@ -449,7 +449,7 @@ def full_dataset_latent_clustering(
     output_dir.mkdir(parents=True, exist_ok=True)
     with torch.no_grad():
         model.eval()
-        for idx, batch in enumerate(tqdm(dl, "Evaluating")):
+        for idx, batch in enumerate(tqdm(dl, "Evaluating", leave=False)):
             todo = [
                 sm
                 for sm in model.lcc_submodules
@@ -473,7 +473,7 @@ def full_dataset_latent_clustering(
         None if classes is None else torch.isin(y_true, torch.tensor(classes))
     )
     y_true = y_true[mask] if mask is not None else y_true
-    for sm in tqdm(model.lcc_submodules, "Clustering"):
+    for sm in tqdm(model.lcc_submodules, "Clustering", leave=False):
         z = load_tensor_batched(
             output_dir, sm, mask=mask, tqdm_style="console"
         )
