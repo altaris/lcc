@@ -186,9 +186,7 @@ class BaseClassifier(pl.LightningModule):
         )
         assert isinstance(logits, Tensor)
         loss_ce = nn.functional.cross_entropy(logits, y.long())
-        compute_cl = (
-            stage == "train" and self.lcc_submodules and self.clst_weight > 0
-        )
+        compute_cl = self.lcc_submodules and self.clst_weight > 0
         if compute_cl:
             idx, _losses = batch["_idx"].cpu().numpy(), []
             for sm, z in latent.items():
