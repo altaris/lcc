@@ -1,5 +1,6 @@
 """Base image classifier class that support clustering correction loss"""
 
+from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Callable, Literal, Sequence, TypeAlias
@@ -15,7 +16,9 @@ from torchmetrics.functional.classification import multiclass_accuracy
 
 from ..correction import (
     class_otm_matching,
-    clustering_loss,
+    lcc_knn_indices,
+    lcc_loss,
+    lcc_targets,
     louvain_communities,
 )
 from ..datasets.huggingface import HuggingFaceDataset
@@ -59,6 +62,18 @@ SCHEDULERS: dict[str, type] = {
 }
 
 
+@dataclass
+class LatentClusteringData:
+    """
+    Convenience struct that holds some latent clustering correction data for a
+    given latent space. Contents are self-explanatory.
+    """
+
+    y_clst: np.ndarray
+    matching: dict[int, set[int]]
+    knn_indices: dict[int, tuple[Any, Tensor]]
+
+
 class BaseClassifier(pl.LightningModule):
     """
     See module documentation
@@ -83,7 +98,7 @@ class BaseClassifier(pl.LightningModule):
     # Used during training with correction
     _y_true: Tensor
     _n_classes: int
-    _clustering: dict[str, tuple[np.ndarray, dict[int, set[int]]]]
+    _lc_data: dict[str, LatentClusteringData] = {}
 
     # pylint: disable=unused-argument
     def __init__(
@@ -175,20 +190,18 @@ class BaseClassifier(pl.LightningModule):
             stage == "train" and self.lcc_submodules and self.clst_weight > 0
         )
         if compute_cl:
-            idx, lst = batch["_idx"].cpu().numpy(), []
+            idx, _losses = batch["_idx"].cpu().numpy(), []
             for sm, z in latent.items():
-                y_clst = self._clustering[sm][0][idx]
-                match = self._clustering[sm][1]
-                p = y_clst >= 0  # Exclude outliers
-                u = clustering_loss(
-                    z=z[p],
-                    y_true=y[p],
-                    y_clst=y_clst[p],
-                    matching=match,
+                targets = lcc_targets(
+                    z,
+                    y_true=y,
+                    y_clst=self._lc_data[sm].y_clst[idx],
+                    matching=self._lc_data[sm].matching,
+                    knn_indices=self._lc_data[sm].knn_indices,
                     n_true_classes=self._n_classes,
                 )
-                lst.append(u)
-            loss_clst = torch.stack(lst).mean()
+                _losses.append(lcc_loss(z, targets))
+            loss_clst = torch.stack(_losses).mean()
             loss = self.ce_weight * loss_ce + self.clst_weight * loss_clst
         else:
             loss_clst, loss = torch.tensor(0.0), loss_ce
@@ -201,11 +214,11 @@ class BaseClassifier(pl.LightningModule):
                 ),
             }
             if compute_cl:
-                log[f"{stage}/cl"] = loss_clst
+                log[f"{stage}/lcc"] = loss_clst
             self.log_dict(log, prog_bar=True, sync_dist=True)
         return loss
 
-    def configure_optimizers(self):
+    def configure_optimizers(self) -> Any:
         cls = OPTIMIZERS[self.hparams["optimizer"].lower()]
         optimizer = cls(
             self.parameters(),
@@ -331,16 +344,8 @@ class BaseClassifier(pl.LightningModule):
 
     def on_train_epoch_start(self) -> None:
         """
-        Performs dataset-wide clustering and stores the results in
-        `_clustering`.
-
-        Warning:
-            Because full dataset latent clustering must be run on the CPU, the
-            whole model must be moved to the CPU for this step. This makes
-            training on multiple GPU a bit difficult. At best, the model can be
-            ran on a single GPU and switch back and forth between CPU and GPU.
-            But if the model is ran on multiple GPUs, then FDSL will end up
-            being done multiple times, once per process.
+        Performs dataset-wide latent clustering and stores the results in
+        `_lc_data`.
         """
         if self.lcc_submodules and self.clst_weight > 0:
             joblib_config = {
@@ -352,7 +357,7 @@ class BaseClassifier(pl.LightningModule):
                 joblib.parallel_backend(**joblib_config),
                 TemporaryDirectory() as tmp,
             ):
-                self._clustering = full_dataset_latent_clustering(
+                self._lc_data = full_dataset_latent_clustering(
                     model=self,
                     dataset=self.trainer.datamodule,  # type: ignore
                     output_dir=tmp,
@@ -361,25 +366,16 @@ class BaseClassifier(pl.LightningModule):
                     scaling="standard",
                     tqdm_style="console",
                 )
-            nor = [  # Non-outlier ratio
-                (y_clst >= 0).sum() / len(y_clst)
-                for _, (y_clst, _) in self._clustering.items()
+            nors = [  # Non-outlier ratio
+                (d.y_clst >= 0).sum() / d.y_clst.shape[0]
+                for d in self._lc_data.values()
             ]
-            self.log("train/nor", np.mean(nor), on_epoch=True)
-            # ↓ fake clustering
-            # self._clustering = {
-            #     sm: (
-            #         np.zeros_like(self.trainer.datamodule.y_true("train")),
-            #         {i: {i} for i in range(self._n_classes)},
-            #     )
-            #     for sm in self.lcc_submodules
-            # }
+            self.log("train/nor", np.mean(nors), on_epoch=True)
         return super().on_train_epoch_start()
 
     def on_train_epoch_end(self) -> None:
         """Cleans up training epoch specific temporary attributes."""
-        if hasattr(self, "_clustering"):
-            del self._clustering
+        self._lc_data = {}
         return super().on_train_epoch_end()
 
     # pylint: disable=arguments-differ
@@ -404,7 +400,7 @@ def full_dataset_latent_clustering(
     classes: list[int] | None = None,
     split: Literal["train", "val", "test"] = "train",
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
-) -> dict[str, tuple[np.ndarray, dict[int, set[int]]]]:
+) -> dict[str, LatentClusteringData]:
     """
     Performs latent clustering and matching (against true labels) on the full
     dataset in one go. Since holding all latent representation tensors in
@@ -423,19 +419,15 @@ def full_dataset_latent_clustering(
         model (BaseClassifier):
         dataset (HuggingFaceDataset):
         output_dir (str | Path):
-        k (int, optional):
         classes (list[int] | None, optional): If specified, then only the
-            specified classes are considered for clustering (however, all
+            specified true classes are considered for clustering (however, all
             samples are still evaluated regardless of class). Use this if there
-            are too many classes, or if the dataset is just too large to fit in
-            memory (e.g.  ImageNet).
+            are too many true classes, or if the dataset is just too large to
+            fit in memory (e.g. ImageNet).
 
     Returns:
-        dict[str, tuple[np.ndarray, dict[int, set[int]]]]: A dictionary that
-            maps a submodule name to a tuple containing 1. the cluster labels,
-            and 2. the matching dict as returned by
-            `nlnas.correction.class_otm_matching`. The submodule in question
-            are those specified in `model.lcc_submodules`.
+        A dictionary that maps a submodule name to its latent clustering data,
+        see `LatentClusteringData`.
     """
     dl = dataset.get_dataloader(split)
     output_dir, tqdm = Path(output_dir) / split, make_tqdm(tqdm_style)
@@ -460,7 +452,7 @@ def full_dataset_latent_clustering(
             for sm, z in out.items():
                 st.save_file({"": z}, output_dir / f"{sm}.{idx:04}.st")
         model.train()
-    clst: dict[str, tuple[np.ndarray, dict[int, set[int]]]] = {}
+    result: dict[str, LatentClusteringData] = {}
     y_true = dataset.y_true(split)
     mask = (
         None if classes is None else torch.isin(y_true, torch.tensor(classes))
@@ -472,8 +464,11 @@ def full_dataset_latent_clustering(
         )
         y_clst = get_cluster_labels(z, method, scaling, device)
         matching = class_otm_matching(y_true[: z.shape[0]], y_clst)
-        clst[sm] = (y_clst, matching)
-    return clst
+        indices = lcc_knn_indices(z, y_true, y_clst, matching, device=device)
+        result[sm] = LatentClusteringData(
+            y_clst=y_clst, matching=matching, knn_indices=indices
+        )
+    return result
 
 
 # pylint: disable=duplicate-code
@@ -485,7 +480,8 @@ def get_cluster_labels(
     **kwargs,
 ) -> np.ndarray:
     """
-    Self-explanatory
+    Convenience method that dispatches to the appropriate clustering algorithm.
+    Also performs some preprocessing as required.
 
     Args:
         z (np.ndarray | Tensor):
@@ -512,7 +508,6 @@ def get_cluster_labels(
         z = StandardScaler().fit_transform(z)
     elif scaling == "minmax":
         z = MinMaxScaler().fit_transform(z)
-
     if method == "louvain":
         return louvain_communities(z, device=device, **kwargs)[1]
     if method == "dbscan":

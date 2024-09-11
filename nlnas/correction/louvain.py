@@ -10,7 +10,7 @@ import torch
 from sklearn.base import TransformerMixin
 from torch import Tensor
 
-from .clustering import DEFAULT_K, class_otm_matching, clustering_loss
+from .clustering import DEFAULT_K
 
 
 def louvain_communities(
@@ -85,26 +85,26 @@ def louvain_communities(
     return communities, np.array(y_louvain)
 
 
-def louvain_loss(
-    z: Tensor,
-    y_true: np.ndarray | Tensor,
-    k: int = DEFAULT_K,
-    n_true_classes: int | None = None,
-    device: Literal["cpu", "cuda"] | None = None,
-) -> Tensor:
-    """
-    Calls `nlnas.correction.clustering.clustering_loss` with the Louvain
-    clustering data.
-    """
-    if isinstance(y_true, Tensor):
-        y_true = y_true.cpu().detach().numpy()
-    assert isinstance(y_true, np.ndarray)  # For typechecking
-    _, y_louvain = louvain_communities(z)
-    y_louvain = y_louvain[: len(y_true)]
-    # TODO: Why is y_louvain sometimes longer than y_true?
-    # This seems to only happen if z has nan's, in which case
-    # len(y_louvain) = len(y_true) + 1
-    matching = class_otm_matching(y_true, y_louvain)
-    return clustering_loss(
-        z, y_true, y_louvain, matching, k, n_true_classes, device
-    )
+# def louvain_loss(
+#     z: Tensor,
+#     y_true: np.ndarray | Tensor,
+#     k: int = DEFAULT_K,
+#     n_true_classes: int | None = None,
+#     device: Literal["cpu", "cuda"] | None = None,
+# ) -> Tensor:
+#     """
+#     Calls `nlnas.correction.clustering.clustering_loss` with the Louvain
+#     clustering data.
+#     """
+#     if isinstance(y_true, Tensor):
+#         y_true = y_true.cpu().detach().numpy()
+#     assert isinstance(y_true, np.ndarray)  # For typechecking
+#     _, y_louvain = louvain_communities(z)
+#     y_louvain = y_louvain[: len(y_true)]
+#     # TODO: Why is y_louvain sometimes longer than y_true?
+#     # This seems to only happen if z has nan's, in which case
+#     # len(y_louvain) = len(y_true) + 1
+#     matching = class_otm_matching(y_true, y_louvain)
+#     return clustering_loss(
+#         z, y_true, y_louvain, matching, k, n_true_classes, device
+#     )

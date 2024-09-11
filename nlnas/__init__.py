@@ -14,9 +14,10 @@ from .classifiers import (
 )
 from .correction import (
     class_otm_matching,
-    clustering_loss,
+    lcc_knn_indices,
+    lcc_loss,
+    lcc_targets,
     louvain_communities,
-    louvain_loss,
     max_connected_confusion_choice,
     otm_matching_predicates,
 )

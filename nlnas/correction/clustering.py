@@ -3,7 +3,7 @@
 
 from itertools import product
 from math import sqrt
-from typing import Literal
+from typing import Any, Literal
 
 import networkx as nx
 import numpy as np
@@ -64,6 +64,51 @@ def _otm_matching(
     }
 
 
+def _mc_cc_predicates(
+    y_true: np.ndarray | Tensor,
+    y_clst: np.ndarray | Tensor,
+    matching: dict[int, set[int]] | dict[str, set[int]],
+    n_true_classes: int | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Returns two boolean arrays (also called predicates) `p_mc` and `p_cc` (in
+    this order), both of shape `(n_true_classes, N)`, where:
+    - `p_mc[i_true, j]` is `True` if the $j$-th sample is in true class `i_true`
+      and misclustered (i.e. not in any cluster matched with true class
+      `i_true`);
+    - `p_cc[i_true, j]` is `True` if the $j$-th sample is in true class `i_true`
+      and correctly clustered (i.e. in a cluster matched with true class
+      `i_true`).
+
+    Note:
+        `p_mc != p_cc` in general ;)
+
+    Args:
+        y_true (np.ndarray | Tensor):
+        y_clst (np.ndarray | Tensor):
+        matching (dict[int, set[int]] | dict[str, set[int]]):
+        n_true_classes (int | None, optional): Number of true classes. Useful if
+            `y_true` is a slice of the real true label vector and does not
+            contain all the possible true classes of the dataset at hand.  If
+            `None`, then `y_true` is assumed to contain all classes, and so
+            `n_true_classes` defaults to `y_true.max() + 1`.
+    """
+    y_true, y_clst = _np(y_true), _np(y_clst)
+    # assert isinstance(y_true, np.ndarray)  # For typechecking
+    # assert isinstance(y_clst, np.ndarray)  # For typechecking
+    matching = {int(a): bs for a, bs in matching.items()}
+    p1, p2, p_mc, _ = otm_matching_predicates(
+        y_true, y_clst, matching, c_a=n_true_classes or int(y_true.max() + 1)
+    )
+    p_cc = p1 & p2
+    return p_mc, p_cc
+
+
+def _np(a: np.ndarray | Tensor) -> np.ndarray:
+    """Convenience function to convert a tensor to a numpy array"""
+    return a.cpu().detach().numpy() if isinstance(a, Tensor) else a
+
+
 def class_otm_matching(
     y_a: np.ndarray | Tensor, y_b: np.ndarray | Tensor
 ) -> dict[int, set[int]]:
@@ -122,7 +167,7 @@ def class_otm_matching(
     }
 
 
-def clustering_loss(
+def lcc_knn_indices(
     z: Tensor,
     y_true: np.ndarray | Tensor,
     y_clst: np.ndarray | Tensor,
@@ -130,87 +175,164 @@ def clustering_loss(
     k: int = DEFAULT_K,
     n_true_classes: int | None = None,
     device: Literal["cpu", "cuda"] | None = None,
-) -> Tensor:
+) -> dict[int, tuple[Any, Tensor]]:
     """
-    Mean distance between every missed point and the average distance to their
-    correctly clustered k-nearest neighbors in the same class.
+    The matching between true classes and cluster classes reveal which samples
+    are correctly clustered and which aren't. This method fits some KNN indices
+    on correctly clustered samples in a given class.
 
-    In more details, let $a_i$ be the true class of $z_i$, and $\\\\{ b_{i, 1},
-    \\\\ldots \\\\}$ be the cluster classes matched to the true class $a_i$. If
-    $z_i$ is a "missed points", i.e. if the cluster class of $z_i$ is not among
-    $\\\\{ b_{i, 1}, \\\\ldots \\\\}$, then it will contribute a term to the
-    clustering loss, equal to the mean distance between $z_i$ and its k-nearest
-    neighbors in class $a_i$ and that also belong to one of the matched cluster
-    classes $b_{i, j}$ (i.e. k-nearest neighbors in the same class that are
-    furthermore correctly clustered)
-
-    The clustering loss is the average of these terms, divided by
-    $\\\\sqrt{d}$, where $d$ is the dimension of the latent space.
+    Say `z` has shape `(N, d)`. Then this methods returns a dict where
+    - the keys are *among* true classes (unique values of `y_true`)
+    - if `i_true` is a true class in the dict, then the value at key `i_true` is
+      a tuple `(knn, v)` where
+      - `knn` is a `NearestNeighbors` object from either sklearn
+        (https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html)
+        or `cuml`
+        (https://docs.rapids.ai/api/cuml/stable/api/#cuml.neighbors.NearestNeighbors)
+        depending on the value of `device`.
+      - `v` is a tensor of shape `(N_i, d)` containing all correctly clustered
+        samples in true class `i_true`; in particular, `knn` was fit on `v`, and
+        the indices returned by `knn.kneighbors` are valid in `v`.
 
     Warning:
-        This method has a few pitfalls:
-        * the values of `y_true` must be between `0` and `n_true_classes - 1`
-          (see below);
-        * the values of `y_clst` must be in the union of the sets in
-          `matching`;
-        * the keys of `matching` must be integers (or int strings) between `0`
-          and `n_true_classes - 1` (see below).
+        Not every true class might be represented in the return dict. For
+        example, in the ideal scenario where `y_true == y_clst` (up to label
+        permutation), the returned dict would be empty. More generally, if a
+        class has too few misclustered samples, then it is not included.
 
     Args:
         z (Tensor):
-        y_true (np.ndarray | Tensor): `int` array of true labels
-        y_clst (np.ndarray | None, optional): `int` array of cluster classes,
-            whose values are in the union of the sets in `matching`.
+        y_true (np.ndarray | Tensor):
+        y_clst (np.ndarray | Tensor):
         matching (dict[int, set[int]] | dict[str, set[int]]):
         k (int, optional):
-        n_true_classes (int | None, optional): Number of true classes. If left
-            to `None`, then it is assumed that `y_true` contains all the
-            classes, and so `n_true_classes = y_true.max() + 1`.
-        device (Literal["cpu", "cuda"] | None, optional): If left to `None`,
-            uses CUDA if it is available, otherwise falls back to CPU. Setting
-            `cuda` while CUDA isn't available will silently fall back to CPU.
+        n_true_classes (int | None, optional): Number of true classes. Useful if
+            `y_true` is a slice of the real true label vector and does not
+            contain all the possible true classes of the dataset at hand.  If
+            `None`, then `y_true` is assumed to contain all classes, and so
+            `n_true_classes` defaults to `y_true.max() + 1`.
+        device (Literal["cpu", "cuda"] | None, optional):
     """
     if (device == "cuda" or device is None) and torch.cuda.is_available():
         from cuml.neighbors import NearestNeighbors
     else:
         from sklearn.neighbors import NearestNeighbors
 
-    def _np(a: Tensor) -> np.ndarray:
-        return a.cpu().detach().numpy()
-
-    y_true = _np(y_true) if isinstance(y_true, Tensor) else y_true
-    y_clst = _np(y_clst) if isinstance(y_clst, Tensor) else y_clst
-    assert isinstance(y_true, np.ndarray)  # For typechecking
-    assert isinstance(y_clst, np.ndarray)  # For typechecking
-    matching = {int(a): bs for a, bs in matching.items()}
-
-    p1, p2, p_mc, _ = otm_matching_predicates(
-        y_true, y_clst, matching, c_a=n_true_classes or int(y_true.max() + 1)
+    p_mc, p_cc = _mc_cc_predicates(
+        y_true, y_clst, matching, n_true_classes=n_true_classes
     )
-    p_cc = p1 & p2
-    # Reminder: p_cc and p_mc have shape (n_true_classes, n_samples) and
-    # * p_cc[i_true, j] is True if z[j] is in true class i_true and correctly
-    #   clustered (i.e. in a cluster matched with true class i_true);
-    # * p_mc[i_true, j] is True if z[j] is in true class i_true and
-    #   missclustered (i.e. not in any cluster matched with true class i_true)
-    # WARNING: p_cc != ~p_mc ;)
-    losses = []
-    for p_cc_i, p_mc_i in zip(p_cc, p_mc):
+    result: dict[int, tuple[NearestNeighbors, Tensor]] = {}
+    for i_true, (p_cc_i, p_mc_i) in enumerate(zip(p_cc, p_mc)):
         if p_cc_i.sum() < k:  # Not enough corr. clst. samples in this class
             continue
         if not p_mc_i.any():  # No missclst. samples in this class
             continue
-        z_cc_i, z_mc_i = z[p_cc_i], z[p_mc_i]
         index = NearestNeighbors(n_neighbors=k)
-        index.fit(_np(z_cc_i))
-        _, knni = index.kneighbors(_np(z_mc_i))
-        u = z_cc_i[knni]  # k corr. clst. NNs of missclst. samples
-        u = u.mean(dim=1)  # z_mc_i[j] should go towards u[j]
-        loss = torch.norm(z_mc_i - u, dim=-1).sum() / sqrt(z.shape[-1])
-        losses.append(loss)
-    if not losses:
+        index.fit(_np(z[p_cc_i]))
+        result[i_true] = (index, z[p_cc_i])
+
+    return result
+
+
+def lcc_loss(
+    z: Tensor, targets: dict[int, tuple[np.ndarray, Tensor]]
+) -> Tensor:
+    """
+    Derives the clustering correction loss from a tensor of latent
+    representation `z` and dict of targets (see
+    `nlnas.correction.clustering.clustering_correction_targets`)
+
+    Usage:
+        knn_indices = lcc_knn_indices(
+            z,
+            y_true,
+            y_clst,
+            matching,
+            k=k,
+            n_true_classes=n_true_classes,
+            device=device
+        )
+        targets = lcc_targets(
+            z,
+            y_true,
+            y_clst,
+            matching,
+            knn_indices,
+            n_true_classes=n_true_classes,
+        )
+        loss = lcc_loss(z, targets)
+
+    The clustering loss is the mean distance between a sample and its target,
+    (divided by $\\\\sqrt{d}$, where $d$ is `z.shape[-1]` is the dimension of
+    the latent space). If a sample does not have a target, then its "distance"
+    is understood to be $0$.
+
+    Args:
+        z (Tensor):
+        targets (dict[int, tuple[np.ndarray, Tensor]]): As produced by
+            `nlnas.correction.clustering.lcc_targets`
+    """
+    if not targets:
         return torch.tensor(0.0, requires_grad=True).to(z.device)
+    losses = [
+        torch.norm(z[p] - t.to(z.device), dim=-1).sum() / sqrt(z.shape[-1])
+        for _, (p, t) in targets.items()
+    ]
     return torch.stack(losses).sum() / len(z)
+
+
+def lcc_targets(
+    z: Tensor,
+    y_true: np.ndarray | Tensor,
+    y_clst: np.ndarray | Tensor,
+    matching: dict[int, set[int]] | dict[str, set[int]],
+    knn_indices: dict[int, tuple[Any, Tensor]],
+    n_true_classes: int | None = None,
+) -> dict[int, tuple[np.ndarray, Tensor]]:
+    """
+    Provides the correction targets for misclustered samples in `z`.
+
+    In more details, this method returns a dict where:
+    - the keys are *among* true classes (unique values of `y_true`) and in fact
+      are the same keys as `knn_indices`;
+    - if `i_true` is a true class in the dict, then the value at key `i_true` is
+      a tuple `(p, t)` where:
+      - `p` is an boolean array of shape `(N,)` that marks misclustered
+        samples in true class `i_true`; if `N_miss_i` is the number of
+        misclustered samples in true class `i_true`, then `p` of course has
+        exactly `N_miss_i` `True` entries;
+      - `t` is a tensor of shape `(N_miss_i, d)` and `t[j]` is the correction
+        target of `z[p][j]`, i.e. a point in the latent space that `z[p][j]`,
+        the $j$-th misclustered sample in true class `i_true`, should move
+        towards.
+
+    Args:
+        z (Tensor):
+        y_true (np.ndarray | Tensor):
+        y_clst (np.ndarray | Tensor):
+        matching (dict[int, set[int]] | dict[str, set[int]]):
+        knn_indices (dict[int, tuple[Any, Tensor]]): As produced by
+            `lcc_knn_indices`
+        n_true_classes (int | None, optional): Number of true classes. Useful if
+            `y_true` is a slice of the real true label vector and does not
+            contain all the possible true classes of the dataset at hand.  If
+            `None`, then `y_true` is assumed to contain all classes, and so
+            `n_true_classes` defaults to `y_true.max() + 1`.
+    """
+    p_mc, _ = _mc_cc_predicates(y_true, y_clst, matching, n_true_classes)
+    result: dict[int, tuple[np.ndarray, Tensor]] = {}
+    for i_true, (index, v) in knn_indices.items():
+        p_mc_i = p_mc[i_true]
+        if not p_mc_i.any():  # No missclst. samples in this class
+            continue
+        z_mc_i = z[p_mc_i]  # Misclst. samples in true class `i_true`
+        js = index.kneighbors(_np(z_mc_i), return_distance=False)
+        # ↑ v[js]: (N_miss_i, k, d), v[js][j] is the `k`-NN neighbors of
+        # z_mc_i[j] among the correctly clustered samples in true class `i_true`
+        t = v[js].mean(dim=1)
+        # ↑ t: (N_miss_i, d), t[j] is the correction target of z_mc_i[j]
+        result[i_true] = (p_mc_i, t)
+    return result
 
 
 def otm_matching_predicates(
@@ -265,18 +387,21 @@ def otm_matching_predicates(
             If `None`, then `y_a` is assumed to contain all classes, and so
             `c_a = y_a.max() + 1`.
     """
-    y_a = y_a if isinstance(y_a, np.ndarray) else y_a.detach().cpu().numpy()
-    y_b = y_b if isinstance(y_b, np.ndarray) else y_b.detach().cpu().numpy()
+    y_a, y_b = _np(y_a), _np(y_b)
     c_a = c_a or int(y_a.max() + 1)
-    assert isinstance(c_a, int)  # For typechecking
+    # assert isinstance(c_a, int)  # For typechecking
     m = {int(k): v for k, v in matching.items()}
     p1 = [y_a == a for a in range(c_a)]
     p2 = [
         (
-            np.sum([np.zeros_like(y_b)] + [y_b == b for b in m[a]], axis=0) > 0
+            np.sum(
+                [np.zeros_like(y_b)] + [y_b == b for b in m.get(a, [])],
+                axis=0,
+            )
+            > 0
             if a in m
-            else np.full_like(y_a, False, dtype=bool)
-        )  # a is not matched in m
+            else np.full_like(y_a, False, dtype=bool)  # a isn't matched in m
+        )
         for a in range(c_a)
     ]
     p3 = [p1[a] & ~p2[a] for a in range(c_a)]
