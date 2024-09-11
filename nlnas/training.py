@@ -80,7 +80,7 @@ def checkpoint_ves(path: str | Path) -> tuple[int, int, int]:
     returns the **v**ersion number (2), the number of **e**pochs (32), and the
     number of **s**teps (5181).
     """
-    r = r".*version_(\d+)/checkpoints/epoch=(\d+)-step=(\d+)\.ckpt"
+    r = r".*version_(\d+)/checkpoints/epoch=(\d+)-step=(\d+).*\.ckpt"
     if m := re.match(r, str(path)):
         return int(m.group(1)), int(m.group(2)), int(m.group(3))
     raise ValueError(f"Path '{path}' is not a valid checkpoint path")
