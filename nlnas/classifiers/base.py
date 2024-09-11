@@ -95,10 +95,9 @@ class BaseClassifier(pl.LightningModule):
     label_key: Any
     logit_key: Any
 
-    # Used during training with correction
+    # Used during training with LCC
     _y_true: Tensor
-    _n_classes: int
-    _lc_data: dict[str, LatentClusteringData] = {}
+    _lc_data: dict[str, LatentClusteringData]
 
     # pylint: disable=unused-argument
     def __init__(
@@ -186,9 +185,8 @@ class BaseClassifier(pl.LightningModule):
         )
         assert isinstance(logits, Tensor)
         loss_ce = nn.functional.cross_entropy(logits, y.long())
-        compute_cl = self.lcc_submodules and self.clst_weight > 0
-        if compute_cl:
-            idx, _losses = batch["_idx"].cpu().numpy(), []
+        if hasattr(self, "_lc_data"):
+            idx, _losses = batch["_idx"].cpu(), []
             for sm, z in latent.items():
                 targets = lcc_targets(
                     z,
@@ -196,24 +194,25 @@ class BaseClassifier(pl.LightningModule):
                     y_clst=self._lc_data[sm].y_clst[idx],
                     matching=self._lc_data[sm].matching,
                     knn_indices=self._lc_data[sm].knn_indices,
-                    n_true_classes=self._n_classes,
+                    n_true_classes=self.n_classes,
                 )
-                _losses.append(lcc_loss(z, targets))
+                l = lcc_loss(z, targets)
+                _losses.append(l)
+                self.log(f"{stage}/lcc/{sm}", l, sync_dist=True)
             loss_clst = torch.stack(_losses).mean()
+            self.log(f"{stage}/lcc", loss_clst, sync_dist=True)
             loss = self.ce_weight * loss_ce + self.clst_weight * loss_clst
         else:
             loss_clst, loss = torch.tensor(0.0), loss_ce
         if stage:
             log = {
                 f"{stage}/loss": loss,
-                f"{stage}/ce": loss_ce,
                 f"{stage}/acc": multiclass_accuracy(
                     logits, y, num_classes=self.n_classes, average="micro"
                 ),
             }
-            if compute_cl:
-                log[f"{stage}/lcc"] = loss_clst
             self.log_dict(log, prog_bar=True, sync_dist=True)
+            self.log(f"{stage}/ce", loss_ce, sync_dist=True)
         return loss
 
     def configure_optimizers(self) -> Any:
@@ -328,17 +327,11 @@ class BaseClassifier(pl.LightningModule):
             self.log("lr", _lr(opts), sync_dist=True)
         return super().on_train_batch_end(*args, **kwargs)
 
-    def on_train_start(self) -> None:
-        """
-        Stores the entire dataset label vector in `_y_true` and the number
-        of classes in `_n_classes`
-        """
-        if self.lcc_submodules and self.clst_weight > 0:
-            dm = self.trainer.datamodule  # type: ignore
-            assert isinstance(dm, HuggingFaceDataset)
-            self._y_true = dm.y_true("train")
-            self._n_classes = dm.n_classes("train")
-        return super().on_train_start()
+    def on_train_end(self) -> None:
+        """Cleans up training specific temporary attributes"""
+        del self._y_true
+        del self._lc_data
+        return super().on_train_end()
 
     def on_train_epoch_start(self) -> None:
         """
@@ -364,17 +357,24 @@ class BaseClassifier(pl.LightningModule):
                     scaling="standard",
                     tqdm_style="console",
                 )
-            nors = [  # Non-outlier ratio
-                (d.y_clst >= 0).sum() / d.y_clst.shape[0]
-                for d in self._lc_data.values()
-            ]
-            self.log("train/nor", np.mean(nors), on_epoch=True)
+            log = {}
+            for sm, d in self._lc_data.items():
+                outlier_ratio = (d.y_clst < 0).sum() / d.y_clst.shape[0]
+                log["train/outl_r/" + sm] = outlier_ratio
+                log["train/n_clusters/" + sm] = len(np.unique(d.y_clst))
+            self.log_dict(log)
         return super().on_train_epoch_start()
 
-    def on_train_epoch_end(self) -> None:
-        """Cleans up training epoch specific temporary attributes."""
-        self._lc_data = {}
-        return super().on_train_epoch_end()
+    def on_train_start(self) -> None:
+        """
+        Stores the entire dataset label vector in `_y_true` and the number
+        of classes in `_n_classes`
+        """
+        if self.lcc_submodules and self.clst_weight > 0:
+            dm = self.trainer.datamodule  # type: ignore
+            assert isinstance(dm, HuggingFaceDataset)
+            self._y_true = dm.y_true("train")
+        return super().on_train_start()
 
     # pylint: disable=arguments-differ
     def test_step(self, batch: Batch, *_, **__) -> Tensor:
