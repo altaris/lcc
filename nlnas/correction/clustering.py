@@ -228,7 +228,7 @@ def lcc_knn_indices(
         if not p_mc_i.any():  # No missclst. samples in this class
             continue
         index = NearestNeighbors(n_neighbors=k)
-        index.fit(_np(z[p_cc_i]))
+        index.fit(_np(z[p_cc_i].flatten(1)))
         result[i_true] = (index, z[p_cc_i])
 
     return result
@@ -326,7 +326,7 @@ def lcc_targets(
         if not p_mc_i.any():  # No missclst. samples in this class
             continue
         z_mc_i = z[p_mc_i]  # Misclst. samples in true class `i_true`
-        js = index.kneighbors(_np(z_mc_i), return_distance=False)
+        js = index.kneighbors(_np(z_mc_i.flatten(1)), return_distance=False)
         # ↑ v[js]: (N_miss_i, k, d), v[js][j] is the `k`-NN neighbors of
         # z_mc_i[j] among the correctly clustered samples in true class `i_true`
         t = v[js].mean(dim=1)
