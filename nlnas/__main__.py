@@ -38,7 +38,7 @@ def main(logging_level: str):
 )
 @click.option(
     "-lw",
-    "--clst-weight",
+    "--lcc-weight",
     default=1,
     help="Weight of the clustering loss term. Defaults to 1.",
     type=float,
@@ -144,7 +144,7 @@ def correct(
     dataset_name: str,
     ckpt_path: Path | None,
     lcc_submodules: str,
-    clst_weight: float,
+    lcc_weight: float,
     ce_weight: float,
     output_dir: Path,
     max_epochs: int,
@@ -173,7 +173,7 @@ def correct(
         dataset_name=dataset_name,
         output_dir=output_dir,
         lcc_submodules=lcc_submodules.split(","),
-        clst_weight=clst_weight,
+        lcc_weight=lcc_weight,
         ce_weight=ce_weight,
         max_epochs=max_epochs,
         batch_size=batch_size,

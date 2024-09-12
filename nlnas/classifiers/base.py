@@ -87,7 +87,7 @@ class BaseClassifier(pl.LightningModule):
     n_classes: int
 
     lcc_submodules: list[str]
-    clst_weight: float
+    lcc_weight: float
     lcc_kwargs: dict[str, Any]
     ce_weight: float
 
@@ -104,7 +104,7 @@ class BaseClassifier(pl.LightningModule):
         self,
         n_classes: int,
         lcc_submodules: list[str] | None = None,
-        clst_weight: float = 1,
+        lcc_weight: float = 0,
         lcc_kwargs: dict[str, Any] | None = None,
         ce_weight: float = 1,
         image_key: Any = 0,
@@ -123,7 +123,7 @@ class BaseClassifier(pl.LightningModule):
             lcc_submodules (list[str] | None, optional): Submodules to consider
                 for the latent correction loss. If `None` or `[]`, LCC is not
                 performed
-            clst_weight (float, optional): Weight of the clustering loss in the
+            lcc_weight (float, optional): Weight of the clustering loss in the
                 clustering-CE loss. Ignored if `lcc_submodules` is `None` or
                 `[]`
             lcc_kwargs (dict, optional): Passed to the correction loss function.
@@ -171,7 +171,7 @@ class BaseClassifier(pl.LightningModule):
                 for sm in lcc_submodules
             ]
         )
-        self.clst_weight, self.lcc_kwargs = clst_weight, lcc_kwargs or {}
+        self.lcc_weight, self.lcc_kwargs = lcc_weight, lcc_kwargs or {}
         self.ce_weight = ce_weight
         self.image_key, self.label_key = image_key, label_key
         self.logit_key = logit_key
@@ -199,19 +199,21 @@ class BaseClassifier(pl.LightningModule):
                 l = lcc_loss(z, targets)
                 _losses.append(l)
                 self.log(f"{stage}/lcc/{sm}", l, sync_dist=True)
-            loss_clst = torch.stack(_losses).mean()
-            self.log(f"{stage}/lcc", loss_clst, sync_dist=True)
-            loss = self.ce_weight * loss_ce + self.clst_weight * loss_clst
+            loss_lcc = torch.stack(_losses).mean()
+            self.log(f"{stage}/lcc", loss_lcc, sync_dist=True)
+            loss = self.ce_weight * loss_ce + self.lcc_weight * loss_lcc
         else:
-            loss_clst, loss = torch.tensor(0.0), loss_ce
+            loss_lcc, loss = torch.tensor(0.0), loss_ce
         if stage:
-            log = {
-                f"{stage}/loss": loss,
-                f"{stage}/acc": multiclass_accuracy(
+            self.log(f"{stage}/loss", loss, sync_dist=True)
+            self.log(
+                f"{stage}/acc",
+                multiclass_accuracy(
                     logits, y, num_classes=self.n_classes, average="micro"
                 ),
-            }
-            self.log_dict(log, prog_bar=True, sync_dist=True)
+                prog_bar=True,
+                sync_dist=True,
+            )
             self.log(f"{stage}/ce", loss_ce, sync_dist=True)
         return loss
 
@@ -338,7 +340,7 @@ class BaseClassifier(pl.LightningModule):
         Performs dataset-wide latent clustering and stores the results in
         `_lc_data`.
         """
-        if self.lcc_submodules and self.clst_weight > 0:
+        if self.lcc_submodules and self.lcc_weight > 0:
             joblib_config = {
                 "backend": "loky",
                 "n_jobs": get_reasonable_n_jobs(),
