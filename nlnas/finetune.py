@@ -96,13 +96,8 @@ def finetune(
             label_key=label_key,
             logit_key=logit_key,
             optimizer="adam",
-            optimizer_kwargs={
-                "lr": 5e-5,
-                "weight_decay": 0,
-                "betas": (0.9, 0.999),
-                "eps": 1e-8,
-            },
-            scheduler="linearlr",
+            optimizer_kwargs={"lr": 5e-5},
+            # scheduler="linearlr",
         )
         trainer = make_trainer(_model_name, _output_dir, max_epochs)
         start = datetime.now()
