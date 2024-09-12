@@ -85,20 +85,14 @@ class BaseClassifier(pl.LightningModule):
         `Tensor`.
     """
 
-    n_classes: int
-
     lcc_submodules: list[str]
-    lcc_weight: float
-    lcc_kwargs: dict[str, Any]
-    ce_weight: float
-
+    n_classes: int
     image_key: Any
     label_key: Any
     logit_key: Any
 
     # Used during training with LCC
-    _y_true: Tensor
-    _lc_data: dict[str, LatentClusteringData]
+    _lc_data: dict[str, LatentClusteringData] | None = None
 
     # pylint: disable=unused-argument
     def __init__(
@@ -162,8 +156,17 @@ class BaseClassifier(pl.LightningModule):
                 [`pl.LightningModule`](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#)
         """
         super().__init__(**kwargs)
-        self.save_hyperparameters(ignore=["model"])
-        self.n_classes = n_classes
+        self.save_hyperparameters(
+            "ce_weight",
+            "clustering_method",
+            "lcc_kwargs",
+            "lcc_submodules",
+            "lcc_weight",
+            "optimizer_kwargs",
+            "optimizer",
+            "scheduler_kwargs",
+            "scheduler",
+        )
         self.lcc_submodules = (
             []
             if lcc_submodules is None
@@ -172,8 +175,7 @@ class BaseClassifier(pl.LightningModule):
                 for sm in lcc_submodules
             ]
         )
-        self.lcc_weight, self.lcc_kwargs = lcc_weight, lcc_kwargs or {}
-        self.ce_weight = ce_weight
+        self.n_classes = n_classes
         self.image_key, self.label_key = image_key, label_key
         self.logit_key = logit_key
 
@@ -186,7 +188,7 @@ class BaseClassifier(pl.LightningModule):
         )
         assert isinstance(logits, Tensor)
         loss_ce = nn.functional.cross_entropy(logits, y.long())
-        if hasattr(self, "_lc_data"):
+        if self._lc_data:
             idx, _losses = batch["_idx"].cpu(), []
             for sm, z in latent.items():
                 targets = lcc_targets(
@@ -202,11 +204,17 @@ class BaseClassifier(pl.LightningModule):
                 self.log(f"{stage}/lcc/{sm}", l, sync_dist=True)
             loss_lcc = torch.stack(_losses).mean()
             self.log(f"{stage}/lcc", loss_lcc, sync_dist=True)
-            loss = self.ce_weight * loss_ce + self.lcc_weight * loss_lcc
+            loss = (
+                self.hparams["ce_weight"] * loss_ce
+                + self.hparams["lcc_weight"] * loss_lcc
+            )
         else:
             loss_lcc, loss = torch.tensor(0.0), loss_ce
         if stage:
-            self.log(f"{stage}/loss", loss, sync_dist=True)
+            self.log_dict(
+                {f"{stage}/loss": loss, f"{stage}/ce": loss_ce},
+                sync_dist=True,
+            )
             self.log(
                 f"{stage}/acc",
                 multiclass_accuracy(
@@ -215,7 +223,6 @@ class BaseClassifier(pl.LightningModule):
                 prog_bar=True,
                 sync_dist=True,
             )
-            self.log(f"{stage}/ce", loss_ce, sync_dist=True)
         return loss
 
     def configure_optimizers(self) -> Any:
@@ -338,8 +345,7 @@ class BaseClassifier(pl.LightningModule):
 
     def on_train_end(self) -> None:
         """Cleans up training specific temporary attributes"""
-        del self._y_true
-        del self._lc_data
+        self._lc_data = None
         return super().on_train_end()
 
     def on_train_epoch_start(self) -> None:
@@ -347,7 +353,7 @@ class BaseClassifier(pl.LightningModule):
         Performs dataset-wide latent clustering and stores the results in
         `_lc_data`.
         """
-        if self.lcc_submodules and self.lcc_weight > 0:
+        if self.lcc_submodules and self.hparams["lcc_weight"] > 0:
             joblib_config = {
                 "backend": "loky",
                 "n_jobs": get_reasonable_n_jobs(),
@@ -371,7 +377,7 @@ class BaseClassifier(pl.LightningModule):
                 outlier_ratio = (d.y_clst < 0).sum() / d.y_clst.shape[0]
                 log["train/outl_r/" + sm] = outlier_ratio
                 log["train/n_clusters/" + sm] = len(np.unique(d.y_clst))
-            self.log_dict(log)
+            self.log_dict(log, sync_dist=True)
         return super().on_train_epoch_start()
 
     def on_train_start(self) -> None:
