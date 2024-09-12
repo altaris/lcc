@@ -24,7 +24,7 @@ echo
 echo "=================================================="
 echo "FILE:           $FILE"
 echo "LCC_SUBMODULES: $LCC_SUBMODULES"
-echo "LCC_WEIGHT:    $LCC_WEIGHT"
+echo "LCC_WEIGHT:     $LCC_WEIGHT"
 echo "CE_WEIGHT:      $CE_WEIGHT"
 echo "=================================================="
 echo
