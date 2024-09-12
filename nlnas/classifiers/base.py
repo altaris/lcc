@@ -1,6 +1,7 @@
 """Base image classifier class that support clustering correction loss"""
 
 from dataclasses import dataclass
+from itertools import product
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Callable, Literal, Sequence, TypeAlias
@@ -368,14 +369,16 @@ class BaseClassifier(pl.LightningModule):
         return super().on_train_epoch_start()
 
     def on_train_start(self) -> None:
-        """
-        Stores the entire dataset label vector in `_y_true` and the number
-        of classes in `_n_classes`
-        """
-        if self.lcc_submodules and self.clst_weight > 0:
-            dm = self.trainer.datamodule  # type: ignore
-            assert isinstance(dm, HuggingFaceDataset)
-            self._y_true = dm.y_true("train")
+        """Explicitly registers hyperparameters and metrics"""
+        self.logger.log_hyperparams(  # type: ignore
+            self.hparams,  # type: ignore
+            {
+                s + "/" + m: np.nan
+                for s, m in product(
+                    ["train", "val"], ["acc", "loss", "ce", "lcc"]
+                )
+            },
+        )
         return super().on_train_start()
 
     # pylint: disable=arguments-differ
