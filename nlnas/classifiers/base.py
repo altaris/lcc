@@ -230,7 +230,13 @@ class BaseClassifier(pl.LightningModule):
                 optimizer,
                 **(self.hparams.get("scheduler_kwargs") or {}),
             )
-            return {"optimizer": optimizer, "scheduler": scheduler}
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {
+                    "scheduler": scheduler,
+                    "monitor": "train/loss",
+                },
+            }
         return optimizer
 
     def forward_intermediate(

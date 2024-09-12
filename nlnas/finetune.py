@@ -161,7 +161,7 @@ def make_trainer(
         max_epochs (int, optional):
     """
     tb_logger = pl.loggers.TensorBoardLogger(
-        str(output_dir / "tb_logs"), name=model_name
+        str(output_dir / "tb_logs"), name=model_name, default_hp_metric=False
     )
     csv_logger = pl.loggers.CSVLogger(
         str(output_dir / "csv_logs"), name=model_name
