@@ -63,7 +63,7 @@ def load_tensor_batched(
     for path in make_tqdm(tqdm_style)(paths, "Loading", leave=False):
         batch = st.load_file(path)[key]
         n_loaded_rows += batch.shape[0]
-        if mask is not None:
+        if not (mask is None or mask.all()):
             # TODO: need to copy the masked tensor to make sure the original one
             # is garbage collected?
             batch = batch[mask[n_loaded_rows - batch.shape[0] : n_loaded_rows]]

@@ -16,17 +16,20 @@ from torch.utils.hooks import RemovableHandle
 from torchmetrics.functional.classification import multiclass_accuracy
 
 from ..correction import (
+    ClusteringMethod,
+    LCCClassSelection,
+    choose_classes,
     class_otm_matching,
+    get_cluster_labels,
     lcc_knn_indices,
     lcc_loss,
     lcc_targets,
-    louvain_communities,
 )
 from ..datasets.huggingface import HuggingFaceDataset
 from ..utils import get_reasonable_n_jobs, load_tensor_batched, make_tqdm
 
 Batch: TypeAlias = dict[str, Tensor]
-ClusteringMethod: TypeAlias = Literal["louvain", "dbscan", "hdbscan"]
+
 
 OPTIMIZERS: dict[str, type] = {
     "asgd": torch.optim.ASGD,
@@ -70,11 +73,12 @@ class LatentClusteringData:
     given latent space. Contents are self-explanatory.
     """
 
-    y_clst: np.ndarray
+    y_clst: np.ndarray  # (n_samples,)
     matching: dict[int, set[int]]
     knn_indices: dict[int, tuple[Any, Tensor]]
 
 
+# pylint: disable=arguments-differ
 class BaseClassifier(pl.LightningModule):
     """
     See module documentation
@@ -85,8 +89,8 @@ class BaseClassifier(pl.LightningModule):
         `Tensor`.
     """
 
-    lcc_submodules: list[str]
     n_classes: int
+    lcc_submodules: list[str]
     image_key: Any
     label_key: Any
     logit_key: Any
@@ -101,6 +105,7 @@ class BaseClassifier(pl.LightningModule):
         lcc_submodules: list[str] | None = None,
         lcc_weight: float = 0,
         lcc_kwargs: dict[str, Any] | None = None,
+        lcc_class_selection: LCCClassSelection = "all",
         ce_weight: float = 1,
         image_key: Any = 0,
         label_key: Any = 1,
@@ -123,6 +128,12 @@ class BaseClassifier(pl.LightningModule):
                 `[]`
             lcc_kwargs (dict, optional): Passed to the correction loss function.
                 Ignored if `lcc_submodules` is `None` or `[]`
+            lcc_class_selection (LCCClassSelection, optional): How to select
+                (true) classes whose samples will undergo LCC. If the dataset is
+                large, it might not be desirable to perform LCC on the whole
+                dataset. See `nlnas.correction.choice.LCCClassSelection` for
+                more information. Defaults to `"all"` which means full-dataset
+                LCC.
             ce_weight (float, optional): Weight of the cross-entropy loss in the
                 clustering-CE loss. Ignored if `lcc_submodules` is `None` or
                 `[]`
@@ -162,6 +173,7 @@ class BaseClassifier(pl.LightningModule):
             "lcc_kwargs",
             "lcc_submodules",
             "lcc_weight",
+            "lcc_class_selection",
             "optimizer_kwargs",
             "optimizer",
             "scheduler_kwargs",
@@ -203,13 +215,13 @@ class BaseClassifier(pl.LightningModule):
                 _losses.append(l)
                 self.log(f"{stage}/lcc/{sm}", l, sync_dist=True)
             loss_lcc = torch.stack(_losses).mean()
-            self.log(f"{stage}/lcc", loss_lcc, sync_dist=True)
             loss = (
                 self.hparams["ce_weight"] * loss_ce
                 + self.hparams["lcc_weight"] * loss_lcc
             )
+            self.log(f"{stage}/lcc", loss_lcc, sync_dist=True)
         else:
-            loss_lcc, loss = torch.tensor(0.0), loss_ce
+            loss = loss_ce
         if stage:
             self.log_dict(
                 {f"{stage}/loss": loss, f"{stage}/ce": loss_ce},
@@ -326,6 +338,8 @@ class BaseClassifier(pl.LightningModule):
         return lambda input: input
 
     def on_train_batch_end(self, *args, **kwargs) -> None:
+        """Just logs all optimizer's learning rate"""
+
         def _lr(o: torch.optim.Optimizer) -> float:
             return o.param_groups[0]["lr"]
 
@@ -370,6 +384,7 @@ class BaseClassifier(pl.LightningModule):
                     method=self.hparams["clustering_method"],
                     device="cuda",
                     scaling="standard",
+                    classes=self.hparams["lcc_class_selection"],
                     tqdm_style="console",
                 )
             log = {}
@@ -381,7 +396,10 @@ class BaseClassifier(pl.LightningModule):
         return super().on_train_epoch_start()
 
     def on_train_start(self) -> None:
-        """Explicitly registers hyperparameters and metrics"""
+        """
+        Explicitly registers hyperparameters and metrics. You'd think Lightning
+        would do this automatically, but nope.
+        """
         self.logger.log_hyperparams(  # type: ignore
             self.hparams,  # type: ignore
             {
@@ -393,16 +411,67 @@ class BaseClassifier(pl.LightningModule):
         )
         return super().on_train_start()
 
-    # pylint: disable=arguments-differ
     def test_step(self, batch: Batch, *_, **__) -> Tensor:
         return self._evaluate(batch, "test")
 
-    # pylint: disable=arguments-differ
     def training_step(self, batch: Batch, *_, **__) -> Tensor:
         return self._evaluate(batch, "train")
 
     def validation_step(self, batch: Batch, *_, **__) -> Tensor:
         return self._evaluate(batch, "val")
+
+
+def _inflate_vector(
+    v: np.ndarray | Tensor, mask: np.ndarray | Tensor
+) -> np.ndarray:
+    """
+    Say `v` has shape (n_a,) while `mask` has shape (n_b,). This function
+    "inflates" `v` into a vector `w` of shape (n_b,) such that `v = w[mask]`.
+    Values of `w` that don't fall in the mask are set to -1.
+    """
+    v = v.cpu().numpy() if isinstance(v, Tensor) else v
+    mask = mask.cpu().numpy() if isinstance(mask, Tensor) else mask
+    w = np.full_like(mask, -1, dtype=v.dtype)
+    w[mask] = v
+    return w
+
+
+def full_dataset_evaluation(
+    model: BaseClassifier,
+    dataset: HuggingFaceDataset,
+    output_dir: str | Path,
+    split: Literal["train", "val", "test"] = "train",
+    tqdm_style: Literal["notebook", "console", "none"] | None = None,
+) -> None:
+    """
+    Evaluate model on whole dataset and saves latent representations and
+    prediction batches in `output_dir`.
+    """
+    dl = dataset.get_dataloader(split)
+    output_dir, tqdm = Path(output_dir) / split, make_tqdm(tqdm_style)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    with torch.no_grad():
+        model.eval()
+        for idx, batch in enumerate(tqdm(dl, "Evaluating", leave=False)):
+            todo = [
+                sm
+                for sm in model.lcc_submodules
+                if not (output_dir / f"{sm}.{idx:04}.st").exists()
+            ]
+            if not todo:
+                continue
+            out: dict[str, Tensor] = {}
+            y_pred = model.forward_intermediate(
+                inputs=batch[model.image_key],
+                submodules=todo,
+                output_dict=out,
+                keep_gradients=False,
+            )
+            assert isinstance(y_pred, Tensor)
+            out["y_pred"] = y_pred
+            for sm, z in out.items():
+                st.save_file({"": z}, output_dir / f"{sm}.{idx:04}.st")
+        model.train()
 
 
 def full_dataset_latent_clustering(
@@ -412,7 +481,7 @@ def full_dataset_latent_clustering(
     method: ClusteringMethod = "louvain",
     device: Literal["cpu", "cuda"] | None = None,
     scaling: Literal["standard", "minmax"] | None = "standard",
-    classes: list[int] | None = None,
+    classes: list[int] | LCCClassSelection | None = None,
     split: Literal["train", "val", "test"] = "train",
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> dict[str, LatentClusteringData]:
@@ -444,89 +513,48 @@ def full_dataset_latent_clustering(
         A dictionary that maps a submodule name to its latent clustering data,
         see `LatentClusteringData`.
     """
-    dl = dataset.get_dataloader(split)
-    output_dir, tqdm = Path(output_dir) / split, make_tqdm(tqdm_style)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    with torch.no_grad():
-        model.eval()
-        for idx, batch in enumerate(tqdm(dl, "Evaluating", leave=False)):
-            todo = [
-                sm
-                for sm in model.lcc_submodules
-                if not (output_dir / f"{sm}.{idx:04}.st").exists()
-            ]
-            if not todo:
-                continue
-            out: dict[str, Tensor] = {}
-            model.forward_intermediate(
-                inputs=batch[model.image_key],
-                submodules=todo,
-                output_dict=out,
-                keep_gradients=False,
-            )
-            for sm, z in out.items():
-                st.save_file({"": z}, output_dir / f"{sm}.{idx:04}.st")
-        model.train()
-    result: dict[str, LatentClusteringData] = {}
-    y_true = dataset.y_true(split)
-    mask = (
-        None if classes is None else torch.isin(y_true, torch.tensor(classes))
+
+    full_dataset_evaluation(
+        model,
+        dataset,
+        output_dir=output_dir,
+        split=split,
+        tqdm_style=tqdm_style,
     )
-    y_true = y_true[mask] if mask is not None else y_true
+    y_true = dataset.y_true(split)
+
+    # ↓ classes is just a list of classes
+    if isinstance(classes, list):
+        mask = torch.isin(y_true, torch.tensor(classes))
+        y_true = y_true[mask]
+
+    # ↓ classes is a LCCClassSelection policy (e.g. "max_connected")
+    elif isinstance(classes, str):
+        y_pred = load_tensor_batched(
+            output_dir, "y_pred", tqdm_style="console"
+        )
+        assert isinstance(y_pred, Tensor)  # For typechecking
+        classes = choose_classes(y_true, y_pred, policy=classes)
+        mask = torch.isin(y_true, torch.tensor(classes))
+        y_true = y_true[mask]
+
+    # ↓ Leaving classes to None means all classes are considered, so no mask
+    else:
+        mask = torch.full_like(y_true, True)
+
+    result: dict[str, LatentClusteringData] = {}
+    tqdm = make_tqdm(tqdm_style)
     for sm in tqdm(model.lcc_submodules, "Clustering", leave=False):
         z = load_tensor_batched(
             output_dir, sm, mask=mask, tqdm_style="console"
         )
         y_clst = get_cluster_labels(z, method, scaling, device)
-        matching = class_otm_matching(y_true[: z.shape[0]], y_clst)
+        matching = class_otm_matching(y_true, y_clst)
         indices = lcc_knn_indices(z, y_true, y_clst, matching, device=device)
         result[sm] = LatentClusteringData(
-            y_clst=y_clst, matching=matching, knn_indices=indices
+            y_clst=_inflate_vector(y_clst, mask),
+            matching=matching,
+            knn_indices=indices,
         )
+
     return result
-
-
-# pylint: disable=duplicate-code
-def get_cluster_labels(
-    z: np.ndarray | Tensor,
-    method: ClusteringMethod = "louvain",
-    scaling: Literal["standard", "minmax"] | None = "standard",
-    device: Literal["cpu", "cuda"] | None = None,
-    **kwargs,
-) -> np.ndarray:
-    """
-    Convenience method that dispatches to the appropriate clustering algorithm.
-    Also performs some preprocessing as required.
-
-    Args:
-        z (np.ndarray | Tensor):
-        method (Literal["louvain", "dbscan", "hdbscan"], optional):
-        scaling (Literal["standard", "minmax"] | None, optional):
-        device (Literal["cpu", "cuda"] | None, optional):
-        **kwargs: Passed to the clustering object
-    """
-    use_cuda = (
-        device == "cuda" or device is None
-    ) and torch.cuda.is_available()
-
-    if use_cuda:
-        from cuml.cluster import DBSCAN, HDBSCAN
-        from cuml.preprocessing import MinMaxScaler, StandardScaler
-    else:
-        from sklearn.cluster import DBSCAN, HDBSCAN
-        from sklearn.preprocessing import MinMaxScaler, StandardScaler
-
-    if isinstance(z, Tensor):
-        z = z.cpu().detach().numpy()
-    z = z.reshape(len(z), -1)
-    if scaling == "standard":
-        z = StandardScaler().fit_transform(z)
-    elif scaling == "minmax":
-        z = MinMaxScaler().fit_transform(z)
-    if method == "louvain":
-        return louvain_communities(z, device=device, **kwargs)[1]
-    if method == "dbscan":
-        return DBSCAN(**kwargs).fit(z).labels_
-    if method == "hdbscan":
-        return HDBSCAN(**kwargs).fit(z).labels_
-    raise ValueError(f"Unsupported clustering method '{method}'")

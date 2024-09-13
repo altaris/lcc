@@ -3,7 +3,7 @@
 
 from itertools import product
 from math import sqrt
-from typing import Any, Literal
+from typing import Any, Literal, TypeAlias
 
 import networkx as nx
 import numpy as np
@@ -11,6 +11,8 @@ import torch
 from torch import Tensor
 
 DEFAULT_K: int = 2
+
+ClusteringMethod: TypeAlias = Literal["louvain", "dbscan", "hdbscan"]
 
 
 def _otm_matching(
@@ -94,8 +96,6 @@ def _mc_cc_predicates(
             `n_true_classes` defaults to `y_true.max() + 1`.
     """
     y_true, y_clst = _np(y_true), _np(y_clst)
-    # assert isinstance(y_true, np.ndarray)  # For typechecking
-    # assert isinstance(y_clst, np.ndarray)  # For typechecking
     matching = {int(a): bs for a, bs in matching.items()}
     p1, p2, p_mc, _ = otm_matching_predicates(
         y_true, y_clst, matching, c_a=n_true_classes or int(y_true.max() + 1)
@@ -149,9 +149,7 @@ def class_otm_matching(
         y_a (np.ndarray | Tensor): A `(N,)` integer array.
         y_b (np.ndarray | Tensor): A `(N,)` integer array.
     """
-    y_a = y_a.cpu().detach().numpy() if isinstance(y_a, Tensor) else y_a
-    y_b = y_b.cpu().detach().numpy() if isinstance(y_b, Tensor) else y_b
-    match_graph = nx.DiGraph()
+    y_a, y_b, match_graph = _np(y_a), _np(y_b), nx.DiGraph()
     for i, j in product(np.unique(y_a), np.unique(y_b)):
         n = np.sum((y_a == i) & (y_b == j))
         match_graph.add_edge(f"a_{i}", f"b_{j}", weight=n)
@@ -387,6 +385,10 @@ def otm_matching_predicates(
             If `None`, then `y_a` is assumed to contain all classes, and so
             `c_a = y_a.max() + 1`.
     """
+    if (la := len(y_a)) != (lb := len(y_b)):
+        raise ValueError(
+            f"y_a and y_b must have the same length, got {la} and {lb}"
+        )
     y_a, y_b = _np(y_a), _np(y_b)
     c_a = c_a or int(y_a.max() + 1)
     # assert isinstance(c_a, int)  # For typechecking
@@ -400,7 +402,7 @@ def otm_matching_predicates(
             )
             > 0
             if a in m
-            else np.full_like(y_a, False, dtype=bool)  # a isn't matched in m
+            else np.full_like(y_b, False, dtype=bool)  # a isn't matched in m
         )
         for a in range(c_a)
     ]
