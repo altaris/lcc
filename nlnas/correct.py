@@ -99,7 +99,7 @@ def correct(
         optimizer_kwargs={"lr": 5e-5},
         lcc_weight=lcc_weight,
         lcc_submodules=lcc_submodules,
-        lcc_class_selection="top_connected_10",
+        lcc_class_selection="max_connected",
         ce_weight=ce_weight,
     )
     if isinstance(ckpt_path, Path):
