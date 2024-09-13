@@ -15,7 +15,7 @@ echo '███████  ██████  ██████'
 FILE=out/ft/cifar100/timm-tinynet_e.in1k/results.json
 LCC_SUBMODULES=classifier
 
-LCC_WEIGHT=1e-1
+LCC_WEIGHT=1e-3
 CE_WEIGHT=1
 
 export CUDA_VISIBLE_DEVICES=0
