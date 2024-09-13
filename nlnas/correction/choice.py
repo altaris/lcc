@@ -24,16 +24,17 @@ LCCClassSelection: TypeAlias = Literal[
 How to select (true) classes whose samples will undergo LCC.
 - `all`: Consider all classes, which means that LCC shall be performed on the
   whole dataset.
-- `top_pair_<N>`: Consider the top `N` confusion pairs.  This is **not** a
-  "connected" choice, i.e. it is possible that not every two classes are
-  confused with each other. For example, policy `top_pair_2` may choose classes,
-  say, `0`, `1`, `2`, `3`, with `(0, 1)` being the top confused pair, `(2, 3)`
-  being the second most confused pair, but where classes `1` and `2` are not
-  confused at all. Also, note that the this choice may return less than `2 * N`
-  classes. This happens if the same class is in more than one top `N` confusion
-  pair.
-- `top_connected_<N>`: Considers the heaviest `N` (or less) node subgraph in the
-  confusion graph. Note that `top_connected_2` is equivalent to `top_pair_1`.
+- `top_pair_<N>`: Consider the top `N` confusion pairs.  This is **not**
+  necessarily a "connected" choice, i.e. it is possible that not every two
+  classes are confused with each other. For example, policy `top_pair_2` may
+  choose classes, say, `0`, `1`, `2`, `3`, with `(0, 1)` being the top confused
+  pair, `(2, 3)` being the second most confused pair, but where the pairs `(0,
+  2)`, `(0, 3)`, `(1, 2)` and `(1, 3)` are not confused at all. Also, note that
+  the this choice may return less than `2 * N` classes. This happens if the same
+  class is in more than one top `N` confusion pair.
+- `top_connected_<N>`: Considers the heaviest `N` (or less) node connected
+  subgraph in the confusion graph. Note that `top_connected_2` is equivalent to
+  `top_pair_1`.
 - `max_connected`: Consider the largest connected component of the confusion
   graph (see `nlnas.correction.choice.max_connected_confusion_choice` and
   `nlnas.correction.choice.confusion_graph`).
