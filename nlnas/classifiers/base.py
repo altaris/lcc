@@ -448,7 +448,7 @@ def full_dataset_evaluation(
     prediction batches in `output_dir`.
     """
     dl = dataset.get_dataloader(split)
-    output_dir, tqdm = Path(output_dir) / split, make_tqdm(tqdm_style)
+    output_dir, tqdm = Path(output_dir), make_tqdm(tqdm_style)
     output_dir.mkdir(parents=True, exist_ok=True)
     with torch.no_grad():
         model.eval()
@@ -503,17 +503,18 @@ def full_dataset_latent_clustering(
         model (BaseClassifier):
         dataset (HuggingFaceDataset):
         output_dir (str | Path):
-        classes (list[int] | None, optional): If specified, then only the
-            specified true classes are considered for clustering (however, all
-            samples are still evaluated regardless of class). Use this if there
-            are too many true classes, or if the dataset is just too large to
-            fit in memory (e.g. ImageNet).
+        classes (list[int] | LCCClassSelection | None, optional): If specified,
+            then only the specified true classes are considered for clustering
+            (however, all samples are still evaluated regardless of class). Use
+            this if there are too many true classes, or if the dataset is just
+            too large to fit in memory (e.g. ImageNet).
 
     Returns:
         A dictionary that maps a submodule name to its latent clustering data,
         see `LatentClusteringData`.
     """
 
+    output_dir = Path(output_dir) / split
     full_dataset_evaluation(
         model,
         dataset,
