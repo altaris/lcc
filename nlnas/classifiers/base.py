@@ -213,7 +213,6 @@ class BaseClassifier(pl.LightningModule):
                 )
                 l = lcc_loss(z, targets)
                 _losses.append(l)
-                self.log(f"{stage}/lcc/{sm}", l, sync_dist=True)
             loss_lcc = torch.stack(_losses).mean()
             loss = (
                 self.hparams["ce_weight"] * loss_ce
