@@ -1,5 +1,0 @@
-black
-huggingface_hub[cli]
-mypy
-pdoc
-pylint
