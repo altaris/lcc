@@ -6,10 +6,9 @@
 
 ## Installation
 
-```sh
-pip install -r requirements.txt -r requirements.dev.txt
-pip install --extra-index-url https://pypi.nvidia.com -r requirements.cuda12.txt
-```
+Make sure [`uv`](https://docs.astral.sh/uv/) is installed. There's no need to
+explicitely create or activate a virtual environment, `uv` takes care of
+everything.
 
 ## Usage
 
@@ -21,21 +20,9 @@ pip install --extra-index-url https://pypi.nvidia.com -r requirements.cuda12.txt
 
 ### Dependencies
 
-- `python3.10`;
-- `requirements.txt` for runtime dependencies;
-- `requirements.dev.txt` for development dependencies.
-- `make` (optional);
-
-Simply run
-
-```sh
-virtualenv venv -p python3.10
-. ./venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-python -m pip install -r requirements.dev.txt
-python -m pip install --no-cache-dir --extra-index-url https://pypi.nvidia.com -r requirements.cuda12.txt
-```
+- `python3.10`,
+- [`uv`](https://docs.astral.sh/uv/),
+- `make` (optional).
 
 ### Documentation
 
@@ -60,6 +47,5 @@ Don't forget to run
 make
 ```
 
-to format the code following [black](https://pypi.org/project/black/),
-typecheck it using [mypy](http://mypy-lang.org/), and check it against coding
-standards using [pylint](https://pylint.org/).
+to format and check the code using [`ruff`](https://docs.astral.sh/ruff/) and
+typecheck it using [mypy](http://mypy-lang.org/).

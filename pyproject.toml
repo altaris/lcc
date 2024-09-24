@@ -6,7 +6,7 @@
         "datasets[vision]>=3.0.0",
         "loguru>=0.7.2",
         "networkx>=3.3",
-        "numpy>=2.1.1",
+        "numpy==1.23",
         "pillow>=10.4.0",
         "pytorch-lightning>=2.4.0",
         "regex>=2024.9.11",
@@ -16,12 +16,13 @@
         "timm>=1.0.9",
         "torch>=2.4.1",
         "transformers>=4.44.2",
+        "turbo-broccoli>=4.12.2",
     ]
     description = "Latent cluster corrections"
     license = { file = "LICENSE" }
     name = "nlnas"
     readme = "README.md"
-    requires-python = "==3.11"
+    requires-python = "==3.10"
     version = "0.0.0"
     [project.urls]
         "Bug Tracker" = "https://github.com/altaris/nlnas/issues"
@@ -30,8 +31,13 @@
         Homepage      = "https://github.com/altaris/nlnas"
         Repository    = "https://github.com/altaris/nlnas.git"
     [project.optional-dependencies]
+        cuda12 = ["cuml-cu12", "nx-cugraph-cu12"]
         dev = ["huggingface-hub[cli]>=0.25.1", "pdoc>=14.7.0"]
-        jupyter = ["ipykernel>=6.29.5", "ipywidgets>=8.1.5"]
+        jupyter = [
+            "ipykernel>=6.29.5",
+            "ipywidgets>=8.1.5",
+            "jupyter-black>=0.4.0",
+        ]
         plotting = [
             "bokeh>=3.5.2",
             "matplotlib>=3.9.2",
@@ -95,3 +101,6 @@
             "F403", # `from module import *` used; unable to detect undefined names
             "F405", # `name` may be undefined, or defined from star imports: module
         ]
+    [tool.uv.sources]
+        cuml-cu12       = { url = "https://pypi.nvidia.com/cuml-cu12/cuml_cu12-24.8.0-cp310-cp310-manylinux_2_28_x86_64.whl" }
+        nx-cugraph-cu12 = { url = "https://pypi.nvidia.com/nx-cugraph-cu12/nx_cugraph_cu12-24.8.0-py3-none-any.whl" }

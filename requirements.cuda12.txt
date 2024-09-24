@@ -1,2 +1,0 @@
-cuml-cu12
-nx-cugraph-cu12
