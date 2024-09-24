@@ -3,7 +3,9 @@
         "**/.ipynb_checkpoints": true,
         "**/.mypy_cache": true,
         "**/__pycache__": true,
-        "venv": true
+        "venv": true,
+        ".venv": true,
+        ".ruff_cache": true,
     },
     "files.watcherExclude": {
         "**/.git/objects/**": true,
@@ -16,7 +18,8 @@
         "lightning_logs": true,
         "out": true,
         "out.*": true,
-        "venv": true
-    },
-    "python.analysis.typeCheckingMode": "off"
+        "venv": true,
+        ".venv": true,
+        ".ruff_cache": true,
+    }
 }
