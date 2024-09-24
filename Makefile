@@ -26,7 +26,7 @@ format:
 
 .PHONY: lint
 lint:
-	uvx ruff check
+	uvx ruff check --exclude '*.ipynb' --exclude 'old/'
 
 .PHONY: typecheck
 typecheck:

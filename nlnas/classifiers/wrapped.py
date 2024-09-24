@@ -85,7 +85,7 @@ def replace_head(
     new_head = nn.Linear(
         in_features=head.in_features,
         out_features=out_features,
-        bias=not (head.bias is None),
+        bias=head.bias is not None,
     )
     parent = module.get_submodule(".".join(head_name.split(".")[:-1]))
     if isinstance(parent, nn.Sequential):

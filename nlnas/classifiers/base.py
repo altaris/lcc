@@ -211,8 +211,7 @@ class BaseClassifier(pl.LightningModule):
                     knn_indices=self._lc_data[sm].knn_indices,
                     n_true_classes=self.n_classes,
                 )
-                l = lcc_loss(z, targets)
-                _losses.append(l)
+                _losses.append(lcc_loss(z, targets))
             loss_lcc = torch.stack(_losses).mean()
             loss = (
                 self.hparams["ce_weight"] * loss_ce

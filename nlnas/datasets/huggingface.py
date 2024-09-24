@@ -119,7 +119,7 @@ class HuggingFaceDataset(WrappedDataset):
                     ds.set_transform(image_processor)
                 if apply_filter and classes:
                     ds = ds.filter(
-                        lambda l: l in classes, input_columns=label_key
+                        lambda lbl: lbl in classes, input_columns=label_key
                     )
                 ds = ds.add_column("_idx", range(len(ds)))
                 return ds
