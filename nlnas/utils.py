@@ -19,7 +19,9 @@ def best_device() -> str:
         return (
             "cuda"
             if torch.cuda.is_available()
-            else "mps" if torch.backends.mps.is_available() else "cpu"
+            else "mps"
+            if torch.backends.mps.is_available()
+            else "cpu"
         )
     return accelerator
 
@@ -85,7 +87,7 @@ def get_reasonable_n_jobs() -> int:
 
 
 def make_tqdm(
-    style: Literal["notebook", "console", "none"] | None = "console"
+    style: Literal["notebook", "console", "none"] | None = "console",
 ) -> Callable:
     """Returns the appropriate tqdm factory function based on the style"""
 

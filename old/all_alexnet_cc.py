@@ -6,11 +6,11 @@ import torchvision.transforms as tvtr
 from loguru import logger as logging
 
 from nlnas.classifier import TorchvisionClassifier
+from nlnas.dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
 from nlnas.logging import setup_logging
 from nlnas.nlnas import train_and_analyse_all
 from nlnas.training import best_checkpoint_path, train_model_guarded
 from nlnas.transforms import cifar10_normalization
-from nlnas.dataset import DEFAULT_DATALOADER_KWARGS, TorchvisionDataset
 from nlnas.utils import best_device
 
 

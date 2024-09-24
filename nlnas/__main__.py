@@ -56,7 +56,9 @@ def main(logging_level: str):
 @click.option(
     "-c",
     "--ckpt-path",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path),  # type: ignore
+    type=click.Path(
+        exists=True, file_okay=True, dir_okay=False, path_type=Path
+    ),  # type: ignore
     default=None,
     help=(
         "Path to the checkpoint to start the correction from. If left "

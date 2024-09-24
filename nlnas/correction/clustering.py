@@ -121,7 +121,7 @@ def class_otm_matching(
 
     Example:
 
-        >>> y_a = np.array([ 1,  1,  1,  1,  2,  2,  3,  4,  4])
+        >>> y_a = np.array([1, 1, 1, 1, 2, 2, 3, 4, 4])
         >>> y_b = np.array([10, 50, 10, 20, 20, 20, 30, 30, 30])
         >>> class_otm_matching(y_a, y_b)
         {1: {10, 50}, 2: {20}, 3: set(), 4: {30}}

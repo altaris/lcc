@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pytorch_lightning as pl
 import torch
-from torchvision.models import ResNet18_Weights, AlexNet_Weights
+from torchvision.models import AlexNet_Weights, ResNet18_Weights
 
 from nlnas.classifier import TorchvisionClassifier
 from nlnas.imagenet import ImageNet

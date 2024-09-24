@@ -160,6 +160,7 @@ def gaussian_mixture_plot(
 
     ```py
     import bokeh.plotting as bk
+
     plot = bk.figure()
     gaussian_mixture_plot(plot, gm)
     bk.show(plot)

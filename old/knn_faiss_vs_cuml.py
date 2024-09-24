@@ -1,9 +1,9 @@
-import numpy as np
-import faiss
 from datetime import datetime
+
+import faiss
+import numpy as np
 import torch
 from cuml.neighbors import NearestNeighbors
-
 
 n, d, k = 10000, 4096, 5
 

@@ -2,8 +2,8 @@
 Kills every `/usr/bin/python3.10` process listed by `nvidia-smi`.
 """
 
-import subprocess
 import re
+import subprocess
 
 if __name__ == "__main__":
     raw = subprocess.check_output(["nvidia-smi"])

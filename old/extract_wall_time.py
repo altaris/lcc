@@ -17,11 +17,11 @@ The results are written to `out/wall.csv` which looks like this:
 """
 
 from pathlib import Path
+from pyexpat import model
 
 import pandas as pd
 import regex as re
 from loguru import logger as logging
-from pyexpat import model
 from tensorboard.backend.event_processing import event_accumulator
 
 OUTPUT_DIR = Path("out")

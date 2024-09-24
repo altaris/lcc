@@ -1,6 +1,5 @@
 """Everything related to separability of point clouds"""
 
-
 from itertools import combinations
 from math import sqrt
 from typing import Iterable
