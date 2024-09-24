@@ -13,9 +13,9 @@ echo '███████  ██████  ██████'
 
 # FILE=out/ft/cifar100/timm-mobilenetv3_small_050.lamb_in1k/results.json
 FILE=out/ft/cifar100/timm-tinynet_e.in1k/results.json
-LCC_SUBMODULES=classifier
+LCC_SUBMODULES=blocks.6
 
-LCC_WEIGHT=1e-3
+LCC_WEIGHT=5e-3
 CE_WEIGHT=1
 
 export CUDA_VISIBLE_DEVICES=0
@@ -29,7 +29,7 @@ echo "CE_WEIGHT:      $CE_WEIGHT"
 echo "=================================================="
 echo
 
-python -m nlnas correct \
+uv run python -m nlnas correct \
     $(jq -r .model.name < $FILE) \
     $(jq -r .dataset.name < $FILE) \
     $LCC_SUBMODULES \

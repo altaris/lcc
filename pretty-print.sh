@@ -20,7 +20,7 @@ echo "OUTPUT_FILE: $OUTPUT_FILE"
 echo "=================================================="
 echo
 
-ARCH=$(python -m nlnas pretty-print "$MODEL")
+ARCH=$(uv run python -m nlnas pretty-print "$MODEL")
 echo "$ARCH"
 
 mkdir -p arch

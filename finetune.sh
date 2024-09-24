@@ -19,11 +19,11 @@ echo '██      ██ ██   ████ ███████        █�
 # MODEL="microsoft/resnet-18"
 # HEAD_NAME="classifier.1"
 
-# MODEL="timm/mobilenetv3_small_050.lamb_in1k"
-# HEAD_NAME="classifier"
-
-MODEL="timm/tinynet_e.in1k"
+MODEL="timm/mobilenetv3_small_050.lamb_in1k"
 HEAD_NAME="classifier"
+
+# MODEL="timm/tinynet_e.in1k"
+# HEAD_NAME="classifier"
 
 DATASET="cifar100"
 TRAIN_SPLIT='train[:80%]'
@@ -53,7 +53,7 @@ echo "LABEL_KEY:   $LABEL_KEY"
 echo "=================================================="
 echo
 
-python -m nlnas finetune \
+uv run python -m nlnas finetune \
     "$MODEL" "$DATASET" out/ft \
     --train-split "$TRAIN_SPLIT" \
     --val-split "$VAL_SPLIT" \
