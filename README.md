@@ -6,9 +6,12 @@
 
 ## Installation
 
-Make sure [`uv`](https://docs.astral.sh/uv/) is installed. There's no need to
-explicitely create or activate a virtual environment, `uv` takes care of
-everything.
+Make sure [`uv`](https://docs.astral.sh/uv/) is installed. Then run
+
+```sh
+uv python install 3.10
+uv sync --all-extras
+```
 
 ## Usage
 
