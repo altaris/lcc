@@ -6,6 +6,7 @@ from typing import Literal, TypeAlias
 
 import networkx as nx
 import numpy as np
+import torch
 from torch import Tensor
 from torchmetrics.functional.classification import multiclass_confusion_matrix
 from tqdm import tqdm
@@ -220,13 +221,25 @@ def max_connected_confusion_choice(
 
 
 def top_confusion_pairs(
-    y_pred: Tensor,
-    y_true: Tensor,
+    y_pred: Tensor | np.ndarray | list[int],
+    y_true: Tensor | np.ndarray | list[int],
     n_classes: int,
     n_pairs: int | None = None,
     threadhold: int = 0,
 ) -> list[tuple[int, int]]:
-    """Returns the"""
+    """
+    Returns the top `n_pairs` top pairs of labels that exhibit the most
+    confusion. The confusion between two labels `i` and `j` is the number of
+    samples in true class `i` that are predicted as class `j`, plus the number
+    of samples in true class `j` that are predicted as class `i`.
+
+    Example:
+        >>> y_pred, y_true = [0, 0, 1, 1, 2, 2], [0, 1, 1, 2, 2, 0]
+        >>> top_confusion_pairs(y_pred, y_true, n_classes=3, n_pairs=2)
+        [(1, 2), (0, 2)]
+    """
+    y_pred = torch.tensor(y_pred) if not isinstance(y_pred, Tensor) else y_pred
+    y_true = torch.tensor(y_true) if not isinstance(y_true, Tensor) else y_true
     cm = multiclass_confusion_matrix(y_pred, y_true, n_classes).numpy()
     cm = cm + cm.T  # Confusion in either direction
     cm = cm * (1 - np.eye(len(cm)))  # Remove the diagonal
@@ -235,24 +248,3 @@ def top_confusion_pairs(
     cp = np.stack(np.unravel_index(idx, cm.shape)).T
     lst = [(i, j) for i, j in cp if cm[i, j] > threadhold and i < j]
     return lst if n_pairs is None else lst[:n_pairs]
-
-
-# def uniform_choice(
-#     a: Tensor,
-#     n: int | None = None,
-#     generator: torch.Generator | None = None,
-# ) -> Tensor:
-#     """
-#     Analogous to
-#     [`numpy.random.choice`](https://numpy.org/doc/stable/reference/random/generated/numpy.random.choice.html)
-#     except the selection is without replacement the selection distribution is
-#     uniform.
-
-#     Args:
-#         a (Tensor): Tensor to sample from.
-#         n (int | None, optional): Number of samples to draw. If `None`, returns
-#             a permutation of `a`
-#         generator (torch.Generator | None, optional):
-#     """
-#     idx = torch.randperm(len(a), generator=generator)
-#     return a[idx] if n is None else a[idx[:n]]

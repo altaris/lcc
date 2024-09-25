@@ -5,6 +5,7 @@
         "click>=8.1.7",
         "datasets[vision]>=3.0.0",
         "loguru>=0.7.2",
+        "more-itertools>=10.5.0",
         "networkx>=3.3",
         "numpy==1.23",
         "pillow>=10.4.0",
