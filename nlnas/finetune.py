@@ -10,7 +10,7 @@ import turbo_broccoli as tb
 
 from .classifiers import BaseClassifier, HuggingFaceClassifier, TimmClassifier
 from .datasets import HuggingFaceDataset
-from .logging import r0_info
+from .logging import r0_debug, r0_info
 from .training import NoCheckpointFound, best_checkpoint_path, checkpoint_ves
 
 DEFAULT_MAX_GRAD_NORM = 1.0
@@ -100,7 +100,7 @@ def finetune(
             optimizer_kwargs={"lr": 5e-5},
             # scheduler="linearlr",
         )
-        r0_info(
+        r0_debug(
             "Model hyperparameters:\n{}", json.dumps(model.hparams, indent=4)
         )
         trainer = make_trainer(_model_name, _output_dir, max_epochs)
@@ -174,7 +174,7 @@ def make_trainer(
         max_epochs=max_epochs,
         callbacks=[
             pl.callbacks.EarlyStopping(
-                monitor="val/loss", patience=10, mode="min"
+                monitor="val/loss", patience=20, mode="min"
             ),
             pl.callbacks.ModelCheckpoint(
                 save_top_k=-1, monitor="val/loss", mode="min", every_n_epochs=1

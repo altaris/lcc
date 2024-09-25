@@ -12,7 +12,7 @@ from loguru import logger as logging
 from .classifiers import BaseClassifier, HuggingFaceClassifier, TimmClassifier
 from .datasets import HuggingFaceDataset
 from .finetune import make_trainer
-from .logging import r0_info
+from .logging import r0_debug, r0_info
 from .training import checkpoint_ves
 
 
@@ -26,6 +26,7 @@ def correct(
     ce_weight: float = 1,
     lcc_weight: float = 1,
     lcc_interval: int = 1,
+    lcc_warmup: int = 0,
     max_epochs: int = 100,
     batch_size: int = 64,
     train_split: str = "train",
@@ -49,6 +50,7 @@ def correct(
         ce_weight (float, optional):
         lcc_weight (float, optional):
         lcc_interval (int, optional):
+        lcc_warmup (int, optional):
         max_epochs (int, optional):
         batch_size (int, optional):
         train_split (str, optional):
@@ -102,8 +104,9 @@ def correct(
         optimizer_kwargs={"lr": 5e-5},
         lcc_weight=lcc_weight,
         lcc_submodules=lcc_submodules,
-        lcc_class_selection="max_connected",
+        lcc_class_selection="top_pair_5",
         lcc_interval=lcc_interval,
+        lcc_warmup=lcc_warmup,
         ce_weight=ce_weight,
     )
     if isinstance(ckpt_path, Path):
@@ -112,7 +115,7 @@ def correct(
             ckpt_path
         ).model
         r0_info("Loaded checkpoint '{}'", ckpt_path)
-    r0_info("Model hyperparameters:\n{}", json.dumps(model.hparams, indent=4))
+    r0_debug("Model hyperparameters:\n{}", json.dumps(model.hparams, indent=4))
 
     trainer = make_trainer(
         _model_name,

@@ -8,7 +8,7 @@ from loguru import logger as logging
 
 
 @click.group()
-@click.option(
+@click.option(  # --logging-level
     "--logging-level",
     default=os.getenv("LOGGING_LEVEL", "info"),
     help=(
@@ -32,25 +32,32 @@ def main(logging_level: str):
 @click.argument("model_name", type=str)
 @click.argument("dataset_name", type=str)
 @click.argument("lcc_submodules", type=str)
-@click.argument(
+@click.argument(  # output_dir
     "output_dir",
     type=click.Path(file_okay=False, dir_okay=True, path_type=Path),  # type: ignore
 )
-@click.option(
+@click.option(  # --lcc-weight
     "-lw",
     "--lcc-weight",
     default=1,
     help="Weight of the clustering loss term. Defaults to 1.",
     type=float,
 )
-@click.option(
+@click.option(  # --lcc-interval
     "-li",
     "--lcc-interval",
     default=1,
     help="Apply LCC every n epochs. Defaults to 1 (every epoch).",
-    type=float,
+    type=int,
 )
-@click.option(
+@click.option(  # --lcc-warmup
+    "-lm",
+    "--lcc-warmup",
+    default=0,
+    help="Nb. of epoch to wait for LCC. Defaults to 0 (no warmup).",
+    type=int,
+)
+@click.option(  # --ce-weight
     "-cw",
     "--ce-weight",
     default=1,
@@ -60,7 +67,7 @@ def main(logging_level: str):
     ),
     type=float,
 )
-@click.option(
+@click.option(  # --ckpt-path
     "-c",
     "--ckpt-path",
     type=click.Path(
@@ -73,7 +80,7 @@ def main(logging_level: str):
         "the Hugging Face model hub."
     ),
 )
-@click.option(
+@click.option(  # --max-epochs
     "-e",
     "--max-epochs",
     default=100,
@@ -83,21 +90,21 @@ def main(logging_level: str):
     ),
     type=int,
 )
-@click.option(
+@click.option(  # --batch-size
     "-bs",
     "--batch-size",
     default=64,
     help="Batch size. Defaults to 64.",
     type=int,
 )
-@click.option(
+@click.option(  # --train-split
     "-ts",
     "--train-split",
     default="train",
     help="Name of the training data split in the dataset. Defaults to 'train'.",
     type=str,
 )
-@click.option(
+@click.option(  # --val-split
     "-vs",
     "--val-split",
     default="val",
@@ -106,28 +113,28 @@ def main(logging_level: str):
     ),
     type=str,
 )
-@click.option(
+@click.option(  # --test-split
     "-es",
     "--test-split",
     default="test",
     help="Name of the test data split in the dataset. Defaults to 'train'.",
     type=str,
 )
-@click.option(
+@click.option(  # --image-key
     "-ik",
     "--image-key",
     default="image",
     help="Image column name in the dataset. Defaults to 'image'.",
     type=str,
 )
-@click.option(
+@click.option(  # --label-key
     "-lk",
     "--label-key",
     default="label",
     help="Label column name in the dataset. Defaults to 'label'.",
     type=str,
 )
-@click.option(
+@click.option(  # --logit-key
     "-gk",
     "--logit-key",
     default="logits",
@@ -137,7 +144,7 @@ def main(logging_level: str):
     ),
     type=str,
 )
-@click.option(
+@click.option(  # --head-name
     "-hn",
     "--head-name",
     default=None,
@@ -155,6 +162,7 @@ def correct(
     lcc_submodules: str,
     lcc_weight: float,
     lcc_interval: int,
+    lcc_warmup: int,
     ce_weight: float,
     output_dir: Path,
     max_epochs: int,
@@ -187,6 +195,7 @@ def correct(
         label_key=label_key,
         lcc_interval=lcc_interval,
         lcc_submodules=lcc_submodules.split(","),
+        lcc_warmup=lcc_warmup,
         lcc_weight=lcc_weight,
         logit_key=logit_key,
         max_epochs=max_epochs,
@@ -201,11 +210,11 @@ def correct(
 @main.command()
 @click.argument("model_name", type=str)
 @click.argument("dataset_name", type=str)
-@click.argument(
+@click.argument(  # output_dir
     "output_dir",
     type=click.Path(file_okay=False, dir_okay=True, path_type=Path),  # type: ignore
 )
-@click.option(
+@click.option(  # --max-epochs
     "-e",
     "--max-epochs",
     default=100,
@@ -215,21 +224,21 @@ def correct(
     ),
     type=int,
 )
-@click.option(
+@click.option(  # --batch-size
     "-bs",
     "--batch-size",
     default=64,
     help="Batch size. Defaults to 64.",
     type=int,
 )
-@click.option(
+@click.option(  # --train-split
     "-ts",
     "--train-split",
     default="train",
     help="Name of the training data split in the dataset. Defaults to 'train'.",
     type=str,
 )
-@click.option(
+@click.option(  # --val-split
     "-vs",
     "--val-split",
     default="val",
@@ -238,28 +247,28 @@ def correct(
     ),
     type=str,
 )
-@click.option(
+@click.option(  # --test-split
     "-es",
     "--test-split",
     default="test",
     help="Name of the test data split in the dataset. Defaults to 'train'.",
     type=str,
 )
-@click.option(
+@click.option(  # --image-key
     "-ik",
     "--image-key",
     default="image",
     help="Image column name in the dataset. Defaults to 'image'.",
     type=str,
 )
-@click.option(
+@click.option(  # --label-key
     "-lk",
     "--label-key",
     default="label",
     help="Label column name in the dataset. Defaults to 'label'.",
     type=str,
 )
-@click.option(
+@click.option(  # --logit-key
     "-gk",
     "--logit-key",
     default="logits",
@@ -269,7 +278,7 @@ def correct(
     ),
     type=str,
 )
-@click.option(
+@click.option(  # --head-name
     "-hn",
     "--head-name",
     default=None,
@@ -319,13 +328,13 @@ def finetune(
 
 @main.command()
 @click.argument("model_name", type=str)
-@click.option(
+@click.option(  # --include-non-trainable
     "-i",
     "--include-non-trainable",
     help="Display non-trainable parameters.",
     is_flag=True,
 )
-@click.option(
+@click.option(  # --max-depth
     "-d",
     "--max-depth",
     default=None,

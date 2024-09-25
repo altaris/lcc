@@ -26,6 +26,7 @@ from ..correction import (
     lcc_targets,
 )
 from ..datasets.huggingface import HuggingFaceDataset
+from ..logging import r0_debug
 from ..utils import get_reasonable_n_jobs, load_tensor_batched, make_tqdm
 
 Batch: TypeAlias = dict[str, Tensor]
@@ -107,6 +108,7 @@ class BaseClassifier(pl.LightningModule):
         lcc_kwargs: dict[str, Any] | None = None,
         lcc_class_selection: LCCClassSelection = "all",
         lcc_interval: int | None = None,
+        lcc_warmup: int | None = None,
         ce_weight: float = 1,
         image_key: Any = 0,
         label_key: Any = 1,
@@ -135,6 +137,10 @@ class BaseClassifier(pl.LightningModule):
                 dataset. See `nlnas.correction.choice.LCCClassSelection` for
                 more information. Defaults to `"all"` which means full-dataset
                 LCC.
+            lcc_interval (int, optional): Apply LCC every `lcc_interval` epochs.
+                If set to `None`, LCC is not performed.
+            lcc_warmup (int, optional): Number of epochs to wait before starting
+                LCC. Setting this to `None` is the same as setting it to 0.
             ce_weight (float, optional): Weight of the cross-entropy loss in the
                 clustering-CE loss. Ignored if `lcc_submodules` is `None` or
                 `[]`
@@ -171,11 +177,12 @@ class BaseClassifier(pl.LightningModule):
         self.save_hyperparameters(
             "ce_weight",
             "clustering_method",
-            "lcc_kwargs",
-            "lcc_submodules",
-            "lcc_weight",
             "lcc_class_selection",
             "lcc_interval",
+            "lcc_kwargs",
+            "lcc_submodules",
+            "lcc_warmup",
+            "lcc_weight",
             "optimizer_kwargs",
             "optimizer",
             "scheduler_kwargs",
@@ -367,13 +374,27 @@ class BaseClassifier(pl.LightningModule):
         Performs dataset-wide latent clustering and stores the results in
         `_lc_data`.
         """
-        correct = (  # wether to apply LCC this epoch
-            "lcc_interval" in self.hparams
-            and self.current_epoch % int(self.hparams["lcc_interval"]) == 0
+        # wether to apply LCC this epoch
+        do_full_ds_lc = (
+            # we are passed warmup (lcc_warmup being None is equivalent to no
+            # warmup)...
+            self.current_epoch >= int(self.hparams.get("lcc_warmup") or 0)
+            and (
+                # ... and an LCC interval is specified...
+                "lcc_interval" in self.hparams
+                # ... and the current epoch can have LCC done...
+                and self.current_epoch % int(self.hparams["lcc_interval"]) == 0
+            )
+            # ... and there are submodule selected for LCC...
             and self.lcc_submodules
+            # ... and the LCC weight is non-zero
             and self.hparams["lcc_weight"] > 0
         )
-        if correct:
+        if do_full_ds_lc:
+            r0_debug(
+                "Epoch {}: performing full dataset latent clustering",
+                self.current_epoch,
+            )
             joblib_config = {
                 "backend": "loky",
                 "n_jobs": get_reasonable_n_jobs(),
