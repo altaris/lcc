@@ -147,7 +147,7 @@ def finetune(
             "test": test_results,
         },
     }
-    tb.save_json(document, _output_dir / "results.json")
+    tb.save_json(document, _output_dir / f"results.{v}.json")
 
 
 def make_trainer(
