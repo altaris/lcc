@@ -21,8 +21,8 @@ docs-browser:
 
 .PHONY: format
 format:
-	uvx ruff check --select I --fix
-	uvx ruff format
+	uvx ruff check --select I --fix --exclude '*.ipynb' --exclude 'old/'
+	uvx ruff format --exclude '*.ipynb' --exclude 'old/'
 
 .PHONY: lint
 lint:
