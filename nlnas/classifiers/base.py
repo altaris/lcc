@@ -106,6 +106,7 @@ class BaseClassifier(pl.LightningModule):
         lcc_weight: float = 0,
         lcc_kwargs: dict[str, Any] | None = None,
         lcc_class_selection: LCCClassSelection = "all",
+        lcc_interval: int | None = None,
         ce_weight: float = 1,
         image_key: Any = 0,
         label_key: Any = 1,
@@ -174,6 +175,7 @@ class BaseClassifier(pl.LightningModule):
             "lcc_submodules",
             "lcc_weight",
             "lcc_class_selection",
+            "lcc_interval",
             "optimizer_kwargs",
             "optimizer",
             "scheduler_kwargs",
@@ -355,7 +357,7 @@ class BaseClassifier(pl.LightningModule):
             self.log("lr", _lr(opts), sync_dist=True)
         return super().on_train_batch_end(*args, **kwargs)
 
-    def on_train_end(self) -> None:
+    def on_train_epoch_end(self) -> None:
         """Cleans up training specific temporary attributes"""
         self._lc_data = None
         return super().on_train_end()
@@ -365,7 +367,13 @@ class BaseClassifier(pl.LightningModule):
         Performs dataset-wide latent clustering and stores the results in
         `_lc_data`.
         """
-        if self.lcc_submodules and self.hparams["lcc_weight"] > 0:
+        correct = (  # wether to apply LCC this epoch
+            "lcc_interval" in self.hparams
+            and self.current_epoch % int(self.hparams["lcc_interval"]) == 0
+            and self.lcc_submodules
+            and self.hparams["lcc_weight"] > 0
+        )
+        if correct:
             joblib_config = {
                 "backend": "loky",
                 "n_jobs": get_reasonable_n_jobs(),

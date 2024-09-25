@@ -44,6 +44,13 @@ def main(logging_level: str):
     type=float,
 )
 @click.option(
+    "-li",
+    "--lcc-interval",
+    default=1,
+    help="Apply LCC every n epochs. Defaults to 1 (every epoch).",
+    type=float,
+)
+@click.option(
     "-cw",
     "--ce-weight",
     default=1,
@@ -147,6 +154,7 @@ def correct(
     ckpt_path: Path | None,
     lcc_submodules: str,
     lcc_weight: float,
+    lcc_interval: int,
     ce_weight: float,
     output_dir: Path,
     max_epochs: int,
@@ -170,22 +178,23 @@ def correct(
     if torch.cuda.is_available():
         torch.set_float32_matmul_precision("medium")
     _correct(
-        model_name=model_name,
+        batch_size=batch_size,
+        ce_weight=ce_weight,
         ckpt_path=ckpt_path,
         dataset_name=dataset_name,
-        output_dir=output_dir,
-        lcc_submodules=lcc_submodules.split(","),
-        lcc_weight=lcc_weight,
-        ce_weight=ce_weight,
-        max_epochs=max_epochs,
-        batch_size=batch_size,
-        train_split=train_split,
-        val_split=val_split,
-        test_split=test_split,
+        head_name=head_name,
         image_key=image_key,
         label_key=label_key,
+        lcc_interval=lcc_interval,
+        lcc_submodules=lcc_submodules.split(","),
+        lcc_weight=lcc_weight,
         logit_key=logit_key,
-        head_name=head_name,
+        max_epochs=max_epochs,
+        model_name=model_name,
+        output_dir=output_dir,
+        test_split=test_split,
+        train_split=train_split,
+        val_split=val_split,
     )
 
 

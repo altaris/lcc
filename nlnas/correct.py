@@ -1,5 +1,6 @@
 """Latent clustering correction"""
 
+import json
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -22,8 +23,9 @@ def correct(
     dataset_name: str,
     output_dir: Path,
     lcc_submodules: list[str],
-    lcc_weight: float = 1,
     ce_weight: float = 1,
+    lcc_weight: float = 1,
+    lcc_interval: int = 1,
     max_epochs: int = 100,
     batch_size: int = 64,
     train_split: str = "train",
@@ -44,8 +46,9 @@ def correct(
         dataset_name (str):
         output_dir (Path):
         lcc_submodules (list[str]):
-        lcc_weight (float, optional):
         ce_weight (float, optional):
+        lcc_weight (float, optional):
+        lcc_interval (int, optional):
         max_epochs (int, optional):
         batch_size (int, optional):
         train_split (str, optional):
@@ -100,6 +103,7 @@ def correct(
         lcc_weight=lcc_weight,
         lcc_submodules=lcc_submodules,
         lcc_class_selection="max_connected",
+        lcc_interval=lcc_interval,
         ce_weight=ce_weight,
     )
     if isinstance(ckpt_path, Path):
@@ -108,6 +112,7 @@ def correct(
             ckpt_path
         ).model
         r0_info("Loaded checkpoint '{}'", ckpt_path)
+    r0_info("Model hyperparameters:\n{}", json.dumps(model.hparams, indent=4))
 
     trainer = make_trainer(
         _model_name,

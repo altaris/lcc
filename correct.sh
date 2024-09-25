@@ -14,8 +14,8 @@ echo '███████  ██████  ██████'
 # FILE=out/ft/cifar100/timm-mobilenetv3_small_050.lamb_in1k/results.json
 FILE=out/ft/cifar100/timm-tinynet_e.in1k/results.json
 LCC_SUBMODULES=blocks.6
-
-LCC_WEIGHT=5e-3
+LCC_WEIGHT=1e-2
+LCC_INTERVAL=5
 CE_WEIGHT=1
 
 export CUDA_VISIBLE_DEVICES=0
@@ -25,6 +25,7 @@ echo "=================================================="
 echo "FILE:           $FILE"
 echo "LCC_SUBMODULES: $LCC_SUBMODULES"
 echo "LCC_WEIGHT:     $LCC_WEIGHT"
+echo "LCC_INTERVAL:   $LCC_INTERVAL"
 echo "CE_WEIGHT:      $CE_WEIGHT"
 echo "=================================================="
 echo
@@ -35,6 +36,7 @@ uv run python -m nlnas correct \
     $LCC_SUBMODULES \
     out/lcc \
     --lcc-weight $LCC_WEIGHT --ce-weight $CE_WEIGHT \
+    --lcc-interval $LCC_INTERVAL \
     --ckpt-path out/ft/$(jq -r .fine_tuning.best_checkpoint.path < $FILE) \
     --train-split $(jq -r .dataset.train_split < $FILE) \
     --val-split $(jq -r .dataset.val_split < $FILE) \

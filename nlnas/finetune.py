@@ -1,5 +1,6 @@
 """Classical fine-tuning of HuggingFace models on HuggingFace datasets"""
 
+import json
 from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -98,6 +99,9 @@ def finetune(
             optimizer="adam",
             optimizer_kwargs={"lr": 5e-5},
             # scheduler="linearlr",
+        )
+        r0_info(
+            "Model hyperparameters:\n{}", json.dumps(model.hparams, indent=4)
         )
         trainer = make_trainer(_model_name, _output_dir, max_epochs)
         start = datetime.now()
