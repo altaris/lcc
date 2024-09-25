@@ -42,6 +42,13 @@ How to select (true) classes whose samples will undergo LCC.
 """
 
 
+class GraphTotallyDisconnected(ValueError):
+    """
+    Raised in `heaviest_connected_subgraph` when a graph is totally
+    disconnected.
+    """
+
+
 def confusion_graph(
     y_pred: Tensor, y_true: Tensor, n_classes: int, threshold: int = 10
 ) -> nx.Graph:
@@ -87,27 +94,26 @@ def choose_classes(
         than `N` elements. For example, this happens when there are fewer than
         `N` classes in the dataset.
     """
-
     if policy == "all":
         return None
-
     n_classes = y_true.unique().numel()
-
     if policy.startswith("top_pair_"):
         n = int(policy[9:])
         if n >= n_classes:
             return None
         pairs = top_confusion_pairs(y_pred, y_true, n_classes, n_pairs=n)
         return list(set(sum(pairs, ())))
-
-    if policy.startswith("top_connected_"):
-        n = int(policy[14:])
-        if n >= n_classes:
-            return None
-        return max_connected_confusion_choice(y_pred, y_true, n_classes, n)[0]
-
-    # max_connected policy
-    return max_connected_confusion_choice(y_pred, y_true, n_classes)[0]
+    try:
+        if policy.startswith("top_connected_"):
+            n = int(policy[14:])
+            if n >= n_classes:
+                return None
+            return max_connected_confusion_choice(
+                y_pred, y_true, n_classes, n
+            )[0]
+        return max_connected_confusion_choice(y_pred, y_true, n_classes)[0]
+    except GraphTotallyDisconnected:
+        return None
 
 
 def heaviest_connected_subgraph(
@@ -131,6 +137,16 @@ def heaviest_connected_subgraph(
     * graphs in the list that have already reached `max_size` are not modified.
     Finally, the heaviest graph is returned.
 
+    Warning:
+        Setting `strict` to `True` can make the problem impossible, e.g. if
+        `graph` doesn't have a large enough connected component. In such cases,
+        a `RuntimeError` is raised.
+
+    Warning:
+        If the graph is totally disconnected (i.e. has no edges), then a
+        `GraphTotallyDisconnected` exception is raised, rather than returning a
+        subgraph with a single node.
+
     Args:
         graph (nx.Graph):
         max_size (int | None, optional): If left to `None`, returns the
@@ -143,11 +159,10 @@ def heaviest_connected_subgraph(
     Returns:
         A connected subgraph and its total weight (see also `total_weight`).
 
-    Warning:
-        Setting `strict` to `True` can make the problem impossible, e.g. if
-        `graph` doesn't have a large enough connected component. In such cases,
-        a `RuntimeError` is raised.
+
     """
+    if not graph.edges:
+        raise GraphTotallyDisconnected()
     _total_weight = partial(total_weight, key=key)
     if max_size is None:
         subgraphs = sorted(

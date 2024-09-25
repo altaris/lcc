@@ -542,8 +542,11 @@ def full_dataset_latent_clustering(
         )
         assert isinstance(y_pred, Tensor)  # For typechecking
         classes = choose_classes(y_true, y_pred, policy=classes)
-        mask = torch.isin(y_true, torch.tensor(classes))
-        y_true = y_true[mask]
+        if classes:
+            mask = torch.isin(y_true, torch.tensor(classes))
+            y_true = y_true[mask]
+        else:
+            mask = torch.full_like(y_true, True)
 
     # ↓ Leaving classes to None means all classes are considered, so no mask
     else:
