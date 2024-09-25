@@ -12,31 +12,39 @@ echo '██      ██      ██'
 echo '███████  ██████  ██████'
 
 # FILE=out/ft/cifar100/timm-mobilenetv3_small_050.lamb_in1k/results.0.json
+# LCC_SUBMODULES=classifier
+
 FILE=out/ft/cifar100/timm-tinynet_e.in1k/results.0.json
 LCC_SUBMODULES=classifier
-LCC_WEIGHT=1
+
+LCC_WEIGHT=1e-3
 LCC_INTERVAL=1
-CE_WEIGHT=1e-3
+LCC_WARMUP=1
+CE_WEIGHT=1
 
 export CUDA_VISIBLE_DEVICES=0
 
 echo
 echo "=================================================="
-echo "FILE:           $FILE"
+echo "FT RESULT FILE: $FILE"
+echo "--------------------------------------------------"
+echo "CE_WEIGHT:      $CE_WEIGHT"
 echo "LCC_SUBMODULES: $LCC_SUBMODULES"
 echo "LCC_WEIGHT:     $LCC_WEIGHT"
 echo "LCC_INTERVAL:   $LCC_INTERVAL"
-echo "CE_WEIGHT:      $CE_WEIGHT"
+echo "LCC_WARMUP:     $LCC_WARMUP"
 echo "=================================================="
 echo
 
-uv run python -m nlnas correct \
+uv run python -m nlnas train \
     $(jq -r .model.name < $FILE) \
     $(jq -r .dataset.name < $FILE) \
-    $LCC_SUBMODULES \
     out/lcc \
-    --lcc-weight $LCC_WEIGHT --ce-weight $CE_WEIGHT \
+    --lcc-submodules $LCC_SUBMODULES \
+    --lcc-weight $LCC_WEIGHT \
     --lcc-interval $LCC_INTERVAL \
+    --lcc-warmup $LCC_WARMUP \
+    --ce-weight $CE_WEIGHT \
     --ckpt-path out/ft/$(jq -r .fine_tuning.best_checkpoint.path < $FILE) \
     --train-split $(jq -r .dataset.train_split < $FILE) \
     --val-split $(jq -r .dataset.val_split < $FILE) \

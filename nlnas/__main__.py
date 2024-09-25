@@ -31,10 +31,16 @@ def main(logging_level: str):
 @main.command()
 @click.argument("model_name", type=str)
 @click.argument("dataset_name", type=str)
-@click.argument("lcc_submodules", type=str)
 @click.argument(  # output_dir
     "output_dir",
     type=click.Path(file_okay=False, dir_okay=True, path_type=Path),  # type: ignore
+)
+@click.option(  # --lcc-submodules
+    "-ls",
+    "--lcc-submodules",
+    default="",
+    help="Comma-separated list of submodule where to apply LCC.",
+    type=str,
 )
 @click.option(  # --lcc-weight
     "-lw",
@@ -155,25 +161,25 @@ def main(logging_level: str):
     ),
     type=str,
 )
-def correct(
-    model_name: str,
-    dataset_name: str,
-    ckpt_path: Path | None,
-    lcc_submodules: str,
-    lcc_weight: float,
-    lcc_interval: int,
-    lcc_warmup: int,
-    ce_weight: float,
-    output_dir: Path,
-    max_epochs: int,
+def train(
     batch_size: int,
-    train_split: str,
-    val_split: str,
-    test_split: str,
+    ce_weight: float,
+    ckpt_path: Path | None,
+    dataset_name: str,
+    head_name: str | None,
     image_key: str,
     label_key: str,
+    lcc_interval: int,
+    lcc_submodules: str,
+    lcc_warmup: int,
+    lcc_weight: float,
     logit_key: str,
-    head_name: str | None,
+    max_epochs: int,
+    model_name: str,
+    output_dir: Path,
+    test_split: str,
+    train_split: str,
+    val_split: str,
 ):
     """
     Performs latent cluster correction on a model fine-tuning using the
@@ -181,11 +187,11 @@ def correct(
     """
     import torch
 
-    from .correct import correct as _correct
+    from .training import train as _train
 
     if torch.cuda.is_available():
         torch.set_float32_matmul_precision("medium")
-    _correct(
+    _train(
         batch_size=batch_size,
         ce_weight=ce_weight,
         ckpt_path=ckpt_path,
@@ -204,125 +210,6 @@ def correct(
         test_split=test_split,
         train_split=train_split,
         val_split=val_split,
-    )
-
-
-@main.command()
-@click.argument("model_name", type=str)
-@click.argument("dataset_name", type=str)
-@click.argument(  # output_dir
-    "output_dir",
-    type=click.Path(file_okay=False, dir_okay=True, path_type=Path),  # type: ignore
-)
-@click.option(  # --max-epochs
-    "-e",
-    "--max-epochs",
-    default=100,
-    help=(
-        "Maximum number of fine-tuning epochs. Defaults to 100. Keep "
-        "in mind that early stopping is used."
-    ),
-    type=int,
-)
-@click.option(  # --batch-size
-    "-bs",
-    "--batch-size",
-    default=64,
-    help="Batch size. Defaults to 64.",
-    type=int,
-)
-@click.option(  # --train-split
-    "-ts",
-    "--train-split",
-    default="train",
-    help="Name of the training data split in the dataset. Defaults to 'train'.",
-    type=str,
-)
-@click.option(  # --val-split
-    "-vs",
-    "--val-split",
-    default="val",
-    help=(
-        "Name of the validation data split in the dataset. Defaults to 'train'."
-    ),
-    type=str,
-)
-@click.option(  # --test-split
-    "-es",
-    "--test-split",
-    default="test",
-    help="Name of the test data split in the dataset. Defaults to 'train'.",
-    type=str,
-)
-@click.option(  # --image-key
-    "-ik",
-    "--image-key",
-    default="image",
-    help="Image column name in the dataset. Defaults to 'image'.",
-    type=str,
-)
-@click.option(  # --label-key
-    "-lk",
-    "--label-key",
-    default="label",
-    help="Label column name in the dataset. Defaults to 'label'.",
-    type=str,
-)
-@click.option(  # --logit-key
-    "-gk",
-    "--logit-key",
-    default="logits",
-    help=(
-        "Logit key in the model's output. Defaults to 'logits' which is the "
-        "usual value."
-    ),
-    type=str,
-)
-@click.option(  # --head-name
-    "-hn",
-    "--head-name",
-    default=None,
-    help=(
-        "Name of the model FC head submodule name, if it needs to be replaced "
-        "(e.g. incorrect number of output neurons for the dataset). If "
-        "specified, this name *must* point to a `nn.Linear` layer."
-    ),
-    type=str,
-)
-def finetune(
-    model_name: str,
-    dataset_name: str,
-    output_dir: Path,
-    max_epochs: int,
-    batch_size: int,
-    train_split: str,
-    val_split: str,
-    test_split: str,
-    image_key: str,
-    label_key: str,
-    logit_key: str,
-    head_name: str | None,
-):
-    """Fine-tune a HuggingFace model on a HuggingFace dataset."""
-    import torch
-
-    from .finetune import finetune as _finetune
-
-    if torch.cuda.is_available():
-        torch.set_float32_matmul_precision("medium")
-    _finetune(
-        model_name=model_name,
-        dataset_name=dataset_name,
-        output_dir=output_dir,
-        max_epochs=max_epochs,
-        batch_size=batch_size,
-        train_split=train_split,
-        val_split=val_split,
-        test_split=test_split,
-        image_key=image_key,
-        label_key=label_key,
-        logit_key=logit_key,
-        head_name=head_name,
     )
 
 

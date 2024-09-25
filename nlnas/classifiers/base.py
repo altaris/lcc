@@ -90,11 +90,10 @@ class BaseClassifier(pl.LightningModule):
         `Tensor`.
     """
 
-    n_classes: int
-    lcc_submodules: list[str]
-    image_key: Any
-    label_key: Any
-    logit_key: Any
+    n_classes: int  # TODO: use hparams instead
+    image_key: Any  # TODO: use hparams instead
+    label_key: Any  # TODO: use hparams instead
+    logit_key: Any  # TODO: use hparams instead
 
     # Used during training with LCC
     _lc_data: dict[str, LatentClusteringData] | None = None
@@ -104,9 +103,9 @@ class BaseClassifier(pl.LightningModule):
         self,
         n_classes: int,
         lcc_submodules: list[str] | None = None,
-        lcc_weight: float = 0,
+        lcc_weight: float | None = None,
         lcc_kwargs: dict[str, Any] | None = None,
-        lcc_class_selection: LCCClassSelection = "all",
+        lcc_class_selection: LCCClassSelection | None = None,
         lcc_interval: int | None = None,
         lcc_warmup: int | None = None,
         ce_weight: float = 1,
@@ -187,14 +186,6 @@ class BaseClassifier(pl.LightningModule):
             "optimizer",
             "scheduler_kwargs",
             "scheduler",
-        )
-        self.lcc_submodules = (
-            []
-            if lcc_submodules is None
-            else [
-                (sm if sm.startswith("model.") else "model." + sm)
-                for sm in lcc_submodules
-            ]
         )
         self.n_classes = n_classes
         self.image_key, self.label_key = image_key, label_key
@@ -344,6 +335,17 @@ class BaseClassifier(pl.LightningModule):
         """
         return lambda input: input
 
+    @property
+    def lcc_submodules(self) -> list[str]:
+        return (
+            []
+            if self.hparams["lcc_submodules"] is None
+            else [
+                (sm if sm.startswith("model.") else "model." + sm)
+                for sm in self.hparams["lcc_submodules"]
+            ]
+        )
+
     def on_train_batch_end(self, *args, **kwargs) -> None:
         """Just logs all optimizer's learning rate"""
 
@@ -375,22 +377,22 @@ class BaseClassifier(pl.LightningModule):
         `_lc_data`.
         """
         # wether to apply LCC this epoch
-        do_full_ds_lc = (
+        do_lcc = (
             # we are passed warmup (lcc_warmup being None is equivalent to no
             # warmup)...
-            self.current_epoch >= int(self.hparams.get("lcc_warmup") or 0)
+            self.current_epoch >= (self.hparams["lcc_warmup"] or 0)
             and (
                 # ... and an LCC interval is specified...
-                "lcc_interval" in self.hparams
+                self.hparams["lcc_interval"] is not None
                 # ... and the current epoch can have LCC done...
                 and self.current_epoch % int(self.hparams["lcc_interval"]) == 0
             )
             # ... and there are submodule selected for LCC...
             and self.lcc_submodules
             # ... and the LCC weight is non-zero
-            and self.hparams["lcc_weight"] > 0
+            and (self.hparams["lcc_weight"] or 0) > 0
         )
-        if do_full_ds_lc:
+        if do_lcc:
             r0_debug(
                 "Epoch {}: performing full dataset latent clustering",
                 self.current_epoch,

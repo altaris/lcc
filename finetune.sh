@@ -53,7 +53,7 @@ echo "LABEL_KEY:   $LABEL_KEY"
 echo "=================================================="
 echo
 
-uv run python -m nlnas finetune \
+uv run python -m nlnas train \
     "$MODEL" "$DATASET" out/ft \
     --train-split "$TRAIN_SPLIT" \
     --val-split "$VAL_SPLIT" \
