@@ -25,13 +25,28 @@ from nlnas import (
 )
 from nlnas.classifiers import BaseClassifier
 
-# Only need to change the 4 following variables -------------------------------
+# Only need to change the following few variables -----------------------------
 
 # HF_DATASET_NAME = "ILSVRC/imagenet-1k"
 HF_DATASET_NAME = "cifar100"
-
-
 HF_MODEL_NAME = "timm/mobilenetv3_small_050.lamb_in1k"
+
+RESULTS_FILE = (
+    Path("out")
+    / "lcc"
+    / "cifar100"
+    / "timm-mobilenetv3_small_050.lamb_in1k"
+    / "results.5.json"
+)
+# RESULTS_FILE = (
+#     Path("out")
+#     / "ft"
+#     / "cifar100"
+#     / "timm-mobilenetv3_small_050.lamb_in1k"
+#     / "results.json"
+# )
+
+CLUSTERING_METHOD = "louvain"
 LCC_SUBMODULES = [
     # "blocks.0",
     "blocks.1",
@@ -44,64 +59,34 @@ LCC_SUBMODULES = [
 ]
 
 
-# HF_MODEL_NAME = "microsoft/resnet-18"
-# LCC_SUBMODULES = [  # See also `nlnas.utils.pretty_print_submodules`
-#     "resnet.encoder.stages.0",
-#     "resnet.encoder.stages.1",
-#     "resnet.encoder.stages.2",
-#     "resnet.encoder.stages.3",
-#     "classifier.1",
-# ]
-
-# HF_MODEL_NAME = "google/mobilenet_v2_1.0_224"
-# LCC_SUBMODULES = [  # See also `nlnas.utils.pretty_print_submodules`
-#     "mobilenet_v2.layer.0",
-#     # "mobilenet_v2.layer.1",
-#     # "mobilenet_v2.layer.2",
-#     # "mobilenet_v2.layer.3",
-#     # "mobilenet_v2.layer.4",
-#     "mobilenet_v2.layer.5",
-#     # "mobilenet_v2.layer.6",
-#     # "mobilenet_v2.layer.7",
-#     # "mobilenet_v2.layer.8",
-#     # "mobilenet_v2.layer.9",
-#     "mobilenet_v2.layer.10",
-#     # "mobilenet_v2.layer.11",
-#     # "mobilenet_v2.layer.12",
-#     # "mobilenet_v2.layer.13",
-#     # "mobilenet_v2.layer.14",
-#     "mobilenet_v2.layer.15",
-#     # "conv_1x1",
-#     "classifier",
-# ]
-
-
-CLUSTERING_METHOD = "louvain"
-
 # Automatically set -----------------------------------------------------------
 
 DATASET_NAME = HF_DATASET_NAME.replace("/", "-")
 MODEL_NAME = HF_MODEL_NAME.replace("/", "-")
-FT_RESULT_FILE = (
-    Path("./out") / "ft" / DATASET_NAME / MODEL_NAME / "results.json"
-)
-FT_RESULTS = tb.load(FT_RESULT_FILE)
+RESULTS = tb.load(RESULTS_FILE)
 
-TRAIN_SPLIT = FT_RESULTS["dataset"]["train_split"]
-VAL_SPLIT = FT_RESULTS["dataset"]["val_split"]
-TEST_SPLIT = FT_RESULTS["dataset"]["test_split"]
-IMAGE_KEY = FT_RESULTS["dataset"]["image_key"]
-LABEL_KEY = FT_RESULTS["dataset"]["label_key"]
+TRAIN_SPLIT = RESULTS["dataset"]["train_split"]
+VAL_SPLIT = RESULTS["dataset"]["val_split"]
+TEST_SPLIT = RESULTS["dataset"]["test_split"]
+IMAGE_KEY = RESULTS["dataset"]["image_key"]
+LABEL_KEY = RESULTS["dataset"]["label_key"]
 
-LOGIT_KEY = FT_RESULTS["fine_tuning"]["hparams"]["logit_key"]
-HEAD_NAME = FT_RESULTS["fine_tuning"]["hparams"]["head_name"]
-CLST_WEIGHT = 1  # just need a nonzero value
+STAGE = "fine_tuning" if RESULTS_FILE.parts[1] == "ft" else "correction"
+
+LOGIT_KEY = RESULTS[STAGE]["hparams"]["logit_key"]
+HEAD_NAME = RESULTS[STAGE]["hparams"]["head_name"]
+if RESULTS[STAGE]["hparams"].get("lcc_submodules"):
+    LCC_SUBMODULES = RESULTS[STAGE]["hparams"]["lcc_submodules"]
+    logging.info("Overriding LCC submodules with {}", LCC_SUBMODULES)
+
 
 CKPT_PATH = (
-    Path("./out") / "ft" / FT_RESULTS["fine_tuning"]["best_checkpoint"]["path"]
+    Path("./out")
+    / RESULTS_FILE.parts[1]
+    / RESULTS[STAGE]["best_checkpoint"]["path"]
 )
 
-OUTPUT_DIR = Path("out") / "lc" / DATASET_NAME / MODEL_NAME
+OUTPUT_DIR = RESULTS_FILE.parent / "lc"
 
 if __name__ == "__main__":
     (OUTPUT_DIR / CLUSTERING_METHOD).mkdir(parents=True, exist_ok=True)
@@ -134,7 +119,7 @@ if __name__ == "__main__":
         label_key=LABEL_KEY,
         logit_key=LOGIT_KEY,
         lcc_submodules=LCC_SUBMODULES,
-        clst_weight=CLST_WEIGHT,
+        lcc_weight=1,  # not actually used, just need a nonzero value,
     )
     # pylint: disable=no-value-for-parameter
     model.model = ClassifierClass.load_from_checkpoint(CKPT_PATH).model
@@ -151,5 +136,6 @@ if __name__ == "__main__":
         classes=list(range(100)),
         tqdm_style="console",
     )
+    data = {sm: (d.y_clst, d.matching) for sm, d in data.items()}
 
     tb.save_json(data, OUTPUT_DIR / CLUSTERING_METHOD / "data.json")
