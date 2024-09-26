@@ -17,13 +17,11 @@ import torch
 import turbo_broccoli as tb
 from loguru import logger as logging
 
-from nlnas import (
-    HuggingFaceClassifier,
-    HuggingFaceDataset,
-    TimmClassifier,
-    full_dataset_latent_clustering,
-)
 from nlnas.classifiers import BaseClassifier
+from nlnas.classifiers.base import full_dataset_latent_clustering
+from nlnas.classifiers.huggingface import HuggingFaceClassifier
+from nlnas.classifiers.timm import TimmClassifier
+from nlnas.datasets import HuggingFaceDataset
 
 # Only need to change the following few variables -----------------------------
 
@@ -33,18 +31,11 @@ HF_MODEL_NAME = "timm/mobilenetv3_small_050.lamb_in1k"
 
 RESULTS_FILE = (
     Path("out")
-    / "lcc"
+    / "ftlcc"
     / "cifar100"
-    / "timm-mobilenetv3_small_050.lamb_in1k"
-    / "results.5.json"
+    / "timm-tinynet_e.in1k"
+    / "results.0.json"
 )
-# RESULTS_FILE = (
-#     Path("out")
-#     / "ft"
-#     / "cifar100"
-#     / "timm-mobilenetv3_small_050.lamb_in1k"
-#     / "results.json"
-# )
 
 CLUSTERING_METHOD = "louvain"
 LCC_SUBMODULES = [
@@ -71,25 +62,26 @@ TEST_SPLIT = RESULTS["dataset"]["test_split"]
 IMAGE_KEY = RESULTS["dataset"]["image_key"]
 LABEL_KEY = RESULTS["dataset"]["label_key"]
 
-STAGE = "fine_tuning" if RESULTS_FILE.parts[1] == "ft" else "correction"
-
-LOGIT_KEY = RESULTS[STAGE]["hparams"]["logit_key"]
-HEAD_NAME = RESULTS[STAGE]["hparams"]["head_name"]
-if RESULTS[STAGE]["hparams"].get("lcc_submodules"):
-    LCC_SUBMODULES = RESULTS[STAGE]["hparams"]["lcc_submodules"]
+LOGIT_KEY = RESULTS["model"]["hparams"]["logit_key"]
+HEAD_NAME = RESULTS["model"]["hparams"]["head_name"]
+if RESULTS["model"]["hparams"].get("lcc_submodules"):
+    LCC_SUBMODULES = RESULTS["model"]["hparams"]["lcc_submodules"]
     logging.info("Overriding LCC submodules with {}", LCC_SUBMODULES)
 
-
 CKPT_PATH = (
-    Path("./out")
+    Path("out")
     / RESULTS_FILE.parts[1]
-    / RESULTS[STAGE]["best_checkpoint"]["path"]
+    / RESULTS["model"]["best_checkpoint"]["path"]
 )
 
-OUTPUT_DIR = RESULTS_FILE.parent / "lc"
+OUTPUT_DIR = (
+    RESULTS_FILE.parent
+    / "analysis"
+    / str(RESULTS["model"]["best_checkpoint"]["version"])
+)
 
 if __name__ == "__main__":
-    (OUTPUT_DIR / CLUSTERING_METHOD).mkdir(parents=True, exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     ClassifierClass: type[BaseClassifier]
     if HF_MODEL_NAME.startswith("timm/"):
@@ -119,7 +111,7 @@ if __name__ == "__main__":
         label_key=LABEL_KEY,
         logit_key=LOGIT_KEY,
         lcc_submodules=LCC_SUBMODULES,
-        lcc_weight=1,  # not actually used, just need a nonzero value,
+        # lcc_weight=1,  # not actually used, just need a nonzero value,
     )
     # pylint: disable=no-value-for-parameter
     model.model = ClassifierClass.load_from_checkpoint(CKPT_PATH).model
@@ -133,9 +125,10 @@ if __name__ == "__main__":
         output_dir=OUTPUT_DIR / "embeddings",
         method=CLUSTERING_METHOD,
         device="cpu",  # Dataset might not fit in the GPU
-        classes=list(range(100)),
+        # classes=list(range(100)),
         tqdm_style="console",
     )
     data = {sm: (d.y_clst, d.matching) for sm, d in data.items()}
 
+    (OUTPUT_DIR / CLUSTERING_METHOD).mkdir(parents=True, exist_ok=True)
     tb.save_json(data, OUTPUT_DIR / CLUSTERING_METHOD / "data.json")
