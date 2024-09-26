@@ -28,14 +28,7 @@ from nlnas.datasets import HuggingFaceDataset
 # HF_DATASET_NAME = "ILSVRC/imagenet-1k"
 HF_DATASET_NAME = "cifar100"
 HF_MODEL_NAME = "timm/mobilenetv3_small_050.lamb_in1k"
-
-RESULTS_FILE = (
-    Path("out")
-    / "ftlcc"
-    / "cifar100"
-    / "timm-tinynet_e.in1k"
-    / "results.0.json"
-)
+VERSION = 0
 
 CLUSTERING_METHOD = "louvain"
 LCC_SUBMODULES = [
@@ -54,7 +47,14 @@ LCC_SUBMODULES = [
 
 DATASET_NAME = HF_DATASET_NAME.replace("/", "-")
 MODEL_NAME = HF_MODEL_NAME.replace("/", "-")
-RESULTS = tb.load(RESULTS_FILE)
+RESULTS_FILE_PATH = (
+    Path("out")
+    / "ftlcc"
+    / DATASET_NAME
+    / MODEL_NAME
+    / f"results.{VERSION}.json"
+)
+RESULTS = tb.load(RESULTS_FILE_PATH)
 
 TRAIN_SPLIT = RESULTS["dataset"]["train_split"]
 VAL_SPLIT = RESULTS["dataset"]["val_split"]
@@ -70,14 +70,15 @@ if RESULTS["model"]["hparams"].get("lcc_submodules"):
 
 CKPT_PATH = (
     Path("out")
-    / RESULTS_FILE.parts[1]
+    / RESULTS_FILE_PATH.parts[1]
     / RESULTS["model"]["best_checkpoint"]["path"]
 )
 
 OUTPUT_DIR = (
-    RESULTS_FILE.parent
+    RESULTS_FILE_PATH.parent
     / "analysis"
     / str(RESULTS["model"]["best_checkpoint"]["version"])
+    / str(RESULTS["model"]["best_checkpoint"]["epoch"])
 )
 
 if __name__ == "__main__":
