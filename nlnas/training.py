@@ -151,7 +151,7 @@ def make_trainer(
                 monitor="val/ce", patience=20, mode="min"
             ),
             pl.callbacks.ModelCheckpoint(
-                save_top_k=1, monitor="val/ce", mode="min", every_n_epochs=1
+                save_top_k=-1, monitor="val/ce", mode="min", every_n_epochs=1
             ),
             pl.callbacks.TQDMProgressBar(),
         ],
