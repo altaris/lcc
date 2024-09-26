@@ -561,7 +561,7 @@ def full_dataset_latent_clustering(
     # ↓ classes is a LCCClassSelection policy (e.g. "max_connected")
     elif isinstance(classes, str):
         y_pred = load_tensor_batched(
-            output_dir, "y_pred", tqdm_style="console"
+            output_dir, "y_pred", tqdm_style=tqdm_style
         )
         assert isinstance(y_pred, Tensor)  # For typechecking
         classes = choose_classes(y_true, y_pred, policy=classes)
@@ -579,7 +579,7 @@ def full_dataset_latent_clustering(
     tqdm = make_tqdm(tqdm_style)
     for sm in tqdm(model.lcc_submodules, "Clustering", leave=False):
         z = load_tensor_batched(
-            output_dir, sm, mask=mask, tqdm_style="console"
+            output_dir, sm, mask=mask, tqdm_style=tqdm_style
         )
         y_clst = get_cluster_labels(z, method, scaling, device)
         matching = class_otm_matching(y_true, y_clst)
