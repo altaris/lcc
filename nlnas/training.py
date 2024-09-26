@@ -9,7 +9,6 @@ from typing import Literal
 import pandas as pd
 import pytorch_lightning as pl
 import regex as re
-from scipy import optimize
 import torch
 import turbo_broccoli as tb
 from loguru import logger as logging
