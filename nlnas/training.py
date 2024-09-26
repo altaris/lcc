@@ -9,9 +9,12 @@ from typing import Literal
 import pandas as pd
 import pytorch_lightning as pl
 import regex as re
+from scipy import optimize
 import torch
 import turbo_broccoli as tb
 from loguru import logger as logging
+
+from nlnas.utils import get_reasonable_n_jobs
 
 from .classifiers import BaseClassifier, HuggingFaceClassifier, TimmClassifier
 from .datasets import HuggingFaceDataset
@@ -134,6 +137,7 @@ def make_trainer(
         output_dir (Path):
         max_epochs (int, optional):
     """
+    output_dir = Path(output_dir)
     tb_logger = pl.loggers.TensorBoardLogger(
         str(output_dir / "tb_logs"), name=model_name, default_hp_metric=False
     )
@@ -144,10 +148,10 @@ def make_trainer(
         max_epochs=max_epochs,
         callbacks=[
             pl.callbacks.EarlyStopping(
-                monitor="val/loss", patience=20, mode="min"
+                monitor="val/ce", patience=20, mode="min"
             ),
             pl.callbacks.ModelCheckpoint(
-                save_top_k=-1, monitor="val/loss", mode="min", every_n_epochs=1
+                save_top_k=1, monitor="val/ce", mode="min", every_n_epochs=1
             ),
             pl.callbacks.TQDMProgressBar(),
         ],
@@ -238,6 +242,14 @@ def train(
         test_split=test_split,
         label_key=label_key,
         image_processor=classifier_cls.get_image_processor(model_name),
+        train_dl_kwargs={
+            "batch_size": batch_size,
+            "num_workers": get_reasonable_n_jobs(),
+        },
+        val_dl_kwargs={
+            "batch_size": batch_size,
+            "num_workers": get_reasonable_n_jobs(),
+        },
     )
     n_classes = dataset.n_classes()
 
@@ -275,7 +287,7 @@ def train(
     start = datetime.now()
     trainer.fit(model, dataset)
     fit_time = datetime.now() - start
-    r0_info("Finished correction in {}", fit_time)
+    r0_info("Finished training in {}", fit_time)
 
     ckpt = Path(trainer.checkpoint_callback.best_model_path)  # type: ignore
     ckpt = ckpt.relative_to(output_dir)

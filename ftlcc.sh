@@ -32,15 +32,16 @@ LABEL_KEY="fine_label"
 # MODEL="microsoft/resnet-18"
 # HEAD_NAME="classifier.1"
 
-# MODEL="timm/mobilenetv3_small_050.lamb_in1k"
-# HEAD_NAME="classifier"
-
-MODEL="timm/tinynet_e.in1k"
+MODEL="timm/mobilenetv3_small_050.lamb_in1k"
 HEAD_NAME="classifier"
-LCC_SUBMODULES=classifier
+LCC_SUBMODULES=conv_head
 
-LCC_WEIGHT=10
-LCC_INTERVAL=1
+# MODEL="timm/tinynet_e.in1k"
+# HEAD_NAME=classifier
+# LCC_SUBMODULES=blocks.6,conv_head,classifier
+
+LCC_WEIGHT=1
+LCC_INTERVAL=5
 LCC_WARMUP=1
 CE_WEIGHT=1
 
@@ -75,6 +76,7 @@ uv run python -m nlnas train \
     --lcc-submodules "$LCC_SUBMODULES" \
     --lcc-weight "$LCC_WEIGHT" \
     --lcc-interval "$LCC_INTERVAL" \
+    --batch-size 512 \
     --lcc-warmup "$LCC_WARMUP" \
     --train-split "$TRAIN_SPLIT" \
     --val-split "$VAL_SPLIT" \
