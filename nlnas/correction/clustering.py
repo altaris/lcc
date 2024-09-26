@@ -83,7 +83,7 @@ def _mc_cc_predicates(
       `i_true`).
 
     Note:
-        `p_mc != p_cc` in general ;)
+        `p_mc != ~p_cc` in general ;)
 
     Args:
         y_true (np.ndarray | Tensor):
@@ -100,8 +100,7 @@ def _mc_cc_predicates(
     p1, p2, p_mc, _ = otm_matching_predicates(
         y_true, y_clst, matching, c_a=n_true_classes or int(y_true.max() + 1)
     )
-    p_cc = p1 & p2
-    return p_mc, p_cc
+    return p_mc, p1 & p2
 
 
 def _np(a: np.ndarray | Tensor) -> np.ndarray:

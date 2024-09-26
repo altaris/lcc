@@ -569,11 +569,11 @@ def full_dataset_latent_clustering(
             mask = torch.isin(y_true, torch.tensor(classes))
             y_true = y_true[mask]
         else:
-            mask = torch.full_like(y_true, True)
+            mask = torch.full_like(y_true, True, dtype=torch.bool)
 
     # ↓ Leaving classes to None means all classes are considered, so no mask
     else:
-        mask = torch.full_like(y_true, True)
+        mask = torch.full_like(y_true, True, dtype=torch.bool)
 
     result: dict[str, LatentClusteringData] = {}
     tqdm = make_tqdm(tqdm_style)
