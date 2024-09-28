@@ -114,8 +114,8 @@ def class_otm_matching(
     """
     Let `y_a` and `y_b` be `(N,)` integer array. We think of them as classes on
     some dataset, say `x`, which we call respectively *a-classes* and
-    $b-classes*. This method performs a one-to-many matching from the classes
-    in `y_a` to the classes in `y_b` to overall maximize the cardinality of the
+    *b-classes*. This method performs a one-to-many matching from the classes in
+    `y_a` to the classes in `y_b` to overall maximize the cardinality of the
     intersection between a-classes and the union of their matched b-classes.
 
     Example:
@@ -144,12 +144,19 @@ def class_otm_matching(
         >>> class_otm_matching(y_a, y_b)
         {1: {1, 5}, 2: {2}, 3: set(), 4: {3}}
 
+    Warning:
+        Negative labels in `y_a` or `y_b` are ignored. So the output matching
+        dict will never have negative keys, and the sets will never have
+        negative values either.
+
     Args:
         y_a (np.ndarray | Tensor): A `(N,)` integer array.
         y_b (np.ndarray | Tensor): A `(N,)` integer array.
     """
     y_a, y_b, match_graph = _np(y_a), _np(y_b), nx.DiGraph()
     for i, j in product(np.unique(y_a), np.unique(y_b)):
+        if i < 0 or j < 0:
+            continue
         n = np.sum((y_a == i) & (y_b == j))
         match_graph.add_edge(f"a_{i}", f"b_{j}", weight=n)
     matching = _otm_matching(
@@ -297,7 +304,8 @@ def lcc_targets(
       - `p` is an boolean array of shape `(N,)` that marks misclustered
         samples in true class `i_true`; if `N_miss_i` is the number of
         misclustered samples in true class `i_true`, then `p` of course has
-        exactly `N_miss_i` `True` entries;
+        exactly `N_miss_i` `True` entries; using the notation of
+        `otm_matching_predicates`, `p` is in fact `p3[i_true]`!
       - `t` is a tensor of shape `(N_miss_i, d)` and `t[j]` is the correction
         target of `z[p][j]`, i.e. a point in the latent space that `z[p][j]`,
         the $j$-th misclustered sample in true class `i_true`, should move
