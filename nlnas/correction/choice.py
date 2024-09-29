@@ -6,7 +6,7 @@ from typing import Literal, TypeAlias
 
 import networkx as nx
 import numpy as np
-import torch
+from loguru import logger as logging
 from torch import Tensor
 from torchmetrics.functional.classification import multiclass_confusion_matrix
 from tqdm import tqdm
@@ -14,7 +14,7 @@ from tqdm import tqdm
 from ..utils import to_tensor
 
 LCCClassSelection: TypeAlias = Literal[
-    "all",
+    # "all",  # Use `None` instead
     "top_pair_1",
     "top_pair_5",
     "top_pair_10",
@@ -87,15 +87,14 @@ def confusion_graph(
 def choose_classes(
     y_true: Tensor | np.ndarray | list[int],
     y_pred: Tensor | np.ndarray | list[int],
-    policy: LCCClassSelection = "all",
+    policy: LCCClassSelection | Literal["all"] | None = None,
 ) -> list[int] | None:
     """
     Given true and predicted labels, select classes whose samples should undergo
     LCC based on some policy. See `nlans.correction.choice.LCCClassSelection`.
 
     For convenience, this method returns `None` if all classes should be
-    considered. In particular, selecting policy `"all"` will always return
-    `None`.
+    considered, and in particular, this method will always return `None`.
 
     Warning:
         When selecting a `"top<N>"` policy, the returned list may have fewer
@@ -103,7 +102,12 @@ def choose_classes(
         `N` classes in the dataset.
     """
     y_true, y_pred = to_tensor(y_true), to_tensor(y_pred)
+    if policy is None:
+        return None
     if policy == "all":
+        logging.warning(
+            "LCC class selection policy 'all' is deprecated. Use `None` instead (which has the same effect)"
+        )
         return None
     n_classes = y_true.unique().numel()
     if policy.startswith("top_pair_"):
