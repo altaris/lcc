@@ -5,6 +5,8 @@ DOCS_PATH 	= docs/html
 PDOC		= pdoc -d google --math
 PYTHON		= python3.10
 
+RUFF_EXCLUDE = --exclude '*.ipynb' --exclude 'old/' --exclude 'test_*.py'
+
 .ONESHELL:
 
 all: format typecheck lint
@@ -21,12 +23,16 @@ docs-browser:
 
 .PHONY: format
 format:
-	uvx ruff check --select I --fix --exclude '*.ipynb' --exclude 'old/'
-	uvx ruff format --exclude '*.ipynb' --exclude 'old/'
+	uvx ruff check --select I --fix $(RUFF_EXCLUDE)
+	uvx ruff format $(RUFF_EXCLUDE)
 
 .PHONY: lint
 lint:
-	uvx ruff check --exclude '*.ipynb' --exclude 'old/'
+	uvx ruff check $(RUFF_EXCLUDE)
+
+.PHONY: lint-fix
+lint-fix:
+	uvx ruff check --fix $(RUFF_EXCLUDE)
 
 .PHONY: typecheck
 typecheck:

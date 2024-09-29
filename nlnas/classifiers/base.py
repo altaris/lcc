@@ -25,7 +25,7 @@ from ..correction import (
     lcc_loss,
     lcc_targets,
 )
-from ..datasets.huggingface import HuggingFaceDataset
+from ..datasets import HuggingFaceDataset
 from ..logging import r0_debug
 from ..utils import (
     get_reasonable_n_jobs,

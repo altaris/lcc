@@ -21,7 +21,8 @@ from ..correction import (
     otm_matching_predicates,
 )
 from ..correction.clustering import DEFAULT_K
-from ..datasets import HuggingFaceDataset, dl_head, flatten_batches
+from ..datasets import HuggingFaceDataset
+from ..datasets.utils import dl_head, flatten_batches
 from ..training import all_checkpoint_paths
 from .plotting import louvain_clustering_plots, plot_latent_samples
 

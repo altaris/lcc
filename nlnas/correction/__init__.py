@@ -21,6 +21,20 @@ from .clustering import (
 )
 from .louvain import louvain_communities
 
+__all__ = [
+    "choose_classes",
+    "class_otm_matching",
+    "ClusteringMethod",
+    "get_cluster_labels",
+    "lcc_knn_indices",
+    "lcc_loss",
+    "lcc_targets",
+    "LCCClassSelection",
+    "louvain_communities",
+    "max_connected_confusion_choice",
+    "otm_matching_predicates",
+]
+
 
 # pylint: disable=duplicate-code
 def get_cluster_labels(

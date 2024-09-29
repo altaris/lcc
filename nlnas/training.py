@@ -14,7 +14,7 @@ import turbo_broccoli as tb
 from loguru import logger as logging
 
 from .classifiers import BaseClassifier, HuggingFaceClassifier, TimmClassifier
-from .correction.choice import LCCClassSelection
+from .correction import LCCClassSelection
 from .datasets import HuggingFaceDataset
 from .logging import r0_debug, r0_info
 from .utils import get_reasonable_n_jobs
