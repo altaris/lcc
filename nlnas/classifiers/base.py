@@ -291,9 +291,22 @@ class BaseClassifier(pl.LightningModule):
 
         def create_hook(key: str):
             def hook(_model: nn.Module, _args: Any, out: Any) -> None:
-                if not isinstance(out, Tensor):
+                if (
+                    isinstance(out, (list, tuple))
+                    and len(out) == 1
+                    and isinstance(out[0], Tensor)
+                ):
+                    out = out[0]
+                elif (  # Special case for ViTs
+                    isinstance(out, (list, tuple))
+                    and len(out) == 2
+                    and isinstance(out[0], Tensor)
+                    and not isinstance(out[1], Tensor)
+                ):
+                    out = out[0]
+                elif not isinstance(out, Tensor):
                     raise ValueError(
-                        f"Unsupported latent object type: {type(out)}."
+                        f"Unsupported latent object type: {type(out)}: {out}."
                     )
                 if batched:
                     if key not in output_dict:
