@@ -10,7 +10,7 @@ import joblib
 import numpy as np
 import pytorch_lightning as pl
 import torch
-from safetensors import torch as st
+from safetensors import numpy as st
 from torch import Tensor, nn
 from torch.utils.hooks import RemovableHandle
 from torchmetrics.functional.classification import multiclass_accuracy
@@ -429,6 +429,7 @@ class BaseClassifier(pl.LightningModule):
                     dataset=self.trainer.datamodule,  # type: ignore
                     output_dir=tmp,
                     method=self.hparams["clustering_method"],
+                    max_dim=None,  # no dim-redux
                     device="cuda",
                     scaling="standard",
                     classes=self.hparams["lcc_class_selection"],
@@ -488,17 +489,29 @@ def full_dataset_evaluation(
     dataset: HuggingFaceDataset,
     output_dir: str | Path,
     split: Literal["train", "val", "test"] = "train",
+    max_dim: int | None = 8192,
+    device: Literal["cpu", "cuda"] | None = None,
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> None:
     """
     Evaluate model on whole dataset and saves latent representations and
     prediction batches in `output_dir`.
     """
+    use_cuda = (
+        device == "cuda" or device is None
+    ) and torch.cuda.is_available()
+    if use_cuda:
+        from cuml import PCA
+    else:
+        from sklearn.decomposition import PCA
+
     dl = dataset.get_dataloader(split)
     output_dir, tqdm = Path(output_dir), make_tqdm(tqdm_style)
     output_dir.mkdir(parents=True, exist_ok=True)
     with torch.no_grad():
         model.eval()
+        if use_cuda:
+            model.to("cuda")
         for idx, batch in enumerate(tqdm(dl, "Evaluating", leave=False)):
             todo = [
                 sm
@@ -517,7 +530,16 @@ def full_dataset_evaluation(
             assert isinstance(y_pred, Tensor)
             out["y_pred"] = y_pred
             for sm, z in out.items():
-                st.save_file({"": z}, output_dir / f"{sm}.{idx:04}.st")
+                z = z.flatten(1)
+                if max_dim is not None and z.shape[-1] > max_dim:
+                    # Sadly, cuml.PCA requires a numpy array, meaning that a
+                    # copy of z will be loaded back on the GPU. So the batch
+                    # size or max_dim should be small enough so that the GPU can
+                    # hold 2 batches at the same time plus the PCA results.
+                    z = PCA(n_components=max_dim).fit_transform(to_array(z))
+                st.save_file(
+                    {"": to_array(z)}, output_dir / f"{sm}.{idx:04}.st"
+                )
         model.train()
 
 
@@ -526,6 +548,7 @@ def full_dataset_latent_clustering(
     dataset: HuggingFaceDataset,
     output_dir: str | Path,
     method: ClusteringMethod = "louvain",
+    max_dim: int | None = 8192,
     device: Literal["cpu", "cuda"] | None = None,
     scaling: Literal["standard", "minmax"] | None = "standard",
     classes: list[int] | LCCClassSelection | None = None,
@@ -555,6 +578,10 @@ def full_dataset_latent_clustering(
             (however, all samples are still evaluated regardless of class). Use
             this if there are too many true classes, or if the dataset is just
             too large to fit in memory (e.g. ImageNet).
+        max_dim (int, optional): If the dimension of a latent space is larger
+            than this, then the latent representation undergo batch-wise PCA to
+            make them `max_dim`-dimensional. Defaults to $8192 = 2^{13}$. Can be
+            set to `None` to never resort to PCA.
 
     Returns:
         A dictionary that maps a submodule name to its latent clustering data,
@@ -567,6 +594,8 @@ def full_dataset_latent_clustering(
         dataset,
         output_dir=output_dir,
         split=split,
+        max_dim=max_dim,
+        device=device,
         tqdm_style=tqdm_style,
     )
     y_true = dataset.y_true(split)
