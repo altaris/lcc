@@ -183,7 +183,7 @@ def train(
             head_name=head_name,
         )
         sweep_results[cfg_hash] = train_results
-        tb.save(OUTPUT_DIR / "results.json", sweep_results)
+        tb.save(sweep_results, OUTPUT_DIR / "results.json")
     except Exception as e:
         logging.error("({}): Error: {}", logging_str, e)
 
