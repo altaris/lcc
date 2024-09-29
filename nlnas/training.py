@@ -127,6 +127,7 @@ def make_trainer(
     output_dir: Path,
     max_epochs: int = 512,
     accelerator: str = "auto",
+    save_all_checkpoints: bool = False,
 ) -> pl.Trainer:
     """
     Self-explanatory
@@ -135,6 +136,8 @@ def make_trainer(
         model_name (str):
         output_dir (Path):
         max_epochs (int, optional):
+        save_all_checkpoints (bool, optional): If set to `False`, then only the
+            best checkpoint is saved.
     """
     output_dir = Path(output_dir)
     tb_logger = pl.loggers.TensorBoardLogger(
@@ -150,7 +153,10 @@ def make_trainer(
                 monitor="val/ce", patience=20, mode="min"
             ),
             pl.callbacks.ModelCheckpoint(
-                save_top_k=-1, monitor="val/ce", mode="min", every_n_epochs=1
+                save_top_k=(-1 if save_all_checkpoints else 1),
+                monitor="val/ce",
+                mode="min",
+                every_n_epochs=1,
             ),
             pl.callbacks.TQDMProgressBar(),
         ],
