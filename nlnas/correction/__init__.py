@@ -5,6 +5,7 @@ from typing import Literal
 import numpy as np
 import torch
 
+from ..utils import to_array
 from .choice import (
     LCCClassSelection,
     choose_classes,
@@ -23,7 +24,7 @@ from .louvain import louvain_communities
 
 # pylint: disable=duplicate-code
 def get_cluster_labels(
-    z: np.ndarray | torch.Tensor,
+    z: np.ndarray | torch.Tensor | list[float],
     method: ClusteringMethod = "louvain",
     scaling: Literal["standard", "minmax"] | None = "standard",
     device: Literal["cpu", "cuda"] | None = None,
@@ -51,8 +52,7 @@ def get_cluster_labels(
         from sklearn.cluster import DBSCAN, HDBSCAN
         from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
-    if isinstance(z, torch.Tensor):
-        z = z.cpu().detach().numpy()
+    z = to_array(z)
     z = z.reshape(len(z), -1)
     if scaling == "standard":
         z = StandardScaler().fit_transform(z)

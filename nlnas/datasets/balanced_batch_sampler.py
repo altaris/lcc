@@ -212,9 +212,9 @@ class BalancedBatchSampler(Sampler[list[int]]):
         """
         super().__init__()
         if isinstance(y, np.ndarray):
-            self.y = Tensor(y)
+            self.y = torch.tensor(y)
         elif isinstance(y, IterableDataset):
-            self.y = Tensor([e[label_key] for e in y])
+            self.y = torch.tensor([e[label_key] for e in y])
         else:
             self.y = y
         self.batch_size = batch_size

@@ -10,11 +10,12 @@ import torch
 from sklearn.base import TransformerMixin
 from torch import Tensor
 
+from ..utils import to_array
 from .clustering import DEFAULT_K
 
 
 def louvain_communities(
-    z: np.ndarray | Tensor,
+    z: np.ndarray | Tensor | list[float],
     k: int = DEFAULT_K,
     scaling: (
         Literal["standard", "minmax"] | TransformerMixin | None
@@ -63,12 +64,9 @@ def louvain_communities(
         scaling = StandardScaler()
     elif scaling == "minmax":
         scaling = MinMaxScaler()
-    if isinstance(z, Tensor):
-        z = z.cpu().detach().numpy()
+    z = to_array(z)
     z = z.reshape(len(z), -1)
     z = z if scaling is None else scaling.fit_transform(z)  # type: ignore
-    assert isinstance(z, np.ndarray)  # for typechecking
-
     index = NearestNeighbors(n_neighbors=min(k + 1, z.shape[0]))
     index.fit(z)
     adj = index.kneighbors_graph(z)
@@ -86,8 +84,8 @@ def louvain_communities(
 
 
 # def louvain_loss(
-#     z: Tensor,
-#     y_true: np.ndarray | Tensor,
+#     z: Tensor | np.ndarray | list[float],
+#     y_true: np.ndarray | Tensor | list[int],
 #     k: int = DEFAULT_K,
 #     n_true_classes: int | None = None,
 #     device: Literal["cpu", "cuda"] | None = None,
@@ -96,9 +94,7 @@ def louvain_communities(
 #     Calls `nlnas.correction.clustering.clustering_loss` with the Louvain
 #     clustering data.
 #     """
-#     if isinstance(y_true, Tensor):
-#         y_true = y_true.cpu().detach().numpy()
-#     assert isinstance(y_true, np.ndarray)  # For typechecking
+#     y_true = to_array(y_true).astype(int)
 #     _, y_louvain = louvain_communities(z)
 #     y_louvain = y_louvain[: len(y_true)]
 #     # TODO: Why is y_louvain sometimes longer than y_true?

@@ -27,7 +27,12 @@ from ..correction import (
 )
 from ..datasets.huggingface import HuggingFaceDataset
 from ..logging import r0_debug
-from ..utils import get_reasonable_n_jobs, load_tensor_batched, make_tqdm
+from ..utils import (
+    get_reasonable_n_jobs,
+    load_tensor_batched,
+    make_tqdm,
+    to_array,
+)
 
 Batch: TypeAlias = dict[str, Tensor]
 
@@ -451,15 +456,15 @@ class BaseClassifier(pl.LightningModule):
 
 
 def _inflate_vector(
-    v: np.ndarray | Tensor, mask: np.ndarray | Tensor
+    v: np.ndarray | Tensor | list[float],
+    mask: np.ndarray | Tensor | list[bool],
 ) -> np.ndarray:
     """
     Say `v` has shape (n_a,) while `mask` has shape (n_b,). This function
     "inflates" `v` into a vector `w` of shape (n_b,) such that `v = w[mask]`.
     Values of `w` that don't fall in the mask are set to -1.
     """
-    v = v.cpu().numpy() if isinstance(v, Tensor) else v
-    mask = mask.cpu().numpy() if isinstance(mask, Tensor) else mask
+    v, mask = to_array(v), to_array(mask).astype(bool)
     w = np.full_like(mask, -1, dtype=v.dtype)
     w[mask] = v
     return w

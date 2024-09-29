@@ -17,9 +17,9 @@ from ..plotting import (
 
 
 def louvain_clustering_plots(
-    z: np.ndarray,
-    y_true: np.ndarray,
-    y_louvain: np.ndarray,
+    z: np.ndarray | Tensor | list[float],
+    y_true: np.ndarray | Tensor | list[int],
+    y_louvain: np.ndarray | Tensor | list[int],
     matching: dict[int, set[int]],
     knn: int,
     output_dir: Path,
@@ -40,6 +40,9 @@ def louvain_clustering_plots(
         knn (int): Number of neighbots that have been consitered when
             creating `y_louvain`. This is used in the title of the plot.
     """
+    z = np.array(z)
+    y_true = np.array(y_true, dtype=int)
+    y_louvain = np.array(y_louvain, dtype=int)
     fig_true = bk.figure(title="Ground truth")
     class_scatter(fig_true, z, y_true, palette="viridis")
     fig_louvain = bk.figure(
@@ -56,7 +59,7 @@ def louvain_clustering_plots(
 
 def plot_latent_samples(
     e: dict[str, np.ndarray],
-    y_true: Tensor,
+    y_true: Tensor | np.ndarray | list[int],
     output_dir: Path,
 ) -> dict[str, bk.figure]:
     """
@@ -72,12 +75,12 @@ def plot_latent_samples(
     Returns:
         A dict of bokeh figures. The keys are the same as `e`.
     """
-    figures = {}
+    y_true, figures = np.array(y_true), {}
     progress = tqdm(e.items(), desc="UMAP plotting", leave=False)
     for k, v in progress:
         progress.set_postfix({"submodule": k})
         figure = bk.figure(title=k, toolbar_location=None)
-        class_scatter(figure, v, y_true.numpy())
+        class_scatter(figure, v, y_true)
         figures[k] = figure
         export_png(figure, filename=output_dir / (k + ".png"))
     return figures

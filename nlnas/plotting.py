@@ -12,8 +12,10 @@ from loguru import logger as logging
 from scipy.stats import multivariate_normal
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import MinMaxScaler
+from torch import Tensor
 
 from .correction import otm_matching_predicates
+from .utils import to_array
 
 BK_PALETTE_FUNCTIONS = {
     "cividis": bkp.cividis,
@@ -27,8 +29,8 @@ BK_PALETTE_FUNCTIONS = {
 
 def class_scatter(
     figure: bk.figure,
-    x: np.ndarray,
-    y: np.ndarray,
+    x: np.ndarray | Tensor | list[float],
+    y: np.ndarray | Tensor | list[float],
     palette: bkp.Palette | list[str] | str | None = None,
     size: float = 3,
     rescale: bool = True,
@@ -70,6 +72,7 @@ def class_scatter(
     Raises:
         `ValueError` if the palette is unknown
     """
+    x, y = to_array(x), to_array(y)
     if rescale:
         x = MinMaxScaler().fit_transform(x)
     n_classes = min(len(np.unique(y[y >= 0])), 256)
@@ -83,6 +86,7 @@ def class_scatter(
         if not (y == j).any():
             continue
         a = x[y == j]
+        assert isinstance(a, np.ndarray)  # for typechecking...
         figure.scatter(
             a[:, 0],
             a[:, 1],
@@ -92,6 +96,7 @@ def class_scatter(
         )
     if (y < 0).any() and outliers:
         a = x[y < 0]
+        assert isinstance(a, np.ndarray)  # for typechecking...
         figure.scatter(
             a[:, 0],
             a[:, 1],
@@ -199,9 +204,9 @@ def gaussian_mixture_plot(
 
 
 def class_matching_plot(
-    x: np.ndarray,
-    y_a: np.ndarray,
-    y_b: np.ndarray,
+    x: np.ndarray | Tensor | list[float],
+    y_a: np.ndarray | Tensor | list[float],
+    y_b: np.ndarray | Tensor | list[float],
     matching: dict[int, set[int]] | dict[str, set[int]],
     size: int = 400,
 ) -> bkm.GridBox:
@@ -227,6 +232,7 @@ def class_matching_plot(
             strings, they must be convertible to ints.
         size (int, optional): The size of each scatter plot
     """
+    x, y_a, y_b = to_array(x), to_array(y_a), to_array(y_b)
     x = MinMaxScaler().fit_transform(x)
     m = {int(k): v for k, v in matching.items()}
     p1, p2, p3, p4 = otm_matching_predicates(y_a, y_b, m)

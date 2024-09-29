@@ -162,7 +162,7 @@ def pretty_print_submodules(
 
 
 def save_tensor_batched(
-    x: Tensor | np.ndarray,
+    x: Tensor | np.ndarray | list[float],
     output_dir: str | Path,
     prefix: str = "batch",
     extension: str = "st",
@@ -188,10 +188,29 @@ def save_tensor_batched(
             arg specifies which key contains the data of interest.
         batch_size (int, optional):
     """
-    batches = (Tensor(x) if isinstance(x, np.ndarray) else x).split(batch_size)
+    batches = to_tensor(x).split(batch_size)
     t = make_tqdm(tqdm_style)
     for i, batch in enumerate(t(batches, "Saving", leave=False)):
         data = {
             key: batch,
         }
         st.save_file(data, Path(output_dir) / f"{prefix}.{i:04}.{extension}")
+
+
+def to_array(x: np.ndarray | Tensor | list, **kwargs) -> np.ndarray:
+    """
+    Converts an array-like object to a numpy array. If the input is a tensor,
+    it is detached and moved to the CPU first
+    """
+    if isinstance(x, Tensor):
+        return x.detach().cpu().numpy()
+    return x if isinstance(x, np.ndarray) else np.array(x, **kwargs)
+
+
+def to_tensor(x: np.ndarray | Tensor | list, **kwargs) -> Tensor:
+    """
+    Converts an array-like object to a torch tensor. If `x` is already a tensor,
+    then it is returned as is. In particular, if `x` is a tensor this method is
+    differentiable and it's derivative is the identity function.
+    """
+    return x if isinstance(x, Tensor) else torch.tensor(x, **kwargs)

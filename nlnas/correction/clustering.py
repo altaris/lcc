@@ -10,6 +10,8 @@ import numpy as np
 import torch
 from torch import Tensor
 
+from ..utils import to_array, to_tensor
+
 DEFAULT_K: int = 2
 
 ClusteringMethod: TypeAlias = Literal["louvain", "dbscan", "hdbscan"]
@@ -67,8 +69,8 @@ def _otm_matching(
 
 
 def _mc_cc_predicates(
-    y_true: np.ndarray | Tensor,
-    y_clst: np.ndarray | Tensor,
+    y_true: np.ndarray | Tensor | list[int],
+    y_clst: np.ndarray | Tensor | list[int],
     matching: dict[int, set[int]] | dict[str, set[int]],
     n_true_classes: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -95,7 +97,7 @@ def _mc_cc_predicates(
             `None`, then `y_true` is assumed to contain all classes, and so
             `n_true_classes` defaults to `y_true.max() + 1`.
     """
-    y_true, y_clst = _np(y_true), _np(y_clst)
+    y_true, y_clst = to_array(y_true), to_array(y_clst)
     matching = {int(a): bs for a, bs in matching.items()}
     p1, p2, p_mc, _ = otm_matching_predicates(
         y_true, y_clst, matching, c_a=n_true_classes or int(y_true.max() + 1)
@@ -103,13 +105,8 @@ def _mc_cc_predicates(
     return p_mc, p1 & p2
 
 
-def _np(a: np.ndarray | Tensor) -> np.ndarray:
-    """Convenience function to convert a tensor to a numpy array"""
-    return a.cpu().detach().numpy() if isinstance(a, Tensor) else a
-
-
 def class_otm_matching(
-    y_a: np.ndarray | Tensor, y_b: np.ndarray | Tensor
+    y_a: np.ndarray | Tensor | list[int], y_b: np.ndarray | Tensor | list[int]
 ) -> dict[int, set[int]]:
     """
     Let `y_a` and `y_b` be `(N,)` integer array. We think of them as classes on
@@ -153,7 +150,7 @@ def class_otm_matching(
         y_a (np.ndarray | Tensor): A `(N,)` integer array.
         y_b (np.ndarray | Tensor): A `(N,)` integer array.
     """
-    y_a, y_b, match_graph = _np(y_a), _np(y_b), nx.DiGraph()
+    y_a, y_b, match_graph = to_array(y_a), to_array(y_b), nx.DiGraph()
     for i, j in product(np.unique(y_a), np.unique(y_b)):
         if i < 0 or j < 0:
             continue
@@ -172,9 +169,9 @@ def class_otm_matching(
 
 
 def lcc_knn_indices(
-    z: Tensor,
-    y_true: np.ndarray | Tensor,
-    y_clst: np.ndarray | Tensor,
+    z: Tensor | np.ndarray | list[float],
+    y_true: np.ndarray | Tensor | list[int],
+    y_clst: np.ndarray | Tensor | list[int],
     matching: dict[int, set[int]] | dict[str, set[int]],
     k: int = DEFAULT_K,
     n_true_classes: int | None = None,
@@ -222,6 +219,7 @@ def lcc_knn_indices(
     else:
         from sklearn.neighbors import NearestNeighbors
 
+    z = to_tensor(z)
     p_mc, p_cc = _mc_cc_predicates(
         y_true, y_clst, matching, n_true_classes=n_true_classes
     )
@@ -232,14 +230,15 @@ def lcc_knn_indices(
         if not p_mc_i.any():  # No missclst. samples in this class
             continue
         index = NearestNeighbors(n_neighbors=k)
-        index.fit(_np(z[p_cc_i].flatten(1)))
+        index.fit(to_array(z[p_cc_i].flatten(1)))
         result[i_true] = (index, z[p_cc_i])
 
     return result
 
 
 def lcc_loss(
-    z: Tensor, targets: dict[int, tuple[np.ndarray, Tensor]]
+    z: Tensor | np.ndarray | list[float],
+    targets: dict[int, tuple[np.ndarray, Tensor]],
 ) -> Tensor:
     """
     Derives the clustering correction loss from a tensor of latent
@@ -276,6 +275,7 @@ def lcc_loss(
         targets (dict[int, tuple[np.ndarray, Tensor]]): As produced by
             `nlnas.correction.clustering.lcc_targets`
     """
+    z = to_tensor(z)
     if not targets:
         return torch.tensor(0.0, requires_grad=True).to(z.device)
     losses = [
@@ -286,9 +286,9 @@ def lcc_loss(
 
 
 def lcc_targets(
-    z: Tensor,
-    y_true: np.ndarray | Tensor,
-    y_clst: np.ndarray | Tensor,
+    z: Tensor | np.ndarray | list[float],
+    y_true: np.ndarray | Tensor | list[int],
+    y_clst: np.ndarray | Tensor | list[int],
     matching: dict[int, set[int]] | dict[str, set[int]],
     knn_indices: dict[int, tuple[Any, Tensor]],
     n_true_classes: int | None = None,
@@ -325,13 +325,15 @@ def lcc_targets(
             `n_true_classes` defaults to `y_true.max() + 1`.
     """
     p_mc, _ = _mc_cc_predicates(y_true, y_clst, matching, n_true_classes)
+    z = to_array(z)
     result: dict[int, tuple[np.ndarray, Tensor]] = {}
     for i_true, (index, v) in knn_indices.items():
         p_mc_i = p_mc[i_true]
         if not p_mc_i.any():  # No missclst. samples in this class
             continue
         z_mc_i = z[p_mc_i]  # Misclst. samples in true class `i_true`
-        js = index.kneighbors(_np(z_mc_i.flatten(1)), return_distance=False)
+        z_mc_i = z_mc_i.reshape(len(z_mc_i), -1)
+        js = index.kneighbors(z_mc_i, return_distance=False)
         # ↑ v[js]: (N_miss_i, k, d), v[js][j] is the `k`-NN neighbors of
         # z_mc_i[j] among the correctly clustered samples in true class `i_true`
         t = v[js].mean(dim=1)
@@ -341,8 +343,8 @@ def lcc_targets(
 
 
 def otm_matching_predicates(
-    y_a: np.ndarray | Tensor,
-    y_b: np.ndarray | Tensor,
+    y_a: np.ndarray | Tensor | list[int],
+    y_b: np.ndarray | Tensor | list[int],
     matching: dict[int, set[int]] | dict[str, set[int]],
     c_a: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -396,9 +398,8 @@ def otm_matching_predicates(
         raise ValueError(
             f"y_a and y_b must have the same length, got {la} and {lb}"
         )
-    y_a, y_b = _np(y_a), _np(y_b)
+    y_a, y_b = to_array(y_a), to_array(y_b)
     c_a = c_a or int(y_a.max() + 1)
-    # assert isinstance(c_a, int)  # For typechecking
     m = {int(k): v for k, v in matching.items()}
     p1 = [y_a == a for a in range(c_a)]
     p2 = [

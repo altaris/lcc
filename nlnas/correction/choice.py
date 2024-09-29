@@ -11,6 +11,8 @@ from torch import Tensor
 from torchmetrics.functional.classification import multiclass_confusion_matrix
 from tqdm import tqdm
 
+from ..utils import to_tensor
+
 LCCClassSelection: TypeAlias = Literal[
     "all",
     "top_pair_1",
@@ -50,7 +52,10 @@ class GraphTotallyDisconnected(ValueError):
 
 
 def confusion_graph(
-    y_pred: Tensor, y_true: Tensor, n_classes: int, threshold: int = 10
+    y_pred: Tensor | np.ndarray | list[int],
+    y_true: Tensor | np.ndarray | list[int],
+    n_classes: int,
+    threshold: int = 10,
 ) -> nx.Graph:
     """
     Create a confusion graph from predicted and true labels. Nodes are labels
@@ -58,9 +63,9 @@ def confusion_graph(
     other.
 
     Args:
-        y_pred (Tensor): A `(N,)` int tensor or an `(N, C)`
+        y_pred (Tensor | np.ndarray): A `(N,)` int tensor or an `(N, C)`
             probabilities/logits float tensor
-        y_true (Tensor): A `(N,)` int tensor
+        y_true (Tensor | np.ndarray): A `(N,)` int tensor
         n_classes (int):
         threshold (int, optional): Minimum number of times two classes must be
             confused (in either direction) to be included in the graph.
@@ -69,6 +74,7 @@ def confusion_graph(
         There are no loops, i.e. correct predictions are not reported in the
         graph unlike in usual confusion matrices.
     """
+    y_pred, y_true = to_tensor(y_pred), to_tensor(y_true)
     cm = multiclass_confusion_matrix(y_pred, y_true, num_classes=n_classes)
     cm = cm + cm.T  # Confusion in either direction
     cg = nx.Graph()
@@ -79,7 +85,9 @@ def confusion_graph(
 
 
 def choose_classes(
-    y_true: Tensor, y_pred: Tensor, policy: LCCClassSelection = "all"
+    y_true: Tensor | np.ndarray | list[int],
+    y_pred: Tensor | np.ndarray | list[int],
+    policy: LCCClassSelection = "all",
 ) -> list[int] | None:
     """
     Given true and predicted labels, select classes whose samples should undergo
@@ -94,6 +102,7 @@ def choose_classes(
         than `N` elements. For example, this happens when there are fewer than
         `N` classes in the dataset.
     """
+    y_true, y_pred = to_tensor(y_true), to_tensor(y_pred)
     if policy == "all":
         return None
     n_classes = y_true.unique().numel()
@@ -212,7 +221,10 @@ def total_weight(graph: nx.Graph, key: str = "weight") -> int:
 
 
 def max_connected_confusion_choice(
-    y_pred: Tensor, y_true: Tensor, n_classes: int, n: int | None = None
+    y_pred: Tensor | np.ndarray | list[int],
+    y_true: Tensor | np.ndarray | list[int],
+    n_classes: int,
+    n: int | None = None,
 ) -> tuple[list[int], int]:
     """
     Chooses the classes that are most confused for each other according to
@@ -253,8 +265,7 @@ def top_confusion_pairs(
         >>> top_confusion_pairs(y_pred, y_true, n_classes=3, n_pairs=2)
         [(1, 2), (0, 2)]
     """
-    y_pred = torch.tensor(y_pred) if not isinstance(y_pred, Tensor) else y_pred
-    y_true = torch.tensor(y_true) if not isinstance(y_true, Tensor) else y_true
+    y_pred, y_true = to_tensor(y_pred), to_tensor(y_true)
     cm = multiclass_confusion_matrix(y_pred, y_true, n_classes).numpy()
     cm = cm + cm.T  # Confusion in either direction
     cm = cm * (1 - np.eye(len(cm)))  # Remove the diagonal

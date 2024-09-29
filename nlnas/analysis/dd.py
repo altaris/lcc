@@ -9,6 +9,9 @@ from joblib import Parallel, delayed
 from loguru import logger as logging
 from scipy.spatial.distance import cdist
 from scipy.stats import chi
+from torch import Tensor
+
+from ..utils import to_array
 
 
 def _batch_dh(
@@ -26,8 +29,8 @@ def _batch_dh(
 
 
 def distance_distribution(
-    a: np.ndarray,
-    b: np.ndarray | None = None,
+    a: np.ndarray | Tensor | list[float],
+    b: np.ndarray | Tensor | list[float] | None = None,
     batch_size: int = 1024,
     resolution: int = 500,
     interval: tuple[float, float] = (0.0, 2.5),
@@ -51,6 +54,7 @@ def distance_distribution(
         `edges[0] == interval[0]` and `edges[-1] == edges[resolution] ==
         interval[1]`.
     """
+    a = to_array(a)
     f = lambda t: _batch_dh(
         t[0], t[1], resolution=resolution, interval=interval
     )
@@ -60,6 +64,7 @@ def distance_distribution(
         nj = len(ba) * (len(ba) - 1) + len(ba)
         logging.debug("Number of tasks: {}", nj)
     else:
+        b = to_array(b)
         ba = np.array_split(a, ceil(a.shape[0] / batch_size), axis=0)
         bb = np.array_split(b, ceil(b.shape[0] / batch_size), axis=0)
         jobs = map(delayed(f), product(ba, bb))
@@ -80,8 +85,8 @@ def distance_distribution(
 
 
 def distance_distribution_plot(
-    hist: np.ndarray,
-    edges: np.ndarray,
+    hist: np.ndarray | Tensor | list[float],
+    edges: np.ndarray | Tensor | list[float],
     n_dims: int | None = None,
     height: int = 500,
     x_range: tuple[int, int] | None = None,
@@ -106,6 +111,7 @@ def distance_distribution_plot(
     Returns:
         A bokeh figure.
     """
+    hist, edges = to_array(hist), to_array(edges)
     figure = bk.figure(
         height=height,
         width=2 * height,
