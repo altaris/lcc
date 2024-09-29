@@ -13,11 +13,10 @@ import torch
 import turbo_broccoli as tb
 from loguru import logger as logging
 
-from nlnas.utils import get_reasonable_n_jobs
-
 from .classifiers import BaseClassifier, HuggingFaceClassifier, TimmClassifier
 from .datasets import HuggingFaceDataset
 from .logging import r0_debug, r0_info
+from .utils import get_reasonable_n_jobs
 
 DEFAULT_MAX_GRAD_NORM = 1.0
 
@@ -264,7 +263,7 @@ def train(
         lcc_weight=lcc_weight,
         lcc_submodules=lcc_submodules,
         lcc_class_selection=(
-            "top_pair_5" if do_lcc else None
+            "all" if do_lcc else None
         ),  # TODO: make this configurable
         lcc_interval=lcc_interval,
         lcc_warmup=lcc_warmup,
@@ -278,11 +277,7 @@ def train(
         r0_info("Loaded checkpoint '{}'", ckpt_path)
     r0_debug("Model hyperparameters:\n{}", json.dumps(model.hparams, indent=4))
 
-    trainer = make_trainer(
-        _model_name,
-        _output_dir,
-        max_epochs=max_epochs,
-    )
+    trainer = make_trainer(_model_name, _output_dir, max_epochs=max_epochs)
     start = datetime.now()
     trainer.fit(model, dataset)
     fit_time = datetime.now() - start

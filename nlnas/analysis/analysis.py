@@ -14,21 +14,23 @@ from torch import Tensor, nn
 from torchmetrics.functional.classification import multiclass_accuracy
 from tqdm import tqdm
 
-from nlnas.correction.clustering import DEFAULT_K
-
 from ..classifiers import BaseClassifier
 from ..correction import (
     class_otm_matching,
     louvain_communities,
     otm_matching_predicates,
 )
+from ..correction.clustering import DEFAULT_K
 from ..datasets import HuggingFaceDataset, dl_head, flatten_batches
 from ..training import all_checkpoint_paths
 from .plotting import louvain_clustering_plots, plot_latent_samples
 
 
 def _acc(y_true: Tensor, y_pred: Tensor) -> float:
-    """Helper function to compute micro-averaged multi-class accuracy"""
+    """
+    Helper function to compute micro-averaged multi-class accuracy. Since the
+    result is cast into a float, this method isn't differentiable.
+    """
     return float(
         multiclass_accuracy(
             y_pred, y_true, num_classes=y_pred.shape[-1], average="micro"
@@ -37,7 +39,10 @@ def _acc(y_true: Tensor, y_pred: Tensor) -> float:
 
 
 def _ce(y_true: Tensor, y_pred: Tensor) -> float:
-    """Helper function to compute cross-entropy loss"""
+    """
+    Helper function to compute cross-entropy loss. Since the result is cast into
+    a float, this method isn't differentiable.
+    """
     return float(nn.functional.cross_entropy(y_pred, y_true.long()))
 
 
