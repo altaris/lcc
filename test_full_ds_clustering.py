@@ -64,9 +64,9 @@ LABEL_KEY = RESULTS["dataset"]["label_key"]
 
 LOGIT_KEY = RESULTS["model"]["hparams"]["logit_key"]
 HEAD_NAME = RESULTS["model"]["hparams"]["head_name"]
-if RESULTS["model"]["hparams"].get("lcc_submodules"):
-    LCC_SUBMODULES = RESULTS["model"]["hparams"]["lcc_submodules"]
-    logging.info("Overriding LCC submodules with {}", LCC_SUBMODULES)
+# if RESULTS["model"]["hparams"].get("lcc_submodules"):
+#     LCC_SUBMODULES = RESULTS["model"]["hparams"]["lcc_submodules"]
+#     logging.info("Overriding LCC submodules with {}", LCC_SUBMODULES)
 
 CKPT_PATH = (
     Path("out")
@@ -114,6 +114,7 @@ if __name__ == "__main__":
         lcc_submodules=LCC_SUBMODULES,
         # lcc_weight=1,  # not actually used, just need a nonzero value,
     )
+    model.hparams["lcc_submodules"] = LCC_SUBMODULES
     # pylint: disable=no-value-for-parameter
     model.model = ClassifierClass.load_from_checkpoint(CKPT_PATH).model
     if torch.cuda.is_available():
