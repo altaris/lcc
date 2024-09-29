@@ -317,3 +317,4 @@ def train(
         },
     }
     tb.save_json(document, _output_dir / f"results.{v}.json")
+    return document

@@ -27,25 +27,28 @@ LABEL_KEY="fine_label"
 # HEAD_NAME="classifier"
 
 # MODEL="google/vit-base-patch16-224"
-# HEAD_NAME="classifier"
+# HEAD_NAME=classifier
+# LCC_SUBMODULES=classifier
 
 # MODEL="microsoft/resnet-18"
 # HEAD_NAME="classifier.1"
+# LCC_SUBMODULES=classifier.1
 
 MODEL="timm/mobilenetv3_small_050.lamb_in1k"
 HEAD_NAME="classifier"
-LCC_SUBMODULES=conv_head
+LCC_SUBMODULES=conv_head,classifier
 
 # MODEL="timm/tinynet_e.in1k"
 # HEAD_NAME=classifier
-# LCC_SUBMODULES=blocks.6,conv_head,classifier
+# LCC_SUBMODULES=conv_head
 
-LCC_WEIGHT=1
-LCC_INTERVAL=5
+LCC_WEIGHT=1e-4
+LCC_INTERVAL=1
 LCC_WARMUP=1
 CE_WEIGHT=1
 
-export CUDA_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=1
+
 
 echo
 echo "=================================================="
@@ -76,11 +79,11 @@ uv run python -m nlnas train \
     --lcc-submodules "$LCC_SUBMODULES" \
     --lcc-weight "$LCC_WEIGHT" \
     --lcc-interval "$LCC_INTERVAL" \
-    --batch-size 512 \
+    --batch-size 128 \
     --lcc-warmup "$LCC_WARMUP" \
     --train-split "$TRAIN_SPLIT" \
     --val-split "$VAL_SPLIT" \
     --test-split "$TEST_SPLIT" \
     --image-key "$IMAGE_KEY" \
     --label-key "$LABEL_KEY" \
-    --head-name "$HEAD_NAME" \
+    --head-name "$HEAD_NAME"
