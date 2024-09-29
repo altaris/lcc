@@ -14,6 +14,7 @@ import turbo_broccoli as tb
 from loguru import logger as logging
 
 from .classifiers import BaseClassifier, HuggingFaceClassifier, TimmClassifier
+from .correction.choice import LCCClassSelection
 from .datasets import HuggingFaceDataset
 from .logging import r0_debug, r0_info
 from .utils import get_reasonable_n_jobs
@@ -172,6 +173,7 @@ def train(
     lcc_weight: float | None = None,
     lcc_interval: int | None = None,
     lcc_warmup: int | None = None,
+    lcc_class_selection: LCCClassSelection | None = None,
     max_epochs: int = 100,
     batch_size: int = 64,
     train_split: str = "train",
@@ -181,7 +183,7 @@ def train(
     label_key: str = "label",
     logit_key: str = "logits",
     head_name: str | None = None,
-):
+) -> dict:
     """
     Performs fine-tuning on a model, possibly with latent clustering correction.
 
@@ -260,13 +262,11 @@ def train(
         logit_key=logit_key,
         optimizer="adam",
         optimizer_kwargs={"lr": 5e-5},
-        lcc_weight=lcc_weight,
-        lcc_submodules=lcc_submodules,
-        lcc_class_selection=(
-            "all" if do_lcc else None
-        ),  # TODO: make this configurable
-        lcc_interval=lcc_interval,
-        lcc_warmup=lcc_warmup,
+        lcc_weight=lcc_weight if do_lcc else None,
+        lcc_submodules=lcc_submodules if do_lcc else None,
+        lcc_class_selection=lcc_class_selection if do_lcc else None,
+        lcc_interval=lcc_interval if do_lcc else None,
+        lcc_warmup=lcc_warmup if do_lcc else None,
         ce_weight=ce_weight,
     )
     if isinstance(ckpt_path, Path):
