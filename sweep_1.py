@@ -146,30 +146,37 @@ def train(
     else:
         logging_str = f"{model_name}, {dataset_name}, baseline"
 
-    cfg_hash = _hash_dict(
-        {
-            "model_name": model_name,
-            "dataset_name": dataset_name,
-            "lcc_submodules": lcc_submodules,
-            "lcc_weight": lcc_weight,
-            "lcc_interval": lcc_interval,
-            "lcc_warmup": lcc_warmup,
-            "lcc_class_selection": lcc_class_selection,
-            "train_split": train_split,
-            "val_split": val_split,
-            "image_key": image_key,
-            "label_key": label_key,
-            "head_name": head_name,
-        }
-    )
+    cfg = {
+        "model_name": model_name,
+        "dataset_name": dataset_name,
+        "lcc_submodules": lcc_submodules,
+        "lcc_weight": lcc_weight,
+        "lcc_interval": lcc_interval,
+        "lcc_warmup": lcc_warmup,
+        "lcc_class_selection": lcc_class_selection,
+        "train_split": train_split,
+        "val_split": val_split,
+        "image_key": image_key,
+        "label_key": label_key,
+        "head_name": head_name,
+    }
+    cfg_hash = _hash_dict(cfg)
 
     sweep_results = tb.load(OUTPUT_DIR / "results.json")
     if cfg_hash in sweep_results:
-        logging.info("({}): Skipping", logging_str)
+        logging.info("({}): Already trained, skipping", logging_str)
         return
-    logging.info("({}): Starting training", logging_str)
+
+    lock_file = OUTPUT_DIR / f"{cfg_hash}.lock"
+    try:
+        lock_file.touch(exist_ok=False)
+        tb.save_json(cfg, lock_file)
+    except FileExistsError:
+        logging.info("({}): Being trained, skipping", logging_str)
+        return
 
     try:
+        logging.info("({}): Starting training", logging_str)
         train_results = _train(
             model_name=model_name,
             dataset_name=dataset_name,
@@ -187,8 +194,14 @@ def train(
         )
         sweep_results[cfg_hash] = train_results
         tb.save(sweep_results, OUTPUT_DIR / "results.json")
+    except KeyboardInterrupt:
+        pass
     except Exception as e:
         logging.error("({}): Error: {}", logging_str, e)
+        raise
+    finally:
+        logging.debug("({}) Removing lock file {}", logging_str, lock_file)
+        lock_file.unlink()
 
 
 if __name__ == "__main__":
