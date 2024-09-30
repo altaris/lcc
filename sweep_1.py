@@ -162,8 +162,8 @@ def train(
     }
     cfg_hash = _hash_dict(cfg)
 
-    sweep_results = tb.load(OUTPUT_DIR / "results.json")
-    if cfg_hash in sweep_results:
+    done_file = OUTPUT_DIR / f"{cfg_hash}.done"
+    if done_file.exists():
         logging.info("({}): Already trained, skipping", logging_str)
         return
 
@@ -192,8 +192,7 @@ def train(
             label_key=label_key,
             head_name=head_name,
         )
-        sweep_results[cfg_hash] = train_results
-        tb.save(sweep_results, OUTPUT_DIR / "results.json")
+        tb.save(train_results, OUTPUT_DIR / f"{cfg_hash}.done")
     except KeyboardInterrupt:
         pass
     except Exception as e:
@@ -206,8 +205,6 @@ def train(
 
 if __name__ == "__main__":
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    if not (OUTPUT_DIR / "results.json").exists():
-        tb.save({}, OUTPUT_DIR / "results.json")
     if torch.cuda.is_available():
         torch.set_float32_matmul_precision("medium")
     warnings.filterwarnings("ignore", message=STUPID_CUDA_SPAM)
