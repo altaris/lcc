@@ -150,7 +150,7 @@ def make_trainer(
         max_epochs=max_epochs,
         callbacks=[
             pl.callbacks.EarlyStopping(
-                monitor="val/ce", patience=20, mode="min"
+                monitor="val/ce", patience=10, mode="min"
             ),
             pl.callbacks.ModelCheckpoint(
                 save_top_k=(-1 if save_all_checkpoints else 1),
