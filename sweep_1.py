@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import warnings
 from itertools import product
 from pathlib import Path
 
@@ -94,6 +95,8 @@ LCC_WEIGHTS = [10, 1, 1e-2, 1e-4]
 LCC_INTERVALS = [1, 2, 5]
 LCC_WARMUPS = [0, 1, 5]
 LCC_CLASS_SELECTIONS = [None, "max_connected"]
+
+STUPID_CUDA_SPAM = r"CUDA call='cudaEventDestroy\(event_' at file=/__w/cuml/cuml/python/cuml/build/cp310-cp310-Linux_x86_64/_deps/raft-src/cpp/include/raft/core/resource/cuda_event.hpp line=34 failed with initialization error"
 
 
 def _hash_dict(d: dict) -> str:
@@ -194,6 +197,8 @@ if __name__ == "__main__":
         tb.save({}, OUTPUT_DIR / "results.json")
     if torch.cuda.is_available():
         torch.set_float32_matmul_precision("medium")
+    warnings.filterwarnings("ignore", message=STUPID_CUDA_SPAM)
+
     for dataset_config, model_config in product(DATASETS, MODELS):
         everything = (
             [(None, None, None, None)]  # Baseline
