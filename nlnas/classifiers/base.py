@@ -411,10 +411,6 @@ class BaseClassifier(pl.LightningModule):
             and (self.hparams["lcc_weight"] or 0) > 0
         )
         if do_lcc:
-            r0_debug(
-                "Epoch {}: performing full dataset latent clustering",
-                self.current_epoch,
-            )
             joblib_config = {
                 "backend": "loky",
                 "n_jobs": get_reasonable_n_jobs(),

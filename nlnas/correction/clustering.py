@@ -275,7 +275,7 @@ def lcc_loss(
         targets (dict[int, tuple[np.ndarray, Tensor]]): As produced by
             `nlnas.correction.clustering.lcc_targets`
     """
-    z = to_tensor(z)
+    z = to_tensor(z).flatten(1)
     if not targets:
         return torch.tensor(0.0, requires_grad=True).to(z.device)
     losses = [
