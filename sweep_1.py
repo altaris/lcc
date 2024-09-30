@@ -16,13 +16,30 @@ from nlnas.training import train as _train
 OUTPUT_DIR = Path("out") / "sweep_1"
 
 DATASETS = [
-    {
+    {  # https://huggingface.co/datasets/uoft-cs/cifar100
         "name": "cifar100",
         "train_split": "train[:80%]",
         "val_split": "train[80%:]",
+        "test_split": "test",
         "image_key": "img",
         "label_key": "fine_label",
-    }
+    },
+    {  # https://huggingface.co/datasets/timm/eurosat-rgb
+        "name": "timm/eurosat-rgb",
+        "train_split": "train",
+        "val_split": "validation",
+        "test_split": "test",
+        "image_key": "image",
+        "label_key": "label",
+    },
+    {  # https://huggingface.co/datasets/timm/resisc45
+        "name": "timm/resisc45rgb",
+        "train_split": "train",
+        "val_split": "validation",
+        "test_split": "test",
+        "image_key": "image",
+        "label_key": "label",
+    },
 ]
 
 MODELS = [
@@ -48,47 +65,69 @@ MODELS = [
             "mobilenet_v2.conv_1x1",
         ],
     },
-    # {
-    #     "name": "microsoft/resnet-18",
-    #     "head_name": "classifier.1",
-    #     "lcc_submodules": [
-    #         "classifier",
-    #     ],
-    # },
-    # {
-    #     "name": "microsoft/resnet-18",
-    #     "head_name": "classifier.1",
-    #     "lcc_submodules": [
-    #         "resnet.encoder.stages.3",
-    #     ],
-    # },
-    # {
-    #     "name": "microsoft/resnet-18",
-    #     "head_name": "classifier.1",
-    #     "lcc_submodules": [
-    #         "resnet.encoder.stages.3",
-    #         "classifier",
-    #     ],
-    # },
-    # {
-    #     "name": "microsoft/resnet-18",
-    #     "head_name": "classifier.1",
-    #     "lcc_submodules": [
-    #         "resnet.encoder.stages.2",
-    #         "resnet.encoder.stages.3",
-    #         "classifier",
-    #     ],
-    # },
-    # {
-    #     "name": "microsoft/resnet-18",
-    #     "head_name": "classifier.1",
-    #     "lcc_submodules": [
-    #         "resnet.encoder.stages.1",
-    #         "resnet.encoder.stages.2",
-    #         "resnet.encoder.stages.3",
-    #         "classifier",
-    #     ],
-    # },
+    {
+        "name": "microsoft/resnet-18",
+        "head_name": "classifier.1",
+        "lcc_submodules": [
+            "classifier",
+        ],
+    },
+    {
+        "name": "microsoft/resnet-18",
+        "head_name": "classifier.1",
+        "lcc_submodules": [
+            "resnet.encoder.stages.3",
+        ],
+    },
+    {
+        "name": "microsoft/resnet-18",
+        "head_name": "classifier.1",
+        "lcc_submodules": [
+            "resnet.encoder.stages.3",
+            "classifier",
+        ],
+    },
+    {
+        "name": "microsoft/resnet-18",
+        "head_name": "classifier.1",
+        "lcc_submodules": [
+            "resnet.encoder.stages.2",
+            "resnet.encoder.stages.3",
+            "classifier",
+        ],
+    },
+    {
+        "name": "microsoft/resnet-18",
+        "head_name": "classifier.1",
+        "lcc_submodules": [
+            "resnet.encoder.stages.1",
+            "resnet.encoder.stages.2",
+            "resnet.encoder.stages.3",
+            "classifier",
+        ],
+    },
+    {
+        "name": "timm/tinynet_e.in1k",
+        "head_name": "classifier",
+        "lcc_submodules": [
+            "classifier",
+        ],
+    },
+    {
+        "name": "timm/tinynet_e.in1k",
+        "head_name": "classifier",
+        "lcc_submodules": [
+            "conv_head",
+        ],
+    },
+    {
+        "name": "timm/tinynet_e.in1k",
+        "head_name": "classifier",
+        "lcc_submodules": [
+            "conv_head",
+            "classifier",
+        ],
+    },
 ]
 
 LCC_WEIGHTS = [1, 1e-2, 1e-4]
