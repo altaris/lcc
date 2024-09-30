@@ -128,11 +128,77 @@ MODELS = [
             "classifier",
         ],
     },
+    {
+        "name": "timm/vgg11.tv_in1k",
+        "head_name": "head.fc",
+        "lcc_submodules": [
+            "head",
+        ],
+    },
+    {
+        "name": "timm/vgg11.tv_in1k",
+        "head_name": "head.fc",
+        "lcc_submodules": [
+            "pre_logits",
+        ],
+    },
+    {
+        "name": "timm/vgg11.tv_in1k",
+        "head_name": "head.fc",
+        "lcc_submodules": [
+            "pre_logits",
+            "head",
+        ],
+    },
+    {
+        "name": "timm/convnext_small.in12k",
+        "head_name": "head.fc",
+        "lcc_submodules": [
+            "head",
+        ],
+    },
+    {
+        "name": "timm/convnext_small.in12k",
+        "head_name": "head.fc",
+        "lcc_submodules": [
+            "stages.3",
+        ],
+    },
+    {
+        "name": "timm/convnext_small.in12k",
+        "head_name": "head.fc",
+        "lcc_submodules": [
+            "stages.3",
+            "head",
+        ],
+    },
+    {
+        "name": "timm/tf_efficientnet_l2.ns_jft_in1k",
+        "head_name": "classifier",
+        "lcc_submodules": [
+            "classifier",
+        ],
+    },
+    {
+        "name": "timm/tf_efficientnet_l2.ns_jft_in1k",
+        "head_name": "classifier",
+        "lcc_submodules": [
+            "conv_head",
+        ],
+    },
+    {
+        "name": "timm/tf_efficientnet_l2.ns_jft_in1k",
+        "head_name": "classifier",
+        "lcc_submodules": [
+            "conv_head",
+            "classifier",
+        ],
+    },
 ]
 
 LCC_WEIGHTS = [1, 1e-2, 1e-4]
-LCC_INTERVALS = [1, 2]
-LCC_WARMUPS = [0, 1]
+LCC_INTERVALS = [1, 5]
+LCC_WARMUPS = [1]
 LCC_CLASS_SELECTIONS = [None]
 
 STUPID_CUDA_SPAM = r"CUDA call.*failed with initialization error"
