@@ -48,47 +48,47 @@ MODELS = [
             "mobilenet_v2.conv_1x1",
         ],
     },
-    {
-        "name": "microsoft/resnet-18",
-        "head_name": "classifier.1",
-        "lcc_submodules": [
-            "classifier",
-        ],
-    },
-    {
-        "name": "microsoft/resnet-18",
-        "head_name": "classifier.1",
-        "lcc_submodules": [
-            "resnet.encoder.stages.3",
-        ],
-    },
-    {
-        "name": "microsoft/resnet-18",
-        "head_name": "classifier.1",
-        "lcc_submodules": [
-            "resnet.encoder.stages.3",
-            "classifier",
-        ],
-    },
-    {
-        "name": "microsoft/resnet-18",
-        "head_name": "classifier.1",
-        "lcc_submodules": [
-            "resnet.encoder.stages.2",
-            "resnet.encoder.stages.3",
-            "classifier",
-        ],
-    },
-    {
-        "name": "microsoft/resnet-18",
-        "head_name": "classifier.1",
-        "lcc_submodules": [
-            "resnet.encoder.stages.1",
-            "resnet.encoder.stages.2",
-            "resnet.encoder.stages.3",
-            "classifier",
-        ],
-    },
+    # {
+    #     "name": "microsoft/resnet-18",
+    #     "head_name": "classifier.1",
+    #     "lcc_submodules": [
+    #         "classifier",
+    #     ],
+    # },
+    # {
+    #     "name": "microsoft/resnet-18",
+    #     "head_name": "classifier.1",
+    #     "lcc_submodules": [
+    #         "resnet.encoder.stages.3",
+    #     ],
+    # },
+    # {
+    #     "name": "microsoft/resnet-18",
+    #     "head_name": "classifier.1",
+    #     "lcc_submodules": [
+    #         "resnet.encoder.stages.3",
+    #         "classifier",
+    #     ],
+    # },
+    # {
+    #     "name": "microsoft/resnet-18",
+    #     "head_name": "classifier.1",
+    #     "lcc_submodules": [
+    #         "resnet.encoder.stages.2",
+    #         "resnet.encoder.stages.3",
+    #         "classifier",
+    #     ],
+    # },
+    # {
+    #     "name": "microsoft/resnet-18",
+    #     "head_name": "classifier.1",
+    #     "lcc_submodules": [
+    #         "resnet.encoder.stages.1",
+    #         "resnet.encoder.stages.2",
+    #         "resnet.encoder.stages.3",
+    #         "classifier",
+    #     ],
+    # },
 ]
 
 LCC_WEIGHTS = [1, 1e-2, 1e-4]
@@ -96,7 +96,7 @@ LCC_INTERVALS = [1, 2]
 LCC_WARMUPS = [0, 1]
 LCC_CLASS_SELECTIONS = [None]
 
-STUPID_CUDA_SPAM = r"CUDA call='cudaEventDestroy\(event_' at file=/__w/cuml/cuml/python/cuml/build/cp310-cp310-Linux_x86_64/_deps/raft-src/cpp/include/raft/core/resource/cuda_event.hpp line=34 failed with initialization error"
+STUPID_CUDA_SPAM = r"CUDA call.*failed with initialization error"
 
 
 def _hash_dict(d: dict) -> str:
