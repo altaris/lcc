@@ -282,6 +282,7 @@ def train(
 
     try:
         logging.info("({}): Starting training", logging_str)
+        logging.debug("({}): Lock file: {}", logging_str, lock_file)
         train_results = _train(
             model_name=model_name,
             dataset_name=dataset_name,
