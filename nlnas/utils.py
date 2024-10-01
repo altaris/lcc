@@ -34,7 +34,8 @@ def load_tensor_batched(
     mask: np.ndarray | Tensor | None = None,
     max_n_batches: int | None = None,
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
-):
+    device: Literal["cpu", "cuda"] | None = None,
+) -> Tensor:
     """
     Inverse of `save_tensor_batched`. The batch files should be named following
     the following pattern: `output_dir/<prefix>.<batch_idx>.<extension>`.
@@ -70,7 +71,7 @@ def load_tensor_batched(
             # is garbage collected?
             batch = batch[mask[n_loaded_rows - batch.shape[0] : n_loaded_rows]]
         batches.append(batch)
-    return torch.concat(batches)
+    return torch.concat(batches).to(device)
 
 
 def get_reasonable_n_jobs() -> int:

@@ -26,7 +26,6 @@ from ..correction import (
     lcc_targets,
 )
 from ..datasets import HuggingFaceDataset
-from ..logging import r0_debug
 from ..utils import (
     get_reasonable_n_jobs,
     load_tensor_batched,
@@ -622,7 +621,7 @@ def full_dataset_latent_clustering(
     tqdm = make_tqdm(tqdm_style)
     for sm in tqdm(model.lcc_submodules, "Clustering", leave=False):
         z = load_tensor_batched(
-            output_dir, sm, mask=mask, tqdm_style=tqdm_style
+            output_dir, sm, mask=mask, tqdm_style=tqdm_style, device=device
         )
         y_clst = get_cluster_labels(z, method, scaling, device)
         matching = class_otm_matching(y_true, y_clst)
