@@ -1,7 +1,4 @@
-"""
-Pretrained classifier model loaded from the [HuggingFace model
-hub](https://huggingface.co/models?pipeline_tag=image-classification).
-"""
+"""See `HuggingFaceClassifier` documentation."""
 
 from typing import Any, Callable
 
@@ -11,7 +8,10 @@ from .wrapped import WrappedClassifier
 
 
 class HuggingFaceClassifier(WrappedClassifier):
-    """See module documentation."""
+    """
+    Pretrained classifier model loaded from the [HuggingFace model
+    hub](https://huggingface.co/models?pipeline_tag=image-classification).
+    """
 
     def __init__(
         self,
@@ -20,14 +20,45 @@ class HuggingFaceClassifier(WrappedClassifier):
         head_name: str | None = None,
         **kwargs: Any,
     ) -> None:
+        """
+        See also:
+            `nlnas.classifiers.WrappedClassifier.__init__` and
+            `nlnas.classifiers.BaseClassifier.__init__`.
+
+        Args:
+            model_name (str): Model name as in the [HuggingFace model
+                hub](https://huggingface.co/models?pipeline_tag=image-classification).
+                If the model name starts with `timm/`, use
+                `nlnas.classifiers.TimmClassifier` instead.
+            n_classes (int): See `nlnas.classifiers.WrappedClassifier.__init__`.
+            head_name (str | None, optional): See
+                `nlnas.classifiers.WrappedClassifier.__init__`.
+        """
+        if model_name.startswith("timm/"):
+            raise ValueError(
+                "If the model name starts with `timm/`, use "
+                "`nlnas.classifiers.TimmClassifier` instead."
+            )
         model = AutoModelForImageClassification.from_pretrained(model_name)
         super().__init__(model, n_classes, head_name, **kwargs)
         self.save_hyperparameters()
 
     @staticmethod
-    def get_image_processor(model_name: str, **kwargs) -> Callable:
+    def get_image_processor(
+        model_name: str, **kwargs
+    ) -> Callable[[dict[str, Any]], dict[str, Any]]:
         """
-        Wraps the HuggingFace `AutoImageProcessor` associated to a given model
+        Wraps the HuggingFace `AutoImageProcessor` associated to a given model.
+
+        Args:
+            model_name (str): Model name as in the [HuggingFace model
+                hub](https://huggingface.co/models?pipeline_tag=image-classification).
+                Must not start with `timm/`.
+
+        Returns:
+            A callable that uses a
+            [`transformers.AutoImageProcessor`](https://huggingface.co/docs/transformers/v4.44.2/en/model_doc/auto#transformers.AutoImageProcessor)
+            under the hood.
         """
         hf_transorm = AutoImageProcessor.from_pretrained(model_name)
 

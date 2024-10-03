@@ -13,25 +13,36 @@ import torch
 import turbo_broccoli as tb
 from loguru import logger as logging
 
+from nlnas.classifiers.base import validate_lcc_kwargs
+
 from .classifiers import BaseClassifier, HuggingFaceClassifier, TimmClassifier
 from .datasets import HuggingFaceDataset
 from .logging import r0_debug, r0_info
 from .utils import get_reasonable_n_jobs
 
 DEFAULT_MAX_GRAD_NORM = 1.0
+"""For gradient clipping."""
 
 
 class NoCheckpointFound(Exception):
-    """Raised by `nlnas.utils.last_checkpoint_path` if no checkpoint is found"""
+    """
+    Raised by `nlnas.training.all_checkpoint_paths` and
+    `nlnas.training.best_checkpoint_path` if no checkpoints are found.
+    """
 
 
 def all_checkpoint_paths(output_path: str | Path) -> list[Path]:
     """
-    Returns the sorted (by epoch) list of all checkpoints.
+    Returns the sorted (by epoch) list of all checkpoints. The checkpoint files
+    must follow the following pattern:
+
+        epoch=<digits>-step=<digits>.ckpt
 
     Args:
         output_path (str | Path): e.g.
-            `out.local/ft/cifar100/microsoft-resnet-18`
+            `out.local/ft/cifar100/microsoft-resnet-18`. There is no assumption
+            on the structure of this folder, as long as it contains `.ckpt`
+            files either directly or with subfolders in between.
 
     Raises:
         NoCheckpointFound: If no checkpoint is found
@@ -53,16 +64,19 @@ def best_checkpoint_path(
     mode: Literal["min", "max"] = "max",
 ) -> tuple[Path, int]:
     """
-    Returns the path to the best checkpoint
+    Returns the path to the best checkpoint.
 
     Args:
         output_path (str | Path): e.g.
-            `out.local/ft/cifar100/microsoft-resnet-18`
+            `out.local/ft/cifar100/microsoft-resnet-18`. This folder is expected
+            to contain a `tb_logs` and `csv_logs` folder, either directly or
+            with subfolders in between.
         metric (str, optional):
         mode (Literal["min", "max"], optional):
 
     Returns:
-        tuple[Path, int]: _description_
+        A tuple containing the path to the checkpoint file, and the epoch
+        number.
     """
     if not isinstance(output_path, Path):
         output_path = Path(output_path)
@@ -100,27 +114,6 @@ def checkpoint_ves(path: str | Path) -> tuple[int, int, int]:
     raise ValueError(f"Path '{path}' is not a valid checkpoint path")
 
 
-def last_checkpoint_path(output_path: Path) -> Path:
-    """
-    Finds the file path of the last Pytorch Lightning training checkpoint
-    (`ckpt` file) in a given directory. The step count is considered, rather
-    than the epoch count.
-
-    Args:
-        output_path (str | Path): e.g.
-            `out.local/ft/cifar100/microsoft-resnet-18`
-    """
-    d = {}
-    for c in output_path.glob("**/*step=*.ckpt"):
-        try:
-            d[checkpoint_ves(c)[2]] = c
-        except ValueError:
-            pass
-    if ks := list(d.keys()):
-        return Path(d[max(ks)])
-    raise NoCheckpointFound
-
-
 def make_trainer(
     model_name: str,
     output_dir: Path,
@@ -129,7 +122,9 @@ def make_trainer(
     save_all_checkpoints: bool = False,
 ) -> pl.Trainer:
     """
-    Self-explanatory
+    Makes a [PyTorch Lightning
+    `Trainer`](https://lightning.ai/docs/pytorch/stable/common/trainer.html)
+    with some sensible defaults.
 
     Args:
         model_name (str):
@@ -171,7 +166,7 @@ def make_trainer(
 def train(
     model_name: str,
     dataset_name: str,
-    output_dir: Path,
+    output_dir: Path | str,
     ckpt_path: Path | None = None,
     ce_weight: float = 1,
     lcc_submodules: list[str] | None = None,
@@ -190,13 +185,18 @@ def train(
     Performs fine-tuning on a model, possibly with latent clustering correction.
 
     Args:
-        model_name (str):
-        dataset_name (str):
-        output_dir (Path):
+        model_name (str): The model name as in the [Hugging Face model
+            hub](https://huggingface.co/models?pipeline_tag=image-classification).
+        dataset_name (str): The dataset name as in the [Hugging Face dataset
+            hub](https://huggingface.co/datasets?task_categories=task_categories:image-classification).
+        output_dir (Path | str):
         ckpt_path (Path | None): If `None`, the correction will start from the
             weights available on the Hugging Face model hub.
-        ce_weight (float, optional):
-        lcc_submodules (list[str]):
+        ce_weight (float, optional): Weight of the cross-entropy loss against
+            the LCC loss. Ignored if LCC is not performed. Defaults to $1$.
+        lcc_submodules (list[str] | None, optional): List of submodule names
+            where to perform LCC. If empty or `None`, LCC is not performed. This
+            is the only way to enable/disable LCC. Defaults to `None`.
         lcc_kwargs (dict | None, optional): Optional parameters for LCC.
             Expected entries are:
             * `weight` (float, optional): Defaults to $10^{-4}$
@@ -208,35 +208,35 @@ def train(
             * `warmup` (int, optional): Number of epochs to wait before
                 starting LCC. Defaults to $0$, meaning LCC will start
                 immediately.
-        max_epochs (int, optional):
-        batch_size (int, optional):
+        max_epochs (int, optional): Defaults to $100$.
+        batch_size (int, optional): Defaults to $64$.
         train_split (str, optional):
         val_split (str, optional):
         test_split (str, optional):
         image_key (str, optional):
         label_key (str, optional):
         logit_key (str, optional):
-        head_name (str | None, optional):
+        head_name (str | None, optional): Name of the output layer of the model.
+            This must be set if the number of classes in the dataset does not
+            match the number components of the output layer of the model. See
+            also `nlnas.classifiers.BaseClassifier.__init__`.
     """
-    lcc_kwargs = lcc_kwargs or {}
-    do_lcc = (
-        lcc_kwargs.get("weight", 0) > 0
-        and lcc_kwargs.get("interval", 0) > 0
-        and lcc_submodules
-    )
+    lcc_kwargs, do_lcc = lcc_kwargs or {}, bool(lcc_submodules)
     if do_lcc:
         logging.debug("Performing latent cluster correction")
-    if do_lcc and (n_cuda_devices := torch.cuda.device_count()) > 1:
-        logging.critical(
-            "Latent cluster correction only support CPU or single GPU "
-            f"training , but found {n_cuda_devices} CUDA devices. Please set "
-            "CUDA_VISIBLE_DEVICES to a single device, for example: "
-            "export CUDA_VISIBLE_DEVICES=0"
-        )
-        sys.exit(1)
+        validate_lcc_kwargs(lcc_kwargs)
+        if (n_cuda_devices := torch.cuda.device_count()) > 1:
+            logging.critical(
+                "Latent cluster correction only support CPU or single GPU "
+                f"training , but found {n_cuda_devices} CUDA devices. Please "
+                "set CUDA_VISIBLE_DEVICES to a single device, for example: "
+                "export CUDA_VISIBLE_DEVICES=0"
+            )
+            sys.exit(1)
 
     torch.multiprocessing.set_sharing_strategy("file_system")
 
+    output_dir = Path(output_dir)
     _dataset_name = dataset_name.replace("/", "-")
     _model_name = model_name.replace("/", "-")
     _output_dir = output_dir / _dataset_name / _model_name

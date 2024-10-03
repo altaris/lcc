@@ -1,4 +1,4 @@
-"""Everything related to latent clustering correction"""
+"""Everything related to LCC."""
 
 from typing import Literal
 
@@ -7,11 +7,17 @@ import torch
 
 from ..utils import to_array
 from .choice import (
+    LCC_CLASS_SELECTIONS,
+    GraphTotallyDisconnected,
     LCCClassSelection,
     choose_classes,
+    confusion_graph,
+    heaviest_connected_subgraph,
     max_connected_confusion_choice,
+    top_confusion_pairs,
 )
 from .clustering import (
+    CLUSTERING_METHODS,
     ClusteringMethod,
     class_otm_matching,
     lcc_knn_indices,
@@ -24,8 +30,13 @@ from .louvain import louvain_communities
 __all__ = [
     "choose_classes",
     "class_otm_matching",
+    "CLUSTERING_METHODS",
     "ClusteringMethod",
+    "confusion_graph",
     "get_cluster_labels",
+    "GraphTotallyDisconnected",
+    "heaviest_connected_subgraph",
+    "LCC_CLASS_SELECTIONS",
     "lcc_knn_indices",
     "lcc_loss",
     "lcc_targets",
@@ -33,6 +44,7 @@ __all__ = [
     "louvain_communities",
     "max_connected_confusion_choice",
     "otm_matching_predicates",
+    "top_confusion_pairs",
 ]
 
 
@@ -49,11 +61,16 @@ def get_cluster_labels(
     Also performs some preprocessing as required.
 
     Args:
-        z (np.ndarray | Tensor):
-        method (Literal["louvain", "dbscan", "hdbscan"], optional):
-        scaling (Literal["standard", "minmax"] | None, optional):
-        device (Literal["cpu", "cuda"] | None, optional):
-        **kwargs: Passed to the clustering object
+        z (np.ndarray | Tensor): The latent representation tensor.
+        method (Literal["louvain", "dbscan", "hdbscan"], optional): Defaults to
+            `"louvain"`. See `nlnas.correction.CLUSTERING_METHODS`.
+        scaling (Literal["standard", "minmax"] | None, optional): Defaults to
+            `"standard"`.
+        device (Literal["cpu", "cuda"] | None, optional): If left to `None`,
+            uses CUDA if it is available, otherwise falls back to CPU. Setting
+            `cuda` while CUDA isn't available will **silently** fall back to
+            CPU.
+        **kwargs: Passed to the clustering object.
     """
     use_cuda = (
         device == "cuda" or device is None

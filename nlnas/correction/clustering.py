@@ -14,6 +14,9 @@ from ..utils import to_array, to_tensor
 
 DEFAULT_K: int = 2
 
+CLUSTERING_METHODS = ["louvain", "dbscan", "hdbscan"]
+"""Supported clustering methods."""
+
 ClusteringMethod: TypeAlias = Literal["louvain", "dbscan", "hdbscan"]
 
 
@@ -27,8 +30,9 @@ def _otm_matching(
     Given a edge-weighted graph `graph` and two disjoint node subsets `set_a`
     and `set_b`, such that the full subgraph spanned by `set_a | set_b` is
     bipartite, finds an optimal one-to-many matching between nodes of `set_a`
-    and nodes of `set_b`. A one-to-many matching is like a usual matching
-    except that a node in `set_a` can match to any number of nodes in `set_b`.
+    and nodes of `set_b`. A one-to-many matching is like a usual matching except
+    that a node in `set_a` can match to any number of nodes in `set_b` (whereas
+    nodes in `set_b` can match at most one node in `set_a`).
 
     Under the hood, this method adds two nodes to (a copy of) `graph`, called
     supersource and supersink. The supersource is connected to every node in
@@ -88,8 +92,8 @@ def _mc_cc_predicates(
         `p_mc != ~p_cc` in general ;)
 
     Args:
-        y_true (np.ndarray | Tensor):
-        y_clst (np.ndarray | Tensor):
+        y_true (np.ndarray | Tensor | list[int]): A `(N,)` integer array.
+        y_clst (np.ndarray | Tensor | list[int]): A `(N,)` integer array.
         matching (dict[int, set[int]] | dict[str, set[int]]):
         n_true_classes (int | None, optional): Number of true classes. Useful if
             `y_true` is a slice of the real true label vector and does not
@@ -109,11 +113,11 @@ def class_otm_matching(
     y_a: np.ndarray | Tensor | list[int], y_b: np.ndarray | Tensor | list[int]
 ) -> dict[int, set[int]]:
     """
-    Let `y_a` and `y_b` be `(N,)` integer array. We think of them as classes on
-    some dataset, say `x`, which we call respectively *a-classes* and
-    *b-classes*. This method performs a one-to-many matching from the classes in
-    `y_a` to the classes in `y_b` to overall maximize the cardinality of the
-    intersection between a-classes and the union of their matched b-classes.
+    Let `y_a` and `y_b` be `(N,)` integer arrays. We think of them as classes on
+    some dataset, say `x`, which we call respectively *$a$-classes* and
+    *$b$-classes*. This method performs a one-to-many matching from the classes
+    in `y_a` to the classes in `y_b` to overall maximize the cardinality of the
+    intersection between samples labeled by $a$ and matched $b$-classes.
 
     Example:
 
@@ -147,8 +151,12 @@ def class_otm_matching(
         negative values either.
 
     Args:
-        y_a (np.ndarray | Tensor): A `(N,)` integer array.
-        y_b (np.ndarray | Tensor): A `(N,)` integer array.
+        y_a (np.ndarray | Tensor | list[int]): A `(N,)` integer array.
+        y_b (np.ndarray | Tensor | list[int]): A `(N,)` integer array.
+
+    Returns:
+        A dict that maps each class in `y_a` to the set of classes in `y_b` that
+        it has matched.
     """
     y_a, y_b, match_graph = to_array(y_a), to_array(y_b), nx.DiGraph()
     for i, j in product(np.unique(y_a), np.unique(y_b)):
@@ -183,7 +191,7 @@ def lcc_knn_indices(
     on correctly clustered samples in a given class.
 
     Say `z` has shape `(N, d)`. Then this methods returns a dict where
-    - the keys are *among* true classes (unique values of `y_true`)
+    - the keys are *among* true classes (unique values of `y_true`);
     - if `i_true` is a true class in the dict, then the value at key `i_true` is
       a tuple `(knn, v)` where
       - `knn` is a `NearestNeighbors` object from either sklearn
@@ -193,32 +201,36 @@ def lcc_knn_indices(
         depending on the value of `device`.
       - `v` is a tensor of shape `(N_i, d)` containing all correctly clustered
         samples in true class `i_true`; in particular, `knn` was fit on `v`, and
-        the indices returned by `knn.kneighbors` are valid in `v`.
+        the indices returned by the method `knn.kneighbors` are valid in `v`.
 
     Warning:
         Not every true class might be represented in the return dict. For
         example, in the ideal scenario where `y_true == y_clst` (up to label
         permutation), the returned dict would be empty. More generally, if a
-        class has too few misclustered samples, then it is not included.
+        class has less than `k` misclustered samples, then it is not included.
 
     Args:
-        z (Tensor):
-        y_true (np.ndarray | Tensor):
-        y_clst (np.ndarray | Tensor):
-        matching (dict[int, set[int]] | dict[str, set[int]]):
+        z (Tensor | np.ndarray | list[float]): The tensor of latent
+            representations.
+        y_true (np.ndarray | Tensor | list[int]): A `(N,)` integer array.
+        y_clst (np.ndarray | Tensor | list[int]): A `(N,)` integer array.
+        matching (dict[int, set[int]] | dict[str, set[int]]): Produced by
+            `nlnas.correction.class_otm_matching`.
         k (int, optional):
         n_true_classes (int | None, optional): Number of true classes. Useful if
             `y_true` is a slice of the real true label vector and does not
-            contain all the possible true classes of the dataset at hand.  If
+            contain all the possible true classes of the dataset at hand. If
             `None`, then `y_true` is assumed to contain all classes, and so
             `n_true_classes` defaults to `y_true.max() + 1`.
-        device (Literal["cpu", "cuda"] | None, optional):
+        device (Literal["cpu", "cuda"] | None, optional): If left to `None`,
+            uses CUDA if it is available, otherwise falls back to CPU. Setting
+            `cuda` while CUDA isn't available will **silently** fall back to
+            CPU.
     """
     if (device == "cuda" or device is None) and torch.cuda.is_available():
         from cuml.neighbors import NearestNeighbors
     else:
         from sklearn.neighbors import NearestNeighbors
-
     z = to_tensor(z)
     p_mc, p_cc = _mc_cc_predicates(
         y_true, y_clst, matching, n_true_classes=n_true_classes
@@ -232,7 +244,6 @@ def lcc_knn_indices(
         index = NearestNeighbors(n_neighbors=k)
         index.fit(to_array(z[p_cc_i].flatten(1)))
         result[i_true] = (index, z[p_cc_i])
-
     return result
 
 
@@ -242,10 +253,15 @@ def lcc_loss(
 ) -> Tensor:
     """
     Derives the clustering correction loss from a tensor of latent
-    representation `z` and dict of targets (see
-    `nlnas.correction.clustering.clustering_correction_targets`)
+    representation `z` and dict of targets (see `nlnas.correction.lcc_targets`).
+    The clustering loss is the mean distance between a sample and its target,
+    (divided by $\\\\sqrt{d}$, where $d$ is `z.shape[-1]` is the dimension of
+    the latent space). If a sample does not have a target, then its "distance"
+    is understood to be $0$.
 
     Usage:
+
+        ```python
         knn_indices = lcc_knn_indices(
             z,
             y_true,
@@ -253,7 +269,6 @@ def lcc_loss(
             matching,
             k=k,
             n_true_classes=n_true_classes,
-            device=device
         )
         targets = lcc_targets(
             z,
@@ -264,16 +279,13 @@ def lcc_loss(
             n_true_classes=n_true_classes,
         )
         loss = lcc_loss(z, targets)
-
-    The clustering loss is the mean distance between a sample and its target,
-    (divided by $\\\\sqrt{d}$, where $d$ is `z.shape[-1]` is the dimension of
-    the latent space). If a sample does not have a target, then its "distance"
-    is understood to be $0$.
+        ```
 
     Args:
-        z (Tensor):
+        z (Tensor | np.ndarray | list[float]): The tensor of latent
+            representations.
         targets (dict[int, tuple[np.ndarray, Tensor]]): As produced by
-            `nlnas.correction.clustering.lcc_targets`
+            `nlnas.correction.lcc_targets`
     """
     z = to_tensor(z).flatten(1)
     if not targets:
@@ -294,9 +306,8 @@ def lcc_targets(
     n_true_classes: int | None = None,
 ) -> dict[int, tuple[np.ndarray, Tensor]]:
     """
-    Provides the correction targets for misclustered samples in `z`.
-
-    In more details, this method returns a dict where:
+    Provides the correction targets for misclustered samples in `z`. In more
+    details, this method returns a dict where:
     - the keys are *among* true classes (unique values of `y_true`) and in fact
       are the same keys as `knn_indices`;
     - if `i_true` is a true class in the dict, then the value at key `i_true` is
@@ -305,17 +316,19 @@ def lcc_targets(
         samples in true class `i_true`; if `N_miss_i` is the number of
         misclustered samples in true class `i_true`, then `p` of course has
         exactly `N_miss_i` `True` entries; using the notation of
-        `otm_matching_predicates`, `p` is in fact `p3[i_true]`!
+        `nlnas.correction.otm_matching_predicates`, `p` is in fact `p3[i_true]`!
       - `t` is a tensor of shape `(N_miss_i, d)` and `t[j]` is the correction
         target of `z[p][j]`, i.e. a point in the latent space that `z[p][j]`,
         the $j$-th misclustered sample in true class `i_true`, should move
         towards.
 
     Args:
-        z (Tensor):
-        y_true (np.ndarray | Tensor):
-        y_clst (np.ndarray | Tensor):
-        matching (dict[int, set[int]] | dict[str, set[int]]):
+        z (Tensor | np.ndarray | list[float]): The tensor of latent
+            representations.
+        y_true (np.ndarray | Tensor): A `(N,)` integer array.
+        y_clst (np.ndarray | Tensor): A `(N,)` integer array.
+        matching (dict[int, set[int]] | dict[str, set[int]]): Produced by
+            `nlnas.correction.class_otm_matching`.
         knn_indices (dict[int, tuple[Any, Tensor]]): As produced by
             `lcc_knn_indices`
         n_true_classes (int | None, optional): Number of true classes. Useful if
@@ -351,31 +364,31 @@ def otm_matching_predicates(
     """
     Let `y_a` be `(N,)` integer array with values in $\\\\{ 0, 1, ..., c_a - 1
     \\\\}$ (if the argument `c_a` is `None`, it is inferred to be `y_a.max() +
-    1`). If `y_a[i] == j`, then it is understood that the `i`-th sample (in
-    some dataset, say `x`) is in class `j`, which for disambiguation we'll call
-    the a-class `j`.
+    1`). If `y_a[i] == j`, then it is understood that the $i$-th sample (in
+    some dataset, say `x`) is in class $j$, which for disambiguation we'll call
+    the $a$-class $j$.
 
     Likewise, let `y_b` be `(N,)` integer array with values $\\\\{ 0, 1, ...,
-    c_b - 1 \\\\}$. If `y_b[i] == j`, then it is understood that the `i`-th
-    sample `x[i]` is in b-class `j`.
+    c_b - 1 \\\\}$. If `y_b[i] == j`, then it is understood that the $i$-th
+    sample `x[i]` is in $b$-class $j$.
 
     Finally, let `matching` be a (possibley one-to-many) matching between the
-    a-classes and the b-classes. In other words each a-class corresponds to
-    some set of b-classes.
+    $a$-classes and the $b$-classes. In other words each $a$-class corresponds to
+    some set of $b$-classes.
 
     This method returns four boolean arrays with shape `(c_a, N)`, which in my
-    head I call "true-louvain-miss-excess":
+    head I call *"true-louvain-miss-excess"*:
 
     1. `p1` is simply given by `p1[a] = (y_a == a)`, or in other words, `p1[a,
-       i]` is `True` if and only if the `i`-th sample is in a-class `a`.
-    2. `p2[a, i]` is `True` if and only if the `i`-th sample is in a b-class
-       that has matched to a-class `a`.
+       i]` is `True` if and only if the $i$-th sample is in $a$-class `a`.
+    2. `p2[a, i]` is `True` if and only if the $i$-th sample is in a $b$-class
+       that has matched to $a$-class `a`.
     3. `p3` is (informally) given by `p3[a] = (p1[a] and not p2[a])`. In other
-       words, `p3[a, i]` is `True` if sample `i` is in a-class `a` but not in
-       any b-class matched with `a`.
+       words, `p3[a, i]` is `True` if sample $i$ is in $a$-class `a` but not in
+       any $b$-class matched with `a`.
     4. `p4` is the "dual" of `p3`: `p4[a] = (p2[a] and not p1[a])`. In other
-       words, `p4[a, i]` is `True` if sample `i` is not in a-class `a`, but is
-       in a b-class matched with `a`.
+       words, `p4[a, i]` is `True` if sample $i$ is not in $a$-class `a`, but is
+       in a $b$-class matched with `a`.
 
     I hope this all makes sense.
 
@@ -388,11 +401,12 @@ def otm_matching_predicates(
             $\\\\{ 0, ..., c_b - 1 \\\\}$ into $c_a$ sets. The $i$-th set is
             understood to be the set of all classes of `y_b` that matched with
             the $i$-th class of `y_a`. If some keys are strings, they must be
-            convertible to ints.
-        c_a (int | None, optional): Number of a-classes. Useful if `y_true`
+            convertible to ints. This has probably been produced by
+            `nlnas.correction.class_otm_matching`.
+        c_a (int | None, optional): Number of $a$-classes. Useful if `y_a`
             does not contain all the possible classes of the dataset at hand.
-            If `None`, then `y_a` is assumed to contain all classes, and so
-            `c_a = y_a.max() + 1`.
+            If `None`, then `y_a` is assumed to contain all classes, and so `c_a
+            = y_a.max() + 1`.
     """
     if (la := len(y_a)) != (lb := len(y_b)):
         raise ValueError(

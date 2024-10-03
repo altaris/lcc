@@ -1,4 +1,4 @@
-"""An image classifier wrapped inside a `BaseClassifier`"""
+"""See `WrappedClassifier` documentation."""
 
 # pylint: disable=too-many-ancestors
 
@@ -10,7 +10,11 @@ from .base import BaseClassifier, Batch
 
 
 class WrappedClassifier(BaseClassifier):
-    """See module documentation"""
+    """
+    An image classifier model
+    ([`torch.nn.Module`](https://pytorch.org/docs/stable/generated/torch.nn.Module.html))
+    wrapped inside a `nlnas.classifiers.BaseClassifier`.
+    """
 
     model: nn.Module
 
@@ -22,9 +26,13 @@ class WrappedClassifier(BaseClassifier):
         **kwargs: Any,
     ) -> None:
         """
+        See also:
+            `nlnas.classifiers.BaseClassifier.__init__`.
+
         Args:
             model (nn.Module):
-            n_classes (int): Number of classes
+            n_classes (int): Number of classes in the dataset on which the model
+                will be trained.
             head_name (str | None, optional): Name of the head submodule in
                 `model`, which is the fully connected (aka
                 [`nn.Linear`](https://pytorch.org/docs/stable/generated/torch.nn.Linear.html))
@@ -35,7 +43,6 @@ class WrappedClassifier(BaseClassifier):
                 classes. The name of a submodule can be retried by inspecting
                 the output of `nn.Module.named_modules` or
                 `nlnas.utils.pretty_print_submodules`.
-            kwargs: Forwarded to `BaseClassifier`
         """
         self.save_hyperparameters(ignore=["model"])
         super().__init__(n_classes, **kwargs)
@@ -43,8 +50,6 @@ class WrappedClassifier(BaseClassifier):
         if head_name:
             replace_head(self.model, head_name, n_classes)
 
-    # pylint: disable=arguments-differ
-    # pylint: disable=missing-function-docstring
     def forward(self, inputs: Tensor | Batch, *_, **__) -> Tensor:
         x: Tensor = (
             inputs if isinstance(inputs, Tensor) else inputs[self.image_key]
@@ -54,7 +59,7 @@ class WrappedClassifier(BaseClassifier):
 
 
 def replace_head(
-    module: nn.Module, head_name: str, out_features: int
+    module: nn.Module, head_name: str, n_classes: int
 ) -> nn.Module:
     """
     Replaces the last linear layer of a model with a new one with a specified
@@ -66,12 +71,12 @@ def replace_head(
         head_name (str): e.g. `model.classifier.1`. The
             name of a submodule can be retried by inspecting the output of
             `nn.Module.named_modules` or `nlnas.utils.pretty_print_submodules`.
-        out_features (int):
+        n_classes (int):
 
     Raises:
         RuntimeError: If the head module is not a
-        [`nn.Linear`](https://pytorch.org/docs/stable/generated/torch.nn.Linear.html)
-        module
+            [`nn.Linear`](https://pytorch.org/docs/stable/generated/torch.nn.Linear.html)
+            module
 
     Returns:
         The modified module, which is the one passed in argument since the
@@ -84,7 +89,7 @@ def replace_head(
         )
     new_head = nn.Linear(
         in_features=head.in_features,
-        out_features=out_features,
+        out_features=n_classes,
         bias=head.bias is not None,
     )
     parent = module.get_submodule(".".join(head_name.split(".")[:-1]))

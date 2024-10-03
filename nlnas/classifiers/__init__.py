@@ -5,6 +5,7 @@ from .base import (
     LatentClusteringData,
     full_dataset_evaluation,
     full_dataset_latent_clustering,
+    validate_lcc_kwargs,
 )
 from .huggingface import HuggingFaceClassifier
 from .timm import TimmClassifier
@@ -17,5 +18,6 @@ __all__ = [
     "HuggingFaceClassifier",
     "LatentClusteringData",
     "TimmClassifier",
+    "validate_lcc_kwargs",
     "WrappedClassifier",
 ]

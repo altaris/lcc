@@ -23,6 +23,10 @@ BK_PALETTE_FUNCTIONS = {
     "magma": bkp.magma,
     "viridis": bkp.viridis,
 }
+"""
+Supported bokeh palettes. See also
+https://docs.bokeh.org/en/latest/docs/reference/palettes.html#functions.
+"""
 
 
 def class_scatter(
@@ -39,7 +43,7 @@ def class_scatter(
     """
     Scatter plot where each class has a different color. Points in negative
     classes (those for which the `y` value is strictly less than 0), called
-    _outliers_ here, are all plotted black.
+    *outliers* here, are all plotted black.
 
     Example:
 
@@ -58,14 +62,15 @@ def class_scatter(
             class
         palette (Palette | list[str] | str | None, optional): Either a
             palette object (see
-            https://docs.bokeh.org/en/latest/docs/reference/palettes.html#bokeh-palettes),
+            https://docs.bokeh.org/en/latest/docs/reference/palettes.html#bokeh-palettes
+            ),
             a list of HTML colors (at least as many as the number of classes),
             or a name in `nlnas.plotting.BK_PALETTE_FUNCTIONS`.
         size (float, optional): Dot size. The outlier's dot size will be half
-            that
-        rescale (bool, optional): Whether to rescale the `x` values to `[0, 1]`
+            that.
+        rescale (bool, optional): Whether to rescale the `x` values to $[0, 1]$.
         outliers (bool, optional): Whether to plot the outliers (those samples
-            with a label < 0)
+            with a label < 0).
 
     Raises:
         `ValueError` if the palette is unknown
@@ -112,8 +117,8 @@ def export_png(obj: Any, filename: str | Path) -> Path:
     Instanciates its own Firefox webdriver. A bit slower but more reliable.
 
     If Selenium is not installed, or if the Firefox webdriver is not installed,
-    or if any other error occurs, this method will fall back to the default
-    bokeh implementation.
+    or if any other error occurs, this method will **silently** fall back to
+    the default bokeh implementation.
     """
     from bokeh.io import export_png as _export_png
 
@@ -145,8 +150,8 @@ def export_png(obj: Any, filename: str | Path) -> Path:
 
 def class_matching_plot(
     x: np.ndarray | Tensor | list[float],
-    y_a: np.ndarray | Tensor | list[float],
-    y_b: np.ndarray | Tensor | list[float],
+    y_a: np.ndarray | Tensor | list[int],
+    y_b: np.ndarray | Tensor | list[int],
     matching: dict[int, set[int]] | dict[str, set[int]],
     size: int = 400,
 ) -> bkm.GridBox:
@@ -159,18 +164,19 @@ def class_matching_plot(
         ![Example 1](../docs/imgs/class_matching_plot.png)
 
     Warning:
-        The array `x` is rescaled to fit in the `[0, 1]` range.
+        The array `x` is always rescaled to fit in the $[0, 1]$ range.
 
     Args:
-        x: (np.ndarray): A `(N, 2)` array
-        y_a (np.ndarray): A `(N,)` integer array with values in $\\\\{ 0, 1, ...,
-            c_a - 1 \\\\}$ for some $c_a > 0$.
-        y_b (np.ndarray): A `(N,)` integer array with values in $\\\\{ 0, 1, ...,
-            c_b - 1 \\\\}$ for some $c_b > 0$.
+        x: (np.ndarray | Tensor | list[float]): A `(N, 2)` array
+        y_a (np.ndarray | Tensor | list[int]): A `(N,)` integer array with
+            values in $\\\\{ 0, 1, ..., c_a - 1 \\\\}$ for some $c_a > 0$.
+        y_b (np.ndarray | Tensor | list[int]): A `(N,)` integer array with
+            values in $\\\\{ 0, 1, ..., c_b - 1 \\\\}$ for some $c_b > 0$.
         matching (dict[int, set[int]] | dict[str, set[int]]): Matching between
             the labels of `y_a` and the labels of `y_b`. If some keys are
-            strings, they must be convertible to ints.
-        size (int, optional): The size of each scatter plot
+            strings, they must be convertible to ints. Probably generated from
+            `nlnas.correction.class_otm_matching`.
+        size (int, optional): The size of each scatter plot. Defaults to 400.
     """
     x, y_a, y_b = to_array(x), to_array(y_a), to_array(y_b)
     x = MinMaxScaler().fit_transform(x)
@@ -231,6 +237,10 @@ def class_matching_plot(
 
 
 def make_same_xy_range(*args: bk.figure) -> None:
-    """Makes sure all figures share the same `x_range` and `y_range`"""
+    """
+    Makes sure all figures share the same `x_range` and `y_range`. As a result,
+    if a figure is zoomed in or dragged, all others will be too and by the same
+    amount.
+    """
     for f in args[1:]:
         f.x_range, f.y_range = args[0].x_range, args[0].y_range

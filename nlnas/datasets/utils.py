@@ -12,7 +12,7 @@ Batch: TypeAlias = dict[str, Tensor]
 
 def dl_head(dl: DataLoader, n: int) -> list[Batch]:
     """
-    Returns the first `n` samples of a DataLoader *as a list of batches*.
+    Returns the first `n` samples of a DataLoader **as a list of batches**.
 
     Args:
         dl (DataLoader):

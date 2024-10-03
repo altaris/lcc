@@ -1,21 +1,5 @@
 """
-A Hugging Face image classification dataset wrapped inside a `WrappedDataset`,
-which is itself a
-[`LightningDataModule`](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.core.LightningDataModule.html).
-
-Hugging Face image datasets are dict datasets where the image is a PIL image
-object. Here, images are converted to tensors using the `image_processor` (if
-provided), which brings this closer to the torchvision API. In this case, load
-and call Hugging Face models directly. If you do not provide an
-`image_processor`, then it is recommended that you use a Hugging Face pipeline
-instead.
-
-Since Hugging Face datasets are dict datasets, batches are dicts of tensors
-(see the Hugging Face dataset hub for the list of keys). `HuggingFaceDataset`
-adds an extra key `_idx` that has the index of the samples in the dataset.
-
-See also:
-    https://huggingface.co/datasets?task_categories=task_categories:image-classification
+See `nlnas.datasets.HuggingFace` class documentation.
 """
 
 from pathlib import Path
@@ -37,7 +21,26 @@ See also:
 
 
 class HuggingFaceDataset(WrappedDataset):
-    """See module documentation"""
+    """
+    A Hugging Face image classification dataset wrapped inside a
+    `nlnas.datasets.WrappedDataset`, which is itself a
+    [`LightningDataModule`](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.core.LightningDataModule.html).
+
+    Hugging Face image datasets are dict datasets where the image is a PIL image
+    object. Here, images are converted to tensors using the `image_processor`
+    (if provided), which brings this closer to the torchvision API. In this
+    case, load and call Hugging Face models directly. If you do not provide an
+    `image_processor`, then it is recommended that you use a Hugging Face
+    pipeline instead.
+
+    Since Hugging Face datasets are dict datasets, batches are dicts of tensors
+    (see the Hugging Face dataset hub for the list of keys).
+    `HuggingFaceDataset` adds an extra key `_idx` that has the index of the
+    samples in the dataset.
+
+    See also:
+        https://huggingface.co/datasets?task_categories=task_categories:image-classification
+    """
 
     label_key: str
 
@@ -62,24 +65,32 @@ class HuggingFaceDataset(WrappedDataset):
         """
         Args:
             dataset_name (str): Name of the Hugging Face image classification
-                dataset, see
-                https://huggingface.co/datasets?task_categories=task_categories:image-classification
+                dataset, as in the [Hugging Face dataset
+                hub](https://huggingface.co/datasets?task_categories=task_categories:image-classification).
             fit_split (str, optional): Name of the split containing the
                 training data. See also
                 https://huggingface.co/docs/datasets/en/loading#slice-splits
-            val_split (str, optional): Analogous to `fit_split`
-            test_split (str | None, optional): Analogous to `fit_split`. If
-                left to `None`, setting up this datamodule at the `test` stage
-                will raise a `RuntimeError`
-            predict_split (str | None, optional): Analogous to `fit_split`. If
-                left to `None`, setting up this datamodule at the `predict`
-                stage will raise a `RuntimeError`
+            val_split (str, optional): Name of the split containing the
+                validation data.
+            test_split (str | None, optional): Name of the split containing the
+                test data. If left to `None`, setting up this datamodule at the
+                `test` stage will raise a `RuntimeError`
+            predict_split (str | None, optional): Name of the split containing
+                the prediction samples. If left to `None`, setting up this
+                datamodule at the `predict` stage will raise a `RuntimeError`
             image_processor (Callable | None, optional):
-            train_dl_kwargs (dict[str, Any] | None, optional):
-            val_dl_kwargs (dict[str, Any] | None, optional):
-            test_dl_kwargs (dict[str, Any] | None, optional):
-            predict_dl_kwargs (dict[str, Any] | None, optional):
-            cache_dir (Path | str, optional):
+            train_dl_kwargs (dict[str, Any] | None, optional): Dataloader
+                parameters. See also https://pytorch.org/docs/stable/data.html.
+            val_dl_kwargs (dict[str, Any] | None, optional): Dataloader
+                parameters.
+            test_dl_kwargs (dict[str, Any] | None, optional): Dataloader
+                parameters.
+            predict_dl_kwargs (dict[str, Any] | None, optional): Dataloader
+                parameters.
+            cache_dir (Path | str, optional): Path to the cache directory, where
+                Hugging Face `datasets` package will download the dataset files.
+                This should not be a temporary directory and be consistent
+                between runs.
             classes (list | Tensor | np.ndarray | None, optional): List of
                 classes to keep. For example if `classes=[1, 2]`, only those
                 samples whose label is `1` or `2` will be present in the
@@ -160,13 +171,12 @@ class HuggingFaceDataset(WrappedDataset):
         self, split: Literal["train", "val", "test"] = "train"
     ) -> int:
         """
-        Returns the number of classes in a given split
+        Returns the number of classes in a given split.
 
         Args:
-            split (Literal["train", "val",
-                "test"], optional): Not the true name of the split
-                (as specified on the dataset's HuggingFace page), just either
-                `train`, `val`, or `test`.
+            split (Literal["train", "val", "test"], optional): Not the true name
+                of the split (as specified on the dataset's HuggingFace page),
+                just either `train`, `val`, or `test`. Defaults to `train`.
         """
         ds = self._get_dataset(split)
         return ds.features[self.label_key].num_classes
@@ -178,10 +188,9 @@ class HuggingFaceDataset(WrappedDataset):
         Gets the vector of true labels of a given split.
 
         Args:
-            split (Literal["train", "val",
-                "test"], optional): Not the true name of the split
-                (as specified on the dataset's HuggingFace page), just either
-                `train`, `val`, or `test`.
+            split (Literal["train", "val", "test"], optional): Not the true name
+                of the split (as specified on the dataset's HuggingFace page),
+                just either `train`, `val`, or `test`. Defaults to `train`.
 
         Returns:
             An `int` tensor

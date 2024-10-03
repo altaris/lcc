@@ -1,8 +1,4 @@
-"""
-Pretrained classifier model loaded from the [HuggingFace model
-hub](https://huggingface.co/models?pipeline_tag=image-classification) uploaded
-by the `timm` team.
-"""
+"""See `TimmClassifier` documentation."""
 
 from typing import Any, Callable
 
@@ -13,7 +9,11 @@ from .wrapped import Batch, WrappedClassifier
 
 
 class TimmClassifier(WrappedClassifier):
-    """See module documentation."""
+    """
+    Pretrained classifier model loaded from the [HuggingFace model
+    hub](https://huggingface.co/models?pipeline_tag=image-classification)
+    uploaded by the `timm` team.
+    """
 
     image_transform: Callable
 
@@ -25,13 +25,48 @@ class TimmClassifier(WrappedClassifier):
         pretrained: bool = True,
         **kwargs: Any,
     ) -> None:
+        """
+        See also:
+            `nlnas.classifiers.WrappedClassifier.__init__` and
+            `nlnas.classifiers.BaseClassifier.__init__`.
+
+        Args:
+            model_name (str): Model name as in the [HuggingFace model
+                hub](https://huggingface.co/models?pipeline_tag=image-classification).
+                Must start with `timm/`.
+            n_classes (int): See `nlnas.classifiers.WrappedClassifier.__init__`.
+            head_name (str | None, optional): See
+                `nlnas.classifiers.WrappedClassifier.__init__`.
+            pretrained (bool, optional): Defaults to `True`.
+        """
+        if not model_name.startswith("timm/"):
+            raise ValueError(
+                "The model isn't a timm model (its name does not start with "
+                "`timm/`). Use `nlnas.classifiers.HuggingFaceClassifier` "
+                "instead."
+            )
         model = timm.create_model(model_name, pretrained=pretrained)
         super().__init__(model, n_classes, head_name, **kwargs)
         self.save_hyperparameters()
 
     @staticmethod
     def get_image_processor(model_name: str, **kwargs) -> Callable:
-        """Returns an image processor for the model"""
+        """
+        Wraps the HuggingFace `AutoImageProcessor` associated to a given model.
+
+        See also:
+            [`timm.create_transform`](https://huggingface.co/docs/timm/reference/data#timm.data.create_transform).
+
+        Args:
+            model_name (str): Model name as in the [HuggingFace model
+                hub](https://huggingface.co/models?pipeline_tag=image-classification).
+                Must start with `timm/`.
+
+        Returns:
+            A callable that uses a [Torchvision
+            transform](https://pytorch.org/vision/0.19/transforms.html) under
+            the hood.
+        """
         model = timm.create_model(model_name, pretrained=False)
         conf = timm.data.resolve_model_data_config(model)
         conf["is_training"], conf["no_aug"] = True, True
@@ -53,8 +88,6 @@ class TimmClassifier(WrappedClassifier):
 
         return _transform
 
-    # pylint: disable=arguments-differ
-    # pylint: disable=missing-function-docstring
     def forward(self, inputs: Tensor | Batch, *_, **__) -> Tensor:
         x: Tensor = (
             inputs if isinstance(inputs, Tensor) else inputs[self.image_key]

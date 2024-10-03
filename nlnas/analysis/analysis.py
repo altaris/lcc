@@ -275,7 +275,8 @@ def embed_latent_samples(
             tensors of shape `(N, ...)`
         device (Literal["cpu", "cuda"] | None, optional): If left to `None`,
             uses CUDA if it is available, otherwise falls back to CPU. Setting
-            `cuda` while CUDA isn't available will silently fall back to CPU.
+            `cuda` while CUDA isn't available will **silently** fall back to
+            CPU.
 
     Returns:
         A dict with the same keys and tensors of shape `(N, 2)`

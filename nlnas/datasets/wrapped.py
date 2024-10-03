@@ -1,7 +1,4 @@
-"""
-A dataset wrapped inside a
-[`LightningDataModule`](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.core.LightningDataModule.html)
-"""
+"""See `nlnas.datasets.WrappedDataset` class documentation."""
 
 from typing import Any, Callable, Literal, TypeAlias
 
@@ -35,7 +32,10 @@ constructing a `WrappedDataset`
 
 
 class WrappedDataset(pl.LightningDataModule):
-    """See module documentation"""
+    """
+    A dataset wrapped inside a
+    [`LightningDataModule`](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.core.LightningDataModule.html)
+    """
 
     train: DatasetOrDatasetFactory
     val: DatasetOrDatasetFactory
@@ -64,7 +64,8 @@ class WrappedDataset(pl.LightningDataModule):
             train (DatasetOrDatasetFactory): A dataset or dataloader for
                 training. Can be a callable without argument that returns said
                 dataset or dataloader. In this case, it will be called during
-                the preparation phase (so only on rank 0).
+                the preparation phase (so only on rank 0 in the case of
+                multi-device or multi-node training).
             val (DatasetOrDatasetFactory | None, optional): Defaults to
                 whatever was passed to the `train` argument
             test (DatasetOrDatasetFactory | None, optional): Defaults to
@@ -72,18 +73,21 @@ class WrappedDataset(pl.LightningDataModule):
             predict (DatasetOrDatasetFactory | None, optional): Defaults
                 to `None`
             train_dl_kwargs (dict[str, Any] | None, optional): If
-                `train`is a dataset or callable that return datasets, this
+                `train` is a dataset or callable that return a dataset, this
                 dictionary will be passed to the dataloader constructor.
-                Defaults to `DEFAULT_DATALOADER_KWARGS`
+                Defaults to `nlnas.datasets.DEFAULT_DATALOADER_KWARGS`.
             val_dl_kwargs (dict[str, Any] | None, optional):
                 Analogous to `train_dl_kwargs`, but defaults to (a copy of)
-                `train_dl_kwargs` instead of `DEFAULT_DATALOADER_KWARGS`
+                `train_dl_kwargs` instead of
+                `nlnas.datasets.DEFAULT_DATALOADER_KWARGS`.
             test_dl_kwargs (dict[str, Any] | None, optional):
                 Analogous to `train_dl_kwargs`, but defaults to (a copy of)
-                `train_dl_kwargs` instead of `DEFAULT_DATALOADER_KWARGS`
+                `train_dl_kwargs` instead of
+                `nlnas.datasets.DEFAULT_DATALOADER_KWARGS`.
             predict_dl_kwargs (dict[str, Any] | None, optional):
                 Analogous to `train_dl_kwargs`, but defaults to (a copy of)
-                `train_dl_kwargs` instead of `DEFAULT_DATALOADER_KWARGS`
+                `train_dl_kwargs` instead of
+                `nlnas.datasets.DEFAULT_DATALOADER_KWARGS`.
         """
         super().__init__()
         self.train, self.val = train, val if val is not None else train

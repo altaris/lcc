@@ -15,6 +15,9 @@ from torch import Tensor, nn
 from torch.utils.hooks import RemovableHandle
 from torchmetrics.functional.classification import multiclass_accuracy
 
+from nlnas.correction.choice import LCC_CLASS_SELECTIONS
+from nlnas.correction.clustering import CLUSTERING_METHODS
+
 from ..correction import (
     ClusteringMethod,
     LCCClassSelection,
@@ -86,7 +89,7 @@ class LatentClusteringData:
 # pylint: disable=arguments-differ
 class BaseClassifier(pl.LightningModule):
     """
-    See module documentation
+    Base image classifier class that supports LCC.
 
     Warning:
         When subclassing this, remember that the forward method must be able to
@@ -95,9 +98,22 @@ class BaseClassifier(pl.LightningModule):
     """
 
     n_classes: int  # TODO: use hparams instead
+    """
+    Number of classes, or equivalently, the number of neurons in the output
+    layer.
+    """
+
     image_key: Any  # TODO: use hparams instead
+    """
+    When receiving a batch, the input tensor is expected to be at
+    `batch[image_key]`.
+    """
+
     label_key: Any  # TODO: use hparams instead
-    logit_key: Any  # TODO: use hparams instead
+    """
+    When receiving a batch, the label tensor is expected to be at
+    `batch[label_key]`.
+    """
 
     # Used during training with LCC
     _lc_data: dict[str, LatentClusteringData] | None = None
@@ -170,7 +186,7 @@ class BaseClassifier(pl.LightningModule):
             "scheduler",
         )
         if lcc_submodules:  # Validate lcc_kwargs
-            _validate_lcc_kwargs(lcc_kwargs)
+            validate_lcc_kwargs(lcc_kwargs)
         self.n_classes = n_classes
         self.image_key, self.label_key = image_key, label_key
 
@@ -441,12 +457,15 @@ class BaseClassifier(pl.LightningModule):
         return super().on_train_start()
 
     def test_step(self, batch: Batch, *_, **__) -> Tensor:
+        """Override from `pl.LightningModule.test_step`."""
         return self._evaluate(batch, "test")
 
     def training_step(self, batch: Batch, *_, **__) -> Tensor:
+        """Override from `pl.LightningModule.training_step`."""
         return self._evaluate(batch, "train")
 
     def validation_step(self, batch: Batch, *_, **__) -> Tensor:
+        """Override from `pl.LightningModule.validation_step`."""
         return self._evaluate(batch, "val")
 
 
@@ -465,34 +484,6 @@ def _inflate_vector(
     return w
 
 
-def _validate_lcc_kwargs(lcc_kwargs: dict[str, Any] | None) -> None:
-    """Self-explanatory."""
-    if not lcc_kwargs:
-        return
-    if lcc_kwargs.get("weight", 1) <= 0:
-        raise ValueError("LCC weight must be positive")
-    if lcc_kwargs.get("interval", 1) < 1:
-        raise ValueError("LCC interval must be at least 1")
-    if lcc_kwargs.get("warmup", 0) < 0:
-        raise ValueError("LCC warmup must be at least 0")
-    if lcc_kwargs.get("class_selection") not in LCC_CLASS_SELECTIONS:
-        raise ValueError(
-            "Invalid class selection policy. Available: policies are: "
-            + ", ".join(map(lambda x: f"`{x}`", LCC_CLASS_SELECTIONS))
-            + ", or `None`"
-        )
-    if (
-        lcc_kwargs.get("clustering_method", "louvain")
-        not in CLUSTERING_METHODS
-    ):
-        raise ValueError(
-            "Invalid clustering method. Available methods are: "
-            + ", ".join(map(lambda x: f"`{x}`", CLUSTERING_METHODS))
-            + ", or `None`, which defaults to "
-            "`louvain`"
-        )
-
-
 def full_dataset_evaluation(
     model: BaseClassifier,
     dataset: HuggingFaceDataset,
@@ -504,7 +495,26 @@ def full_dataset_evaluation(
 ) -> None:
     """
     Evaluate model on whole dataset and saves latent representations and
-    prediction batches in `output_dir`.
+    prediction batches in `output_dir`. The naming pattern is
+
+        <output_dir> / <submodule>.<batch_idx>.st
+
+    and `batch_idx` is a zero-padded 4-digit number. The files are
+    [Safetensors](https://huggingface.co/docs/safetensors/index) files.
+
+    Args:
+        model (BaseClassifier):
+        dataset (HuggingFaceDataset):
+        output_dir (str | Path):
+        split (Literal['train', 'val', 'test'], optional): Defaults to "train".
+        max_dim (int | None, optional): If the latent dimension is very large,
+            you might consider using PCA to make the latent representation
+            batches smaller. Note that PCA is applied batch-wise, not
+            dataset-wise. Defaults to $8192 = 2^{13}$.
+        device (Literal['cpu', 'cuda'] | None, optional): Defaults to `None`,
+            which automatically finds the best device.
+        tqdm_style (Literal['notebook', 'console', 'none'] | None, optional):
+            Defaults to `None`, mearning no progress bar.
     """
     use_cuda = (
         device == "cuda" or device is None
@@ -566,13 +576,14 @@ def full_dataset_latent_clustering(
 ) -> dict[str, LatentClusteringData]:
     """
     Performs latent clustering and matching (against true labels) on the full
-    dataset in one go. Since holding all latent representation tensors in
-    memory isn't realistic, some (aka. a shitload of) temporary tensor files
-    are created in `<output_dir>/train`.
+    dataset in one go. Since holding all latent representation tensors in memory
+    isn't realistic, some (aka. a shitload of) temporary tensor files are
+    created in `<output_dir>/<split>`. See
+    `nlnas.classifiers.full_dataset_evaluation`.
 
     Warning:
         The temporary tensor files created by this method are not deleted. You
-        need to clean them up manually.
+        need to clean them up manually. Or don't if you want to keep them.
 
     Warning:
         Don't forget to execute `dataset.setup("fit")` before calling this
@@ -586,7 +597,8 @@ def full_dataset_latent_clustering(
             then only the specified true classes are considered for clustering
             (however, all samples are still evaluated regardless of class). Use
             this if there are too many true classes, or if the dataset is just
-            too large to fit in memory (e.g. ImageNet).
+            too large to fit in memory (e.g. ImageNet). See also
+            `nlnas.correction.LCC_CLASS_SELECTIONS`.
         max_dim (int, optional): If the dimension of a latent space is larger
             than this, then the latent representation undergo batch-wise PCA to
             make them `max_dim`-dimensional. Defaults to $8192 = 2^{13}$. Can be
@@ -594,7 +606,7 @@ def full_dataset_latent_clustering(
 
     Returns:
         A dictionary that maps a submodule name to its latent clustering data,
-        see `LatentClusteringData`.
+        see `nlnas.classifiers.LatentClusteringData`.
     """
 
     output_dir = Path(output_dir) / split
@@ -616,6 +628,11 @@ def full_dataset_latent_clustering(
 
     # ↓ classes is a LCCClassSelection policy (e.g. "max_connected")
     elif isinstance(classes, str):
+        if classes not in LCC_CLASS_SELECTIONS:
+            raise ValueError(
+                "Invalid class selection policy. Available policies are: "
+                + ", ".join(map(lambda x: f"`{x}`", LCC_CLASS_SELECTIONS))
+            )
         y_pred = load_tensor_batched(
             output_dir, "y_pred", tqdm_style=tqdm_style
         )
@@ -647,3 +664,31 @@ def full_dataset_latent_clustering(
         )
 
     return result
+
+
+def validate_lcc_kwargs(lcc_kwargs: dict[str, Any] | None) -> None:
+    """Self-explanatory."""
+    if not lcc_kwargs:
+        return
+    if lcc_kwargs.get("weight", 1) <= 0:
+        raise ValueError("LCC weight must be positive")
+    if lcc_kwargs.get("interval", 1) < 1:
+        raise ValueError("LCC interval must be at least 1")
+    if lcc_kwargs.get("warmup", 0) < 0:
+        raise ValueError("LCC warmup must be at least 0")
+    if lcc_kwargs.get("class_selection") not in LCC_CLASS_SELECTIONS:
+        raise ValueError(
+            "Invalid class selection policy. Available: policies are: "
+            + ", ".join(map(lambda x: f"`{x}`", LCC_CLASS_SELECTIONS))
+            + ", or `None`"
+        )
+    if (
+        lcc_kwargs.get("clustering_method", "louvain")
+        not in CLUSTERING_METHODS
+    ):
+        raise ValueError(
+            "Invalid clustering method. Available methods are: "
+            + ", ".join(map(lambda x: f"`{x}`", CLUSTERING_METHODS))
+            + ", or `None`, which defaults to "
+            "`louvain`"
+        )
