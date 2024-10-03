@@ -107,20 +107,14 @@ class BaseClassifier(pl.LightningModule):
         self,
         n_classes: int,
         lcc_submodules: list[str] | None = None,
-        lcc_weight: float | None = None,
-        lcc_kwargs: dict[str, Any] | None = None,
-        lcc_class_selection: LCCClassSelection | None = None,
-        lcc_interval: int | None = None,
-        lcc_warmup: int | None = None,
+        lcc_kwargs: dict | None = None,
         ce_weight: float = 1,
         image_key: Any = 0,
         label_key: Any = 1,
-        logit_key: Any = None,
         optimizer: str = "sgd",
-        optimizer_kwargs: dict[str, Any] | None = None,
+        optimizer_kwargs: dict | None = None,
         scheduler: str | None = None,
-        scheduler_kwargs: dict[str, Any] | None = None,
-        clustering_method: ClusteringMethod = "louvain",
+        scheduler_kwargs: dict | None = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -129,71 +123,56 @@ class BaseClassifier(pl.LightningModule):
             lcc_submodules (list[str] | None, optional): Submodules to consider
                 for the latent correction loss. If `None` or `[]`, LCC is not
                 performed
-            lcc_weight (float, optional): Weight of the clustering loss in the
-                clustering-CE loss. Ignored if `lcc_submodules` is `None` or
-                `[]`
-            lcc_kwargs (dict, optional): Passed to the correction loss function.
-                Ignored if `lcc_submodules` is `None` or `[]`
-            lcc_class_selection (LCCClassSelection, optional): How to select
-                (true) classes whose samples will undergo LCC. If the dataset is
-                large, it might not be desirable to perform LCC on the whole
-                dataset. See `nlnas.correction.choice.LCCClassSelection` for
-                more information. Defaults to `"all"` which means full-dataset
-                LCC.
-            lcc_interval (int, optional): Apply LCC every `lcc_interval` epochs.
-                If set to `None`, LCC is not performed.
-            lcc_warmup (int, optional): Number of epochs to wait before starting
-                LCC. Setting this to `None` is the same as setting it to 0.
+            lcc_kwargs (dict | None, optional): Optional parameters for LCC.
+                Expected entries (all optional) are:
+                * **weight (float):** Defaults to $10^{-4}$
+                * **class_selection
+                    (`nlnas.correction.LCCClassSelection` | None):** Defaults to
+                    `None`, which means all classes are considered for
+                    correction
+                * **interval (int):** Apply LCC every `interval` epochs.
+                    Defaults to $1$, meaning LCC will be applied every epoch
+                    (after warmup).
+                * **warmup (int):** Number of epochs to wait before
+                    starting LCC. Defaults to $0$, meaning LCC will start
+                    immediately.
+                * **clustering_method (str):** Algorithm to use for latent
+                  clustering. See
+                  :attr:`nlnas.correction.clustering.CLUSTERING_METHODS`.
             ce_weight (float, optional): Weight of the cross-entropy loss in the
-                clustering-CE loss. Ignored if `lcc_submodules` is `None` or
-                `[]`
+                clustering-CE loss. Ignored if LCC is not applied. Defaults to
+                $1$.
             image_key (Any, optional): A batch passed to the model can be a
                 tuple (most common) or a dict. This parameter specifies the key
                 to use to retrieve the input tensor.
-            label_key (Any, optional): Analogous to `image_key`
-            logit_key (Any, optional): Analogous to `image_key` and `label_key`
-                but used to extract the logits from the model's output. Leave
-                to `None` if the model already returns logit tensors. If
-                `model`is a Hugging Face transformer that outputs a
-                [`ImageClassifierOutput`](https://huggingface.co/docs/transformers/v4.39.3/en/main_classes/output#transformers.modeling_outputs.ImageClassifierOutput)
-                or a
-                [`ImageClassifierOutputWithNoAttention`](https://huggingface.co/docs/transformers/v4.39.3/en/main_classes/output#transformers.modeling_outputs.ImageClassifierOutput),
-                then this key should be
-                `"logits"`.
-            optimizer (str, optional): Optimizer name, case insensitive. See
-                `OPTIMIZERS` and
+            label_key (Any, optional): Analogous to `image_key`.
+            optimizer (str, optional): Optimizer name, case insensitive.
+                See `nlnas.classifier.base.OPTIMIZERS` and
                 https://pytorch.org/docs/stable/optim.html#algorithms .
-            optimizer_kwargs (dict, optional): Forwarded to the optimizer
+            optimizer_kwargs (dict | None, optional): Forwarded to the optimizer
                 constructor
-            scheduler (str, optional): Scheduler name, case insensitive. See
-                `SCHEDULERS`. If left to `None`, then no scheduler is used.
-            scheduler_kwargs (dict, optional): Forwarded to the scheduler, if
-                any.
-            clustering_method (ClusteringMethod, optional): See
-                `full_dataset_latent_clustering`. Only relevant if
-                `lcc_submodules` is specified (i.e. the model is to undergo
-                latent clustering correction).
+            scheduler (str | None, optional): Scheduler name, case insensitive. See
+                `nlnas.classifier.base.SCHEDULERS`. If left to `None`, then no
+                scheduler is used.
+            scheduler_kwargs (dict | None, optional): Forwarded to the
+                scheduler, if any.
             kwargs: Forwarded to
                 [`pl.LightningModule`](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#)
         """
         super().__init__(**kwargs)
         self.save_hyperparameters(
             "ce_weight",
-            "clustering_method",
-            "lcc_class_selection",
-            "lcc_interval",
             "lcc_kwargs",
             "lcc_submodules",
-            "lcc_warmup",
-            "lcc_weight",
             "optimizer_kwargs",
             "optimizer",
             "scheduler_kwargs",
             "scheduler",
         )
+        if lcc_submodules:  # Validate lcc_kwargs
+            _validate_lcc_kwargs(lcc_kwargs)
         self.n_classes = n_classes
         self.image_key, self.label_key = image_key, label_key
-        self.logit_key = logit_key
 
     def _evaluate(self, batch: Batch, stage: str | None = None) -> Tensor:
         """Self-explanatory"""
@@ -217,10 +196,8 @@ class BaseClassifier(pl.LightningModule):
                 )
                 _losses.append(lcc_loss(z, targets))
             loss_lcc = torch.stack(_losses).mean()
-            loss = (
-                self.hparams["ce_weight"] * loss_ce
-                + self.hparams["lcc_weight"] * loss_lcc
-            )
+            lcc_weight = self.hparams.get("lcc_kwargs", {}).get("weight", 1e-4)
+            loss = self.hparams["ce_weight"] * loss_ce + lcc_weight * loss_lcc
             self.log(f"{stage}/lcc", loss_lcc, sync_dist=True)
         else:
             loss = loss_ce
@@ -354,9 +331,16 @@ class BaseClassifier(pl.LightningModule):
 
     @property
     def lcc_submodules(self) -> list[str]:
+        """
+        Returns the list of submodules considered for LCC, whith correct prefix
+        if needed.
+
+        TODO:
+            Move to :class:`nlnas.classifier.WrappedClassifier` instead.
+        """
         return (
             []
-            if self.hparams["lcc_submodules"] is None
+            if not self.hparams["lcc_submodules"]
             else [
                 (sm if sm.startswith("model.") else "model." + sm)
                 for sm in self.hparams["lcc_submodules"]
@@ -391,23 +375,25 @@ class BaseClassifier(pl.LightningModule):
     def on_train_epoch_start(self) -> None:
         """
         Performs dataset-wide latent clustering and stores the results in
-        `_lc_data`.
+        private attribute `BaseClassifier._lc_data`.
         """
         # wether to apply LCC this epoch
+        lcc_kwargs = self.hparams.get("lcc_kwargs", {})
         do_lcc = (
             # we are passed warmup (lcc_warmup being None is equivalent to no
             # warmup)...
-            self.current_epoch >= (self.hparams["lcc_warmup"] or 0)
+            self.current_epoch >= (lcc_kwargs.get("warmup") or 0)
             and (
                 # ... and an LCC interval is specified...
-                self.hparams["lcc_interval"] is not None
+                lcc_kwargs.get("interval") is not None
                 # ... and the current epoch can have LCC done...
-                and self.current_epoch % int(self.hparams["lcc_interval"]) == 0
+                and self.current_epoch % int(lcc_kwargs.get("interval", 1))
+                == 0
             )
             # ... and there are submodule selected for LCC...
             and self.lcc_submodules
             # ... and the LCC weight is non-zero
-            and (self.hparams["lcc_weight"] or 0) > 0
+            and self.lcc_kwargs.get("weight", 0) > 0
         )
         if do_lcc:
             joblib_config = {
@@ -423,11 +409,11 @@ class BaseClassifier(pl.LightningModule):
                     model=self,
                     dataset=self.trainer.datamodule,  # type: ignore
                     output_dir=tmp,
-                    method=self.hparams["clustering_method"],
+                    method=lcc_kwargs.get("clustering_method", "louvain"),
                     max_dim=None,  # no dim-redux
                     device="cuda",
                     scaling="standard",
-                    classes=self.hparams["lcc_class_selection"],
+                    classes=lcc_kwargs.get("class_selection"),
                     tqdm_style="console",
                 )
             log = {}
@@ -477,6 +463,34 @@ def _inflate_vector(
     w = np.full_like(mask, -1, dtype=v.dtype)
     w[mask] = v
     return w
+
+
+def _validate_lcc_kwargs(lcc_kwargs: dict[str, Any] | None) -> None:
+    """Self-explanatory."""
+    if not lcc_kwargs:
+        return
+    if lcc_kwargs.get("weight", 1) <= 0:
+        raise ValueError("LCC weight must be positive")
+    if lcc_kwargs.get("interval", 1) < 1:
+        raise ValueError("LCC interval must be at least 1")
+    if lcc_kwargs.get("warmup", 0) < 0:
+        raise ValueError("LCC warmup must be at least 0")
+    if lcc_kwargs.get("class_selection") not in LCC_CLASS_SELECTIONS:
+        raise ValueError(
+            "Invalid class selection policy. Available: policies are: "
+            + ", ".join(map(lambda x: f"`{x}`", LCC_CLASS_SELECTIONS))
+            + ", or `None`"
+        )
+    if (
+        lcc_kwargs.get("clustering_method", "louvain")
+        not in CLUSTERING_METHODS
+    ):
+        raise ValueError(
+            "Invalid clustering method. Available methods are: "
+            + ", ".join(map(lambda x: f"`{x}`", CLUSTERING_METHODS))
+            + ", or `None`, which defaults to "
+            "`louvain`"
+        )
 
 
 def full_dataset_evaluation(

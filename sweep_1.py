@@ -202,7 +202,7 @@ MODELS = [
 LCC_WEIGHTS = [0, 1, 1e-2, 1e-4]
 LCC_INTERVALS = [1, 5]
 LCC_WARMUPS = [1]
-# LCC_CLASS_SELECTIONS = [None]
+LCC_CLASS_SELECTIONS = [None, "max_connected"]
 
 STUPID_CUDA_SPAM = r"CUDA call.*failed with initialization error"
 
@@ -255,10 +255,7 @@ def train(
     model_name: str,
     dataset_name: str,
     lcc_submodules: list[str] | None,
-    lcc_weight: float | None,
-    lcc_interval: int | None,
-    lcc_warmup: int | None,
-    lcc_class_selection: LCCClassSelection | None,
+    lcc_kwargs: dict | None,
     train_split: str,
     val_split: str,
     image_key: str,
@@ -274,10 +271,7 @@ def train(
         "model_name": model_name,
         "dataset_name": dataset_name,
         "lcc_submodules": lcc_submodules,
-        "lcc_weight": lcc_weight,
-        "lcc_interval": lcc_interval,
-        "lcc_warmup": lcc_warmup,
-        "lcc_class_selection": lcc_class_selection,
+        "lcc_kwargs": lcc_kwargs,
         "train_split": train_split,
         "val_split": val_split,
         "image_key": image_key,
@@ -314,10 +308,7 @@ def train(
             dataset_name=dataset_name,
             output_dir=OUTPUT_DIR,
             lcc_submodules=lcc_submodules,
-            lcc_weight=lcc_weight,
-            lcc_interval=lcc_interval,
-            lcc_warmup=lcc_warmup,
-            lcc_class_selection=lcc_class_selection,
+            lcc_kwargs=lcc_kwargs,
             train_split=train_split,
             val_split=val_split,
             image_key=image_key,
@@ -331,7 +322,7 @@ def train(
         logging.error("Error: {}", e)
         # raise
     finally:
-        logging.debug("({}) Removing lock file {}", lock_file)
+        logging.debug("Removing lock file {}", lock_file)
         lock_file.unlink()
 
 
@@ -347,16 +338,14 @@ if __name__ == "__main__":
             LCC_WEIGHTS,
             LCC_INTERVALS,
             LCC_WARMUPS,
-            # LCC_CLASS_SELECTIONS,
+            LCC_CLASS_SELECTIONS,
         )
         for (
             lcc_weight,
             lcc_interval,
             lcc_warmup,
-            # lcc_class_selection,
+            lcc_class_selection,
         ) in everything:
-            # Set all LCC hyperparameters to None if we're not actually doing
-            # LCC
             lcc_submodules = model_config["lcc_submodules"]
             do_lcc = (
                 (lcc_weight or 0) > 0
@@ -364,11 +353,6 @@ if __name__ == "__main__":
                 and lcc_submodules
             )
             lcc_submodules = lcc_submodules if do_lcc else None
-            lcc_weight = lcc_weight if do_lcc else None
-            lcc_interval = lcc_interval if do_lcc else None
-            lcc_warmup = lcc_warmup if do_lcc else None
-            # lcc_class_selection = lcc_class_selection if do_lcc else None
-            lcc_class_selection = None
             with logging.contextualize(
                 model_name=model_config["name"],
                 dataset_name=dataset_config["name"],
@@ -381,10 +365,16 @@ if __name__ == "__main__":
                     model_name=model_config["name"],
                     dataset_name=dataset_config["name"],
                     lcc_submodules=lcc_submodules,
-                    lcc_weight=lcc_weight,
-                    lcc_interval=lcc_interval,
-                    lcc_warmup=lcc_warmup,
-                    lcc_class_selection=lcc_class_selection,
+                    lcc_kwargs=(
+                        {
+                            "weight": lcc_weight,
+                            "interval": lcc_interval,
+                            "warmup": lcc_warmup,
+                            "class_selection": lcc_class_selection,
+                        }
+                        if do_lcc
+                        else None
+                    ),
                     train_split=dataset_config["train_split"],
                     val_split=dataset_config["val_split"],
                     image_key=dataset_config["image_key"],

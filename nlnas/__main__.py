@@ -200,10 +200,16 @@ def train(
         head_name=head_name,
         image_key=image_key,
         label_key=label_key,
-        lcc_interval=lcc_interval if _do_lcc else None,
         lcc_submodules=lcc_submodules.split(",") if _do_lcc else None,
-        lcc_warmup=lcc_warmup if _do_lcc else None,
-        lcc_weight=lcc_weight if _do_lcc else None,
+        lcc_kwargs=(
+            {
+                "interval": lcc_interval,
+                "warmup": lcc_warmup,
+                "weight": lcc_weight,
+            }
+            if _do_lcc
+            else None
+        ),
         logit_key=logit_key,
         max_epochs=max_epochs,
         model_name=model_name,

@@ -14,7 +14,6 @@ import turbo_broccoli as tb
 from loguru import logger as logging
 
 from .classifiers import BaseClassifier, HuggingFaceClassifier, TimmClassifier
-from .correction import LCCClassSelection
 from .datasets import HuggingFaceDataset
 from .logging import r0_debug, r0_info
 from .utils import get_reasonable_n_jobs
@@ -176,10 +175,7 @@ def train(
     ckpt_path: Path | None = None,
     ce_weight: float = 1,
     lcc_submodules: list[str] | None = None,
-    lcc_weight: float | None = None,
-    lcc_interval: int | None = None,
-    lcc_warmup: int | None = None,
-    lcc_class_selection: LCCClassSelection | None = None,
+    lcc_kwargs: dict | None = None,
     max_epochs: int = 100,
     batch_size: int = 64,
     train_split: str = "train",
@@ -201,9 +197,17 @@ def train(
             weights available on the Hugging Face model hub.
         ce_weight (float, optional):
         lcc_submodules (list[str]):
-        lcc_weight (float, optional):
-        lcc_interval (int, optional):
-        lcc_warmup (int, optional):
+        lcc_kwargs (dict | None, optional): Optional parameters for LCC.
+            Expected entries are:
+            * `weight` (float, optional): Defaults to $10^{-4}$
+            * `class_selection` (LCCClassSelection | None, optional): Defaults
+                to `None`, which means all classes are considered for
+                correction
+            * `interval` (int): Apply LCC every `interval` epochs. Defaults to
+                $1$, meaning LCC will be applied every epoch (after warmup).
+            * `warmup` (int, optional): Number of epochs to wait before
+                starting LCC. Defaults to $0$, meaning LCC will start
+                immediately.
         max_epochs (int, optional):
         batch_size (int, optional):
         train_split (str, optional):
@@ -214,8 +218,11 @@ def train(
         logit_key (str, optional):
         head_name (str | None, optional):
     """
+    lcc_kwargs = lcc_kwargs or {}
     do_lcc = (
-        (lcc_weight or 0) > 0 and (lcc_interval or 0) > 0 and lcc_submodules
+        lcc_kwargs.get("weight", 0) > 0
+        and lcc_kwargs.get("interval", 0) > 0
+        and lcc_submodules
     )
     if do_lcc:
         logging.debug("Performing latent cluster correction")
@@ -268,11 +275,8 @@ def train(
         logit_key=logit_key,
         optimizer="adam",
         optimizer_kwargs={"lr": 5e-5},
-        lcc_weight=lcc_weight if do_lcc else None,
         lcc_submodules=lcc_submodules if do_lcc else None,
-        lcc_class_selection=lcc_class_selection if do_lcc else None,
-        lcc_interval=lcc_interval if do_lcc else None,
-        lcc_warmup=lcc_warmup if do_lcc else None,
+        lcc_kwargs=lcc_kwargs if do_lcc else None,
         ce_weight=ce_weight,
     )
     if isinstance(ckpt_path, Path):
