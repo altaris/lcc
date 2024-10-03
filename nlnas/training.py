@@ -1,6 +1,7 @@
 """General model training utilities"""
 
 import json
+import os
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -302,6 +303,11 @@ def train(
     test_results = trainer.test(model, dataset)
 
     document = {
+        "__meta__": {
+            "version": 2,
+            "hostname": os.uname().nodename,
+            "datetime": start,
+        },
         "dataset": {
             "name": dataset_name,
             "n_classes": n_classes,
@@ -315,11 +321,12 @@ def train(
         "model": {
             "name": model_name,
             "hparams": dict(model.hparams),
-            "max_epochs": max_epochs,
+        },
+        "training": {
             "best_checkpoint": {
                 "path": str(ckpt),
                 "version": v,
-                "best_epoch": e,
+                "epoch": e,
                 "n_steps": s,
             },
             "time": fit_time / timedelta(seconds=1),
