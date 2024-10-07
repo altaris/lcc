@@ -21,7 +21,7 @@ def louvain_clustering_plots(
     y_true: np.ndarray | Tensor | list[int],
     y_louvain: np.ndarray | Tensor | list[int],
     matching: dict[int, set[int]],
-    knn: int,
+    k: int,
     output_dir: Path,
 ) -> tuple:
     """
@@ -37,7 +37,7 @@ def louvain_clustering_plots(
         y_louvain (np.ndarray): A `(N,)` tensor of Louvain labels
         matching (dict[int, set[int]]): See
             `nlnas.correction.clustering.class_otm_matching`
-        knn (int): Number of neighbots that have been consitered when
+        k (int): Number of neighbots that have been consitered when
             creating `y_louvain`. This is used in the title of the plot.
     """
     z = np.array(z)
@@ -46,7 +46,7 @@ def louvain_clustering_plots(
     fig_true = bk.figure(title="Ground truth")
     class_scatter(fig_true, z, y_true, palette="viridis")
     fig_louvain = bk.figure(
-        title=(f"Louvain communities ({y_louvain.max() + 1}), k = {knn}"),
+        title=f"Louvain communities ({y_louvain.max() + 1}), k = {k}",
     )
     class_scatter(fig_louvain, z, y_louvain)
     make_same_xy_range(fig_true, fig_louvain)

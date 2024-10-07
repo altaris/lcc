@@ -63,6 +63,13 @@ def main(logging_level: str):
     help="Nb. of epoch to wait for LCC. Defaults to 0 (no warmup).",
     type=int,
 )
+@click.option(  # --lcc-k
+    "-k",
+    "--lcc-k",
+    default=5,
+    help="Number of neigh. to consider for LCC. Defaults to 5 neigh.",
+    type=int,
+)
 @click.option(  # --ce-weight
     "-cw",
     "--ce-weight",
@@ -170,6 +177,7 @@ def train(
     image_key: str,
     label_key: str,
     lcc_interval: int,
+    lcc_k: int,
     lcc_submodules: str,
     lcc_warmup: int,
     lcc_weight: float,
@@ -206,6 +214,7 @@ def train(
                 "interval": lcc_interval,
                 "warmup": lcc_warmup,
                 "weight": lcc_weight,
+                "k": lcc_k,
             }
             if _do_lcc
             else None

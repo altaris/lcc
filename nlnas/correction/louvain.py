@@ -11,12 +11,11 @@ from sklearn.base import TransformerMixin
 from torch import Tensor
 
 from ..utils import to_array
-from .clustering import DEFAULT_K
 
 
 def louvain_communities(
     z: np.ndarray | Tensor | list[float],
-    k: int = DEFAULT_K,
+    k: int,
     scaling: (
         Literal["standard", "minmax"] | TransformerMixin | None
     ) = "standard",

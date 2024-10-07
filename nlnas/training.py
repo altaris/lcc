@@ -212,17 +212,8 @@ def train(
         lcc_submodules (list[str] | None, optional): List of submodule names
             where to perform LCC. If empty or `None`, LCC is not performed. This
             is the only way to enable/disable LCC. Defaults to `None`.
-        lcc_kwargs (dict | None, optional): Optional parameters for LCC.
-            Expected entries are:
-            * `weight` (float, optional): Defaults to $10^{-4}$
-            * `class_selection` (LCCClassSelection | None, optional): Defaults
-                to `None`, which means all classes are considered for
-                correction
-            * `interval` (int): Apply LCC every `interval` epochs. Defaults to
-                $1$, meaning LCC will be applied every epoch (after warmup).
-            * `warmup` (int, optional): Number of epochs to wait before
-                starting LCC. Defaults to $0$, meaning LCC will start
-                immediately.
+        lcc_kwargs (dict | None, optional): Optional parameters for LCC. See
+            `nlnas.classifiers.BaseClassifier.__init__`.
         max_epochs (int, optional): Defaults to $100$.
         batch_size (int, optional): Defaults to $64$.
         train_split (str, optional):
@@ -316,7 +307,7 @@ def train(
 
     test_results = trainer.test(model, dataset)
 
-    document = {
+    document: dict = {
         "__meta__": {
             "version": 2,
             "hostname": os.uname().nodename,
@@ -332,10 +323,7 @@ def train(
             "label_key": label_key,
             "batch_size": batch_size,
         },
-        "model": {
-            "name": model_name,
-            "hparams": dict(model.hparams),
-        },
+        "model": {"name": model_name, "hparams": dict(model.hparams)},
         "training": {
             "best_checkpoint": {
                 "path": str(ckpt),

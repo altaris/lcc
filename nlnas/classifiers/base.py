@@ -155,6 +155,8 @@ class BaseClassifier(pl.LightningModule):
                 * **clustering_method (str):** Algorithm to use for latent
                   clustering. See
                   :attr:`nlnas.correction.clustering.CLUSTERING_METHODS`.
+                * **k (int):** Number of nearest neighbors to consider for LCC,
+                  and Louvain clustering if that's the selected method.
             ce_weight (float, optional): Weight of the cross-entropy loss in the
                 clustering-CE loss. Ignored if LCC is not applied. Defaults to
                 $1$.
@@ -656,7 +658,14 @@ def full_dataset_latent_clustering(
         )
         y_clst = get_cluster_labels(z, method, scaling, device)
         matching = class_otm_matching(y_true, y_clst)
-        indices = lcc_knn_indices(z, y_true, y_clst, matching, device=device)
+        indices = lcc_knn_indices(
+            z,
+            y_true,
+            y_clst,
+            matching,
+            k=model.hparams.get("lcc_kwargs", {}).get("k", 5),
+            device=device,
+        )
         result[sm] = LatentClusteringData(
             y_clst=_inflate_vector(y_clst, mask),
             matching=matching,

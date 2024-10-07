@@ -12,8 +12,6 @@ from torch import Tensor
 
 from ..utils import to_array, to_tensor
 
-DEFAULT_K: int = 2
-
 CLUSTERING_METHODS = ["louvain", "dbscan", "hdbscan"]
 """Supported clustering methods."""
 
@@ -181,7 +179,7 @@ def lcc_knn_indices(
     y_true: np.ndarray | Tensor | list[int],
     y_clst: np.ndarray | Tensor | list[int],
     matching: dict[int, set[int]] | dict[str, set[int]],
-    k: int = DEFAULT_K,
+    k: int,
     n_true_classes: int | None = None,
     device: Literal["cpu", "cuda"] | None = None,
 ) -> dict[int, tuple[Any, Tensor]]:

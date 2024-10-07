@@ -20,7 +20,6 @@ from ..correction import (
     louvain_communities,
     otm_matching_predicates,
 )
-from ..correction.clustering import DEFAULT_K
 from ..datasets import HuggingFaceDataset
 from ..datasets.utils import dl_head, flatten_batches
 from ..training import all_checkpoint_paths
@@ -53,7 +52,7 @@ def analyse_ckpt(
     dataset: HuggingFaceDataset,
     output_dir: str | Path,
     n_samples: int = 512,
-    knn: int = 2,
+    k: int = 5,
     model_cls: Type[BaseClassifier] = BaseClassifier,
 ):
     """
@@ -72,7 +71,7 @@ def analyse_ckpt(
         dataset (HuggingFaceDataset):
         output_dir (str | Path):
         n_samples (int, optional):
-        knn (int, optional): Number of neighbors to consider for computing the
+        k (int, optional): Number of neighbors to consider for computing the
             Louvain communities
         model_cls (Type[BaseClassifier], optional): The model class to use if
             `model` is a path to a checkpoint
@@ -121,10 +120,10 @@ def analyse_ckpt(
             output_dir / "clustering" / sm / "cluster.json"
         )
         for _ in h:
-            communities, y_louvain = louvain_communities(z, k=knn)
+            communities, y_louvain = louvain_communities(z, k=k)
             matching = class_otm_matching(outputs["y_true"].numpy(), y_louvain)
             h.result = {
-                "k": knn,
+                "k": k,
                 "communities": communities,
                 "y_louvain": y_louvain,
                 "matching": matching,
@@ -141,7 +140,7 @@ def analyse_ckpt(
                 y_true=outputs["y_true"].numpy(),
                 y_louvain=y_louvain,
                 matching=matching,
-                knn=knn,
+                k=k,
                 output_dir=h.file_path.parent,
             )
             h.result = {"scatter": fig_scatter, "match": fig_match}
@@ -151,8 +150,8 @@ def analyse_training(
     output_dir: str | Path,
     submodule_names: list[str],
     dataset: HuggingFaceDataset,
+    k: int,
     n_samples: int = 512,
-    knn: int = DEFAULT_K,
     model_cls: Type[BaseClassifier] = BaseClassifier,
 ):
     """
@@ -178,7 +177,7 @@ def analyse_training(
             dataset=dataset,
             output_dir=output_dir / str(i),
             n_samples=n_samples,
-            knn=knn,
+            k=k,
             model_cls=model_cls,
         )
     ckpt_an_dir = [output_dir / str(i) for i in range(len(ckpts))]
