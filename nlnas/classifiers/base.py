@@ -630,11 +630,6 @@ def full_dataset_latent_clustering(
 
     # ↓ classes is a LCCClassSelection policy (e.g. "max_connected")
     elif isinstance(classes, str):
-        if classes not in LCC_CLASS_SELECTIONS:
-            raise ValueError(
-                "Invalid class selection policy. Available policies are: "
-                + ", ".join(map(lambda x: f"`{x}`", LCC_CLASS_SELECTIONS))
-            )
         y_pred = load_tensor_batched(
             output_dir, "y_pred", tqdm_style=tqdm_style
         )
@@ -679,25 +674,26 @@ def validate_lcc_kwargs(lcc_kwargs: dict[str, Any] | None) -> None:
     """Self-explanatory."""
     if not lcc_kwargs:
         return
-    if lcc_kwargs.get("weight", 1) <= 0:
-        raise ValueError("LCC weight must be positive")
-    if lcc_kwargs.get("interval", 1) < 1:
-        raise ValueError("LCC interval must be at least 1")
-    if lcc_kwargs.get("warmup", 0) < 0:
-        raise ValueError("LCC warmup must be at least 0")
-    if lcc_kwargs.get("class_selection") not in LCC_CLASS_SELECTIONS:
+    if (x := lcc_kwargs.get("weight", 1)) <= 0:
+        raise ValueError(f"LCC weight must be positive, got {x}")
+    if (x := lcc_kwargs.get("interval", 1)) < 1:
+        raise ValueError(f"LCC interval must be at least 1, got {x}")
+    if (x := lcc_kwargs.get("warmup", 0)) < 0:
+        raise ValueError(f"LCC warmup must be at least 0, got {x}")
+    if (x := lcc_kwargs.get("class_selection")) not in LCC_CLASS_SELECTIONS + [
+        None
+    ]:
         raise ValueError(
-            "Invalid class selection policy. Available: policies are: "
-            + ", ".join(map(lambda x: f"`{x}`", LCC_CLASS_SELECTIONS))
+            f"Invalid class selection policy '{x}'. Available: policies are: "
+            + ", ".join(map(lambda a: f"`{a}`", LCC_CLASS_SELECTIONS))
             + ", or `None`"
         )
     if (
-        lcc_kwargs.get("clustering_method", "louvain")
-        not in CLUSTERING_METHODS
-    ):
+        x := lcc_kwargs.get("clustering_method", "louvain")
+    ) not in CLUSTERING_METHODS:
         raise ValueError(
-            "Invalid clustering method. Available methods are: "
-            + ", ".join(map(lambda x: f"`{x}`", CLUSTERING_METHODS))
+            f"Invalid clustering method '{x}'. Available methods are: "
+            + ", ".join(map(lambda a: f"`{a}`", CLUSTERING_METHODS))
             + ", or `None`, which defaults to "
             "`louvain`"
         )

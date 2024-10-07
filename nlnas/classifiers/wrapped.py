@@ -17,12 +17,14 @@ class WrappedClassifier(BaseClassifier):
     """
 
     model: nn.Module
+    logit_key: str | None
 
     def __init__(
         self,
         model: nn.Module,
         n_classes: int,
         head_name: str | None = None,
+        logit_key: str | None = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -43,10 +45,13 @@ class WrappedClassifier(BaseClassifier):
                 classes. The name of a submodule can be retried by inspecting
                 the output of `nn.Module.named_modules` or
                 `nlnas.utils.pretty_print_submodules`.
+            logit_key (str | None, optional): If the wrapped model outputs a
+                dict-like object instead of a tensor, this key is used to access
+                the actual logits.
         """
         self.save_hyperparameters(ignore=["model"])
         super().__init__(n_classes, **kwargs)
-        self.model = model
+        self.model, self.logit_key = model, logit_key
         if head_name:
             replace_head(self.model, head_name, n_classes)
 
