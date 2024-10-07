@@ -1,5 +1,6 @@
 """General model training utilities"""
 
+import hashlib
 import json
 import os
 import sys
@@ -30,6 +31,19 @@ class NoCheckpointFound(Exception):
     Raised by `nlnas.training.all_checkpoint_paths` and
     `nlnas.training.best_checkpoint_path` if no checkpoints are found.
     """
+
+
+def _dict_sha1(d: dict) -> str:
+    """
+    Quick and dirty way to get a unique hash for a (potentially nested)
+    dictionary.
+
+    Warning:
+        This method does not sort inner sets.
+    """
+    h = hashlib.sha1()
+    h.update(json.dumps(d, sort_keys=True).encode("utf-8"))
+    return h.hexdigest()
 
 
 def all_checkpoint_paths(output_path: str | Path) -> list[Path]:
@@ -333,5 +347,8 @@ def train(
             "test": test_results,
         },
     }
+    document["__meta__"]["hash"] = _dict_sha1(
+        {k: document[k] for k in ["dataset", "model"]}
+    )
     tb.save_json(document, _output_dir / f"results.{v}.json")
     return document
