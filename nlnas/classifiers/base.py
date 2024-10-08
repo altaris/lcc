@@ -12,26 +12,27 @@ import pytorch_lightning as pl
 import torch
 from safetensors import numpy as st
 from torch import Tensor, nn
+from torch.utils.data import DataLoader
 from torch.utils.hooks import RemovableHandle
 from torchmetrics.functional.classification import multiclass_accuracy
 
-from nlnas.correction.choice import LCC_CLASS_SELECTIONS
-from nlnas.correction.clustering import CLUSTERING_METHODS
-
 from ..correction import (
-    ClusteringMethod,
+    LCC_CLASS_SELECTIONS,
     LCCClassSelection,
     choose_classes,
     class_otm_matching,
-    get_cluster_labels,
     lcc_knn_indices,
     lcc_loss,
     lcc_targets,
+    louvain_communities,
 )
-from ..datasets import HuggingFaceDataset
+from ..datasets import (
+    BatchedTensorDataset,
+    HuggingFaceDataset,
+    load_tensor_batched,
+)
 from ..utils import (
     get_reasonable_n_jobs,
-    load_tensor_batched,
     make_tqdm,
     to_array,
 )
@@ -152,11 +153,11 @@ class BaseClassifier(pl.LightningModule):
                 * **warmup (int):** Number of epochs to wait before
                     starting LCC. Defaults to $0$, meaning LCC will start
                     immediately.
-                * **clustering_method (str):** Algorithm to use for latent
-                  clustering. See
-                  :attr:`nlnas.correction.clustering.CLUSTERING_METHODS`.
                 * **k (int):** Number of nearest neighbors to consider for LCC,
-                  and Louvain clustering if that's the selected method.
+                  and Louvain clustering.
+                * **pca_dim (int):** Samples are reduced to this dimension
+                  before constructing the KNN graph. This must be at most the
+                  batch size.
             ce_weight (float, optional): Weight of the cross-entropy loss in the
                 clustering-CE loss. Ignored if LCC is not applied. Defaults to
                 $1$.
@@ -427,7 +428,6 @@ class BaseClassifier(pl.LightningModule):
                     model=self,
                     dataset=self.trainer.datamodule,  # type: ignore
                     output_dir=tmp,
-                    method=lcc_kwargs.get("clustering_method", "louvain"),
                     max_dim=None,  # no dim-redux
                     device="cuda",
                     scaling="standard",
@@ -568,7 +568,6 @@ def full_dataset_latent_clustering(
     model: BaseClassifier,
     dataset: HuggingFaceDataset,
     output_dir: str | Path,
-    method: ClusteringMethod = "louvain",
     max_dim: int | None = 8192,
     device: Literal["cpu", "cuda"] | None = None,
     scaling: Literal["standard", "minmax"] | None = "standard",
@@ -687,13 +686,4 @@ def validate_lcc_kwargs(lcc_kwargs: dict[str, Any] | None) -> None:
             f"Invalid class selection policy '{x}'. Available: policies are: "
             + ", ".join(map(lambda a: f"`{a}`", LCC_CLASS_SELECTIONS))
             + ", or `None`"
-        )
-    if (
-        x := lcc_kwargs.get("clustering_method", "louvain")
-    ) not in CLUSTERING_METHODS:
-        raise ValueError(
-            f"Invalid clustering method '{x}'. Available methods are: "
-            + ", ".join(map(lambda a: f"`{a}`", CLUSTERING_METHODS))
-            + ", or `None`, which defaults to "
-            "`louvain`"
         )

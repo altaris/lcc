@@ -3,7 +3,7 @@
 
 from itertools import product
 from math import sqrt
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal
 
 import networkx as nx
 import numpy as np
@@ -11,11 +11,6 @@ import torch
 from torch import Tensor
 
 from ..utils import to_array, to_tensor
-
-CLUSTERING_METHODS = ["louvain", "dbscan", "hdbscan"]
-"""Supported clustering methods."""
-
-ClusteringMethod: TypeAlias = Literal["louvain", "dbscan", "hdbscan"]
 
 
 def _otm_matching(
