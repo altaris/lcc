@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, Callable, Literal
+from typing import Any, Callable, Iterator, Literal
 
 import numpy as np
 import torch
@@ -48,20 +48,68 @@ def load_tensor_batched(
     Returns:
         A `torch.Tensor`.
     """
+    iterator = load_tensor_batched_iter(
+        output_dir=output_dir,
+        prefix=prefix,
+        extension=extension,
+        key=key,
+        mask=mask,
+        max_n_batches=max_n_batches,
+        device=device,
+    )
+    if tqdm_style is None or tqdm_style == "none":
+        torch.concat(list(iterator))
+    paths = list(sorted(Path(output_dir).glob(f"{prefix}.*.{extension}")))
+    if max_n_batches is not None:
+        paths = paths[:max_n_batches]
+    n_batches, batches = len(paths), []
+    # All this circus is to get a nice progress bar
+    for _ in make_tqdm(tqdm_style)(range(n_batches), "Loading", leave=False):
+        batches.append(next(iterator))
+    return torch.concat(batches)
+
+
+def load_tensor_batched_iter(
+    output_dir: str | Path,
+    prefix: str = "batch",
+    extension: str = "st",
+    key: str = "",
+    mask: np.ndarray | Tensor | None = None,
+    max_n_batches: int | None = None,
+    device: Literal["cpu", "cuda"] | None = None,
+) -> Iterator[Tensor]:
+    """
+    Same as `nlnas.utils.load_tensor_batched`, but returns an iterator over the
+    batches rather than all batches concatenated into a single tensor. See
+    `nlnas.utils.load_tensor_batched` for the meaning of the arguments.
+
+    Warning:
+        If `mask` is provided, the iterator may yield batches of different lengths.
+
+    Args:
+        output_dir (str | Path):
+        prefix (str, optional):
+        extension (str, optional):
+        key (str, optional):
+        mask (np.ndarray | Tensor | None, optional):
+        max_n_batches (int | None, optional):
+        device (Literal['cpu', 'cuda'] | None, optional):
+
+    Returns:
+        Iterator[Tensor]
+    """
     paths = list(sorted(Path(output_dir).glob(f"{prefix}.*.{extension}")))
     if max_n_batches is not None:
         paths = paths[:max_n_batches]
     n_loaded_rows = 0  # number of loaded rows BEFORE applying the mask
-    batches = []
-    for path in make_tqdm(tqdm_style)(paths, "Loading", leave=False):
+    for path in paths:
         batch = st.load_file(path)[key]
         n_loaded_rows += batch.shape[0]
         if not (mask is None or mask.all()):
             # TODO: need to copy the masked tensor to make sure the original one
             # is garbage collected?
             batch = batch[mask[n_loaded_rows - batch.shape[0] : n_loaded_rows]]
-        batches.append(batch)
-    return torch.concat(batches).to(device)
+        yield batch.to(device)
 
 
 def get_reasonable_n_jobs() -> int:
@@ -169,7 +217,7 @@ def save_tensor_batched(
     prefix: str = "batch",
     extension: str = "st",
     key: str = "",
-    batch_size: int = 256,
+    batch_size: int = 1024,
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> None:
     """
@@ -191,7 +239,7 @@ def save_tensor_batched(
         key (str, optional): The key to use when saving the file. Batches are
             stored in safetensor files, which are essentially dictionaries. This
             arg specifies which key contains the data of interest.
-        batch_size (int, optional): Defaults to 256.
+        batch_size (int, optional): Defaults to $1024$.
         tqdm_style (Literal["notebook", "console", "none"] | None, optional):
             Progress bar style.
     """
@@ -204,7 +252,7 @@ def save_tensor_batched(
         st.save_file(data, Path(output_dir) / f"{prefix}.{i:04}.{extension}")
 
 
-def to_array(x: np.ndarray | Tensor | list, **kwargs) -> np.ndarray:
+def to_array(x: Any, **kwargs) -> np.ndarray:
     """
     Converts an array-like object to a numpy array. If the input is a tensor,
     it is detached and moved to the CPU first
@@ -214,7 +262,7 @@ def to_array(x: np.ndarray | Tensor | list, **kwargs) -> np.ndarray:
     return x if isinstance(x, np.ndarray) else np.array(x, **kwargs)
 
 
-def to_tensor(x: np.ndarray | Tensor | list, **kwargs) -> Tensor:
+def to_tensor(x: Any, **kwargs) -> Tensor:
     """
     Converts an array-like object to a torch tensor. If `x` is already a tensor,
     then it is returned as is. In particular, if `x` is a tensor this method is
