@@ -3,13 +3,12 @@
 from typing import Any, Callable, Literal, TypeAlias
 
 import pytorch_lightning as pl
-import torch
 from datasets import Dataset as HuggingFaceDataset
 from loguru import logger as logging
 from torch.utils.data import DataLoader, Dataset
 
 DEFAULT_DATALOADER_KWARGS: dict[str, Any] = {
-    "batch_size": 128 if torch.cuda.is_available() else 32,
+    "batch_size": 1024,
     "num_workers": 16,
     "persistent_workers": True,
     "pin_memory": False,

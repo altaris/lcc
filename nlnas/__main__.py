@@ -106,8 +106,8 @@ def main(logging_level: str):
 @click.option(  # --batch-size
     "-bs",
     "--batch-size",
-    default=64,
-    help="Batch size. Defaults to 64.",
+    default=1024,
+    help="Batch size. Defaults to 1024.",
     type=int,
 )
 @click.option(  # --train-split

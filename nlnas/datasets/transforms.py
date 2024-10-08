@@ -50,7 +50,7 @@ def dataset_normalization(dataset_name: str) -> Callable:
             split="train",  # or something like that
             download=True,
         )
-        dl = DataLoader(ds, batch_size=256)
+        dl = DataLoader(ds, batch_size=1024)
         x = torch.concat([a for a, _ in tqdm(dl)])
         mean = [float(x[:,i].mean()) for i in range(x.shape[1])]
         std = [float(x[:,i].std()) for i in range(x.shape[1])]

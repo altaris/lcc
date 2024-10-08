@@ -187,7 +187,7 @@ def train(
     lcc_submodules: list[str] | None = None,
     lcc_kwargs: dict | None = None,
     max_epochs: int = 100,
-    batch_size: int = 64,
+    batch_size: int = 1024,
     train_split: str = "train",
     val_split: str = "val",
     test_split: str = "test",
@@ -215,7 +215,7 @@ def train(
         lcc_kwargs (dict | None, optional): Optional parameters for LCC. See
             `nlnas.classifiers.BaseClassifier.__init__`.
         max_epochs (int, optional): Defaults to $100$.
-        batch_size (int, optional): Defaults to $64$.
+        batch_size (int, optional): Defaults to $1024$.
         train_split (str, optional):
         val_split (str, optional):
         test_split (str, optional):
