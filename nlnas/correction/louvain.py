@@ -2,45 +2,45 @@
 
 """Louvain clustering specific stuff"""
 
-from typing import Literal
+from typing import Iterator, Literal
 
+import faiss
+import faiss.contrib.torch_utils
 import networkx as nx
 import numpy as np
 import torch
-from sklearn.base import TransformerMixin
 from torch import Tensor
+from torch.utils.data import DataLoader
 
-from ..utils import to_array
+from ..utils import make_tqdm, to_array
 
 
 def louvain_communities(
-    z: np.ndarray | Tensor | list[float],
+    dl: DataLoader,
     k: int,
-    scaling: (
-        Literal["standard", "minmax"] | TransformerMixin | None
-    ) = "standard",
+    key: str | None = None,
     device: Literal["cpu", "cuda"] | None = None,
+    tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> tuple[list[set[int]], np.ndarray]:
     """
-    Returns louvain communities of a set of points.
+    Returns louvain communities of a set of points, iterated through a torch
+    dataloader.
 
     Args:
-        z (np.ndarray | Tensor): The tensor of latent
-            representations.
+
+        dl (DataLoader): The dataset dataloader.
         k (int, optional): The number of neighbors to consider for the Louvain
             clustering algorithm. Note that a point is not considered as one if
             its nearest neighbors.
-        scaling (Literal["standard", "minmax"] | TransformerMixin | None,
-            optional): Scaling method for `z`. `"standard"` uses
-            [`sklearn.preprocessing.StandardScaler`](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.StandardScaler.html)
-            or CUML equivalent, "minmax" uses
-            [sklearn.preprocessing.MinMaxScaler](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.MinMaxScaler.html)
-            or CUML equivalent. It is also possible to pass an actual class
-            that has a `fit_transform` method with a single mandatory argument.
-        device (Literal["cpu", "cuda"] | None, optional): If left to `None`,
+        key (str | None, optional): The key to use to extract the data from the
+            dataloader batches. If left to `None`, batches are assumed to be
+            tensors. Otherwise, they are assumed to be dictionaries and the
+            actual tensor is located at that key.
+        device (Literal['cpu', 'cuda'] | None, optional): If left to `None`,
             uses CUDA if it is available, otherwise falls back to CPU. Setting
             `cuda` while CUDA isn't available will **silently** fall back to
             CPU.
+        tqdm_style (Literal['notebook', 'console', 'none'] | None, optional):
 
     Returns:
         1. (`list[set[int]]`) The actual louvain communities, which is a
@@ -50,33 +50,54 @@ def louvain_communities(
            has integer values in $\\\\{ 0, 1, ..., c-1 \\\\}$, and if
            `y_louvain[i] == j`, then `z[i]` belongs to the $j$-th community
     """
+
     use_cuda = (
         device == "cuda" or device is None
     ) and torch.cuda.is_available()
-    if use_cuda:
-        from cuml.neighbors import NearestNeighbors
-        from cuml.preprocessing import MinMaxScaler, StandardScaler
-    else:
-        from sklearn.neighbors import NearestNeighbors
-        from sklearn.preprocessing import MinMaxScaler, StandardScaler
+    device = "cuda" if use_cuda else "cpu"
 
-    if scaling == "standard":
-        scaling = StandardScaler()
-    elif scaling == "minmax":
-        scaling = MinMaxScaler()
-    z = to_array(z)
-    z = z.reshape(len(z), -1)
-    z = z if scaling is None else scaling.fit_transform(z)  # type: ignore
-    index = NearestNeighbors(n_neighbors=min(k + 1, z.shape[0]))
-    index.fit(z)
-    adj = index.kneighbors_graph(z)
-    graph = nx.from_scipy_sparse_array(adj, edge_attribute="weight")
-    graph.remove_edges_from(nx.selfloop_edges(graph))  # exclude self as NN
-    communities: list[set[int]] = nx.community.louvain_communities(  # type: ignore
+    def _batches(desc: str | None = None) -> Iterator[Tensor]:  # shorthand
+        if desc:
+            everything = make_tqdm(tqdm_style)(dl, desc, leave=False)
+        else:
+            everything = dl
+        for x in everything:
+            if key is not None:
+                x = x[key]
+            yield x.flatten(1).to(device)
+
+    z = next(_batches())
+    z = z.flatten(1)
+    n_features = z.shape[-1]
+
+    index = faiss.IndexHNSWFlat(n_features, k)
+    for batch in _batches(f"Building KNN index (k={k})"):
+        u = to_array(batch).astype(np.float32)
+        index.add(u)
+
+    graph, n = nx.DiGraph(), 0
+    for batch in _batches(f"Building KNN graph (k={k})"):
+        u = to_array(batch).astype(np.float32)
+        dst, idx = index.search(u, k + 1)
+        for j, all_i, all_d in zip(range(len(idx)), idx, dst):
+            a = list(zip(all_i, all_d))[1:]  # exclude self as nearest neighbor
+            graph.add_weighted_edges_from(
+                # [(n + j, int(i), np.exp(-d / np.sqrt(pca_dim))) for i, d in a]
+                # had numerical stability issues with above weights
+                [(n + j, int(i), 1) for i, _ in a]
+            )
+        n += len(batch)
+    graph.remove_edges_from(nx.selfloop_edges(graph))
+    # Reciprocal edges share the same weight, so it's ok to discard one of them
+    # See
+    # https://networkx.org/documentation/stable/reference/classes/generated/networkx.DiGraph.to_undirected.html
+    graph = nx.to_undirected(graph)
+
+    communities: list[set[int]] = nx.community.louvain_communities(
         graph,
-        **({"backend": "cugraph"} if use_cuda else {}),  # type: ignore
+        **({"backend": "cugraph"} if use_cuda else {}),
     )
-    y_louvain = [0] * len(graph)
+    y_louvain = [0] * n
     for i, c in enumerate(communities):
         for n in c:
             y_louvain[n] = i

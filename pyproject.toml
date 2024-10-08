@@ -32,7 +32,12 @@
         Homepage      = "https://github.com/altaris/nlnas"
         Repository    = "https://github.com/altaris/nlnas.git"
     [project.optional-dependencies]
-        cuda12 = ["cuml-cu12", "nx-cugraph-cu12"]
+        cuda12 = [
+            "cugraph-cu12",
+            "cuml-cu12",
+            "faiss-gpu>=1.7.2",
+            "nx-cugraph-cu12",
+        ]
         dev = ["huggingface-hub[cli]>=0.25.1", "pdoc>=14.7.0"]
         jupyter = [
             "ipykernel>=6.29.5",
@@ -100,5 +105,6 @@
             "E731", # Do not assign a `lambda` expression, use a `def`
         ]
     [tool.uv.sources]
+        cugraph-cu12    = { url = "https://pypi.nvidia.com/cugraph-cu12/cugraph_cu12-24.8.0-cp310-cp310-manylinux_2_28_x86_64.whl" }
         cuml-cu12       = { url = "https://pypi.nvidia.com/cuml-cu12/cuml_cu12-24.8.0-cp310-cp310-manylinux_2_28_x86_64.whl" }
         nx-cugraph-cu12 = { url = "https://pypi.nvidia.com/nx-cugraph-cu12/nx_cugraph_cu12-24.8.0-py3-none-any.whl" }
