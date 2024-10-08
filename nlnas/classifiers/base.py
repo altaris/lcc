@@ -396,7 +396,7 @@ class BaseClassifier(pl.LightningModule):
         private attribute `BaseClassifier._lc_data`.
         """
         # wether to apply LCC this epoch
-        lcc_kwargs = self.hparams.get("lcc_kwargs", {})
+        lcc_kwargs = self.hparams.get("lcc_kwargs") or {}
         do_lcc = (
             # we are passed warmup (lcc_warmup being None is equivalent to no
             # warmup)...
@@ -411,7 +411,7 @@ class BaseClassifier(pl.LightningModule):
             # ... and there are submodule selected for LCC...
             and self.lcc_submodules
             # ... and the LCC weight is non-zero
-            and self.lcc_kwargs.get("weight", 0) > 0
+            and lcc_kwargs.get("weight", 0) > 0
         )
         if do_lcc:
             joblib_config = {
