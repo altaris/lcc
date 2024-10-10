@@ -1,6 +1,7 @@
 """See the `nlnas.datasets.BatchedTensorDataset` class documentation."""
 
 from pathlib import Path
+from random import shuffle
 from typing import Iterator, Literal
 
 import numpy as np
@@ -10,6 +11,7 @@ from torch import Tensor
 from torch.utils.data import IterableDataset
 
 from ..utils import make_tqdm, to_tensor
+from .emetd_dataloader import EMETDDataLoader
 
 
 class BatchedTensorDataset(IterableDataset):
@@ -68,11 +70,11 @@ def load_tensor_batched(
     extension: str = "st",
     key: str = "",
     mask: np.ndarray | Tensor | None = None,
-    batch_size: int | None = None,
     max_n_batches: int | None = None,
-    tqdm_style: Literal["notebook", "console", "none"] | None = None,
     device: Literal["cpu", "cuda"] | None = None,
+    batch_size: int = 256,
     num_workers: int = 0,
+    tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> Tensor:
     """
     Loads a batched tensor in one go. See `nlnas.datasets.save_tensor_batched`
@@ -85,12 +87,12 @@ def load_tensor_batched(
         extension (str, optional):
         key (str, optional):
         mask (np.ndarray | Tensor | None, optional):
-        batch_size (int | None, optional):
         max_n_batches (int | None, optional):
-        tqdm_style (Literal['notebook', 'console', 'none'] | None, optional):
         device (Literal['cpu', 'cuda'] | None, optional): Defaults to None.
+        batch_size (int, optional): Defaults to 256.
         num_workers (int, optional): Defaults to 0, meaning single-process data
             loading.
+        tqdm_style (Literal['notebook', 'console', 'none'] | None, optional):
 
     Returns:
         Tensor:
@@ -100,13 +102,20 @@ def load_tensor_batched(
     )
     dl = EMETDDataLoader(
         ds,
+        batch_dir=batch_dir,
+        prefix=prefix,
+        extension=extension,
+        max_n_batches=max_n_batches,
+    )
+    dl = EMETDDataLoader(
+        ds,
         key=key,
         mask=mask,
-        batch_size=batch_size,
-        max_n_batches=max_n_batches,
         device=device,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        shuffle=False,
     )
-    dl = DataLoader(ds, batch_size=1, shuffle=False, num_workers=num_workers)
     everything = make_tqdm(tqdm_style)(dl, "Loading", leave=False)
     return torch.cat(list(everything), dim=0)
 
