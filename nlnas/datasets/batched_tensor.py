@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from safetensors import torch as st
 from torch import Tensor
-from torch.utils.data import DataLoader, IterableDataset
+from torch.utils.data import IterableDataset
 
 from ..utils import make_tqdm, to_tensor
 
@@ -27,7 +27,6 @@ class BatchedTensorDataset(IterableDataset):
         prefix: str = "batch",
         extension: str = "st",
         key: str = "",
-        max_n_batches: int | None = None,
     ):
         """
         See `nlnas.datasets.save_tensor_batched` for the precise meaning of the
@@ -50,14 +49,10 @@ class BatchedTensorDataset(IterableDataset):
                 are stored in safetensor files, which are essentially
                 dictionaries.  This arg specifies which key contains the data of
                 interest.
-            max_n_batches (int | None, optional): Limit the dataset to the first
-                `max_n_batches` batches.
         """
         self.paths = list(
             sorted(Path(batch_dir).glob(f"{prefix}.*.{extension}"))
         )
-        if max_n_batches is not None:
-            self.paths = self.paths[:max_n_batches]
         self.key = key
 
     def __iter__(self) -> Iterator[Tensor]:
@@ -101,9 +96,10 @@ def load_tensor_batched(
         Tensor:
     """
     ds = BatchedTensorDataset(
-        batch_dir=batch_dir,
-        prefix=prefix,
-        extension=extension,
+        batch_dir=batch_dir, prefix=prefix, extension=extension
+    )
+    dl = EMETDDataLoader(
+        ds,
         key=key,
         mask=mask,
         batch_size=batch_size,
