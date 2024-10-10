@@ -471,61 +471,95 @@ class BaseClassifier(pl.LightningModule):
         return self._evaluate(batch, "val")
 
 
-def _inflate_vector(
-    v: np.ndarray | Tensor | list[float],
-    mask: np.ndarray | Tensor | list[bool],
-) -> np.ndarray:
-    """
-    Say `v` has shape (n_a,) while `mask` has shape (n_b,). This function
-    "inflates" `v` into a vector `w` of shape (n_b,) such that `v = w[mask]`.
-    Values of `w` that don't fall in the mask are set to -1.
-    """
-    v, mask = to_array(v), to_array(mask).astype(bool)
-    w = np.full_like(mask, -1, dtype=v.dtype)
-    w[mask] = v
-    return w
-
-
-def full_dataset_evaluation(
+def _fde_pca(
     model: BaseClassifier,
     dataset: HuggingFaceDataset,
     output_dir: str | Path,
+    pca_dim: dict[str, int | None],
     split: Literal["train", "val", "test"] = "train",
-    max_dim: int | None = 8192,
     device: Literal["cpu", "cuda"] | None = None,
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> None:
     """
-    Evaluate model on whole dataset and saves latent representations and
-    prediction batches in `output_dir`. The naming pattern is
-
-        <output_dir> / <submodule>.<batch_idx>.st
-
-    and `batch_idx` is a zero-padded 4-digit number. The files are
-    [Safetensors](https://huggingface.co/docs/safetensors/index) files.
-
-    Args:
-        model (BaseClassifier):
-        dataset (HuggingFaceDataset):
-        output_dir (str | Path):
-        split (Literal['train', 'val', 'test'], optional): Defaults to "train".
-        max_dim (int | None, optional): If the latent dimension is very large,
-            you might consider using PCA to make the latent representation
-            batches smaller. Note that PCA is applied batch-wise, not
-            dataset-wise. Defaults to $8192 = 2^{13}$.
-        device (Literal['cpu', 'cuda'] | None, optional): Defaults to `None`,
-            which automatically finds the best device.
-        tqdm_style (Literal['notebook', 'console', 'none'] | None, optional):
-            Defaults to `None`, mearning no progress bar.
+    `full_dataset_evaluation` in the case where PCA dim-redux has to be applied.
+    See `full_dataset_evaluation` for the precise meaning of the arguments. Note
+    that in this case, `pca_dim` mist be a dict that maps LCC submodule names to
+    PCA dimensions.
     """
     use_cuda = (
         device == "cuda" or device is None
     ) and torch.cuda.is_available()
     if use_cuda:
-        from cuml import PCA
-    else:
-        from sklearn.decomposition import PCA
+        from cuml import IncrementalPCA
 
+        pcas = {
+            sm: IncrementalPCA(n_components=d, output_type="numpy")
+            for sm, d in pca_dim.items()
+            if d
+        }
+    else:
+        from sklearn.decomposition import IncrementalPCA
+
+        pcas = {
+            sm: IncrementalPCA(n_components=d)
+            for sm, d in pca_dim.items()
+            if d
+        }
+
+    dl = dataset.get_dataloader(split)
+    output_dir, tqdm = Path(output_dir), make_tqdm(tqdm_style)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    with torch.no_grad():
+        model.eval()
+        if use_cuda:
+            model.to("cuda")
+        for idx, batch in enumerate(tqdm(dl, "Fitting PCA(s)", leave=False)):
+            out: dict[str, Tensor] = {}
+            model.forward_intermediate(
+                inputs=batch[model.image_key],
+                submodules=model.lcc_submodules,
+                output_dict=out,
+                keep_gradients=False,
+            )
+            for sm, z in out.items():
+                if sm in pcas:
+                    pcas[sm].partial_fit(z.flatten(1))
+        for idx, batch in enumerate(tqdm(dl, "Evaluating", leave=False)):
+            out = {}
+            y_pred = model.forward_intermediate(
+                inputs=batch[model.image_key],
+                submodules=model.lcc_submodules,
+                output_dict=out,
+                keep_gradients=False,
+            )
+            assert isinstance(y_pred, Tensor)
+            out["y_pred"] = y_pred
+            for sm, z in out.items():
+                if sm in pcas:
+                    z = pcas[sm].transform(z.flatten(1))
+                st.save_file(
+                    {"": to_array(z)},
+                    output_dir / f"{sm}.{idx:04}.st",
+                )
+        model.train()
+
+
+def _fde_no_pca(
+    model: BaseClassifier,
+    dataset: HuggingFaceDataset,
+    output_dir: str | Path,
+    split: Literal["train", "val", "test"] = "train",
+    device: Literal["cpu", "cuda"] | None = None,
+    tqdm_style: Literal["notebook", "console", "none"] | None = None,
+) -> None:
+    """
+    `full_dataset_evaluation` in the case where no PCA dim-redux is to be
+    applied. See `full_dataset_evaluation` for the precise meaning of the
+    arguments.
+    """
+    use_cuda = (
+        device == "cuda" or device is None
+    ) and torch.cuda.is_available()
     dl = dataset.get_dataloader(split)
     output_dir, tqdm = Path(output_dir), make_tqdm(tqdm_style)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -551,24 +585,89 @@ def full_dataset_evaluation(
             assert isinstance(y_pred, Tensor)
             out["y_pred"] = y_pred
             for sm, z in out.items():
-                z = z.flatten(1)
-                if max_dim is not None and z.shape[-1] > max_dim:
-                    # Sadly, cuml.PCA requires a numpy array, meaning that a
-                    # copy of z will be loaded back on the GPU. So the batch
-                    # size or max_dim should be small enough so that the GPU can
-                    # hold 2 batches at the same time plus the PCA results.
-                    z = PCA(n_components=max_dim).fit_transform(to_array(z))
                 st.save_file(
-                    {"": to_array(z)}, output_dir / f"{sm}.{idx:04}.st"
+                    {"": to_array(z.flatten(1))},
+                    output_dir / f"{sm}.{idx:04}.st",
                 )
         model.train()
+
+
+def _inflate_vector(
+    v: np.ndarray | Tensor | list[float],
+    mask: np.ndarray | Tensor | list[bool],
+) -> np.ndarray:
+    """
+    Say `v` has shape (n_a,) while `mask` has shape (n_b,). This function
+    "inflates" `v` into a vector `w` of shape (n_b,) such that `v = w[mask]`.
+    Values of `w` that don't fall in the mask are set to -1.
+    """
+    v, mask = to_array(v), to_array(mask).astype(bool)
+    w = np.full_like(mask, -1, dtype=v.dtype)
+    w[mask] = v
+    return w
+
+
+def full_dataset_evaluation(
+    model: BaseClassifier,
+    dataset: HuggingFaceDataset,
+    output_dir: str | Path,
+    pca_dim: int | dict[str, int | None] | None = None,
+    split: Literal["train", "val", "test"] = "train",
+    device: Literal["cpu", "cuda"] | None = None,
+    tqdm_style: Literal["notebook", "console", "none"] | None = None,
+) -> None:
+    """
+    Evaluate model on whole dataset and saves latent representations and
+    prediction batches in `output_dir`. The naming pattern is
+
+        <output_dir> / <submodule>.<batch_idx>.st
+
+    and `batch_idx` is a zero-padded 4-digit number. The files are
+    [Safetensors](https://huggingface.co/docs/safetensors/index) files.
+
+    Args:
+        model (BaseClassifier):
+        dataset (HuggingFaceDataset):
+        output_dir (str | Path):
+        pca_dim (int | dict[str, int | None] | None, optional): If specified, a
+            PCA is fitted and applied to the latent representations. This is
+            useful when the latent dimensions are very large. However, it
+            becomes necessary to iterate over the dataset twice, which more than
+            doubles the execution time of this method. It is possible to specify
+            a PCA dimension for each or some of the latent spaces.
+        split (Literal['train', 'val', 'test'], optional): Defaults to "train".
+        device (Literal['cpu', 'cuda'] | None, optional): Defaults to `None`,
+            which automatically finds the best device.
+        tqdm_style (Literal['notebook', 'console', 'none'] | None, optional):
+            Defaults to `None`, mearning no progress bar.
+    """
+    if pca_dim is None:
+        _fde_no_pca(
+            model,
+            dataset,
+            output_dir,
+            split=split,
+            device=device,
+            tqdm_style=tqdm_style,
+        )
+    else:
+        if isinstance(pca_dim, int):
+            pca_dim = {sm: pca_dim for sm in model.lcc_submodules}
+        _fde_pca(
+            model,
+            dataset,
+            output_dir,
+            pca_dim,
+            split=split,
+            device=device,
+            tqdm_style=tqdm_style,
+        )
 
 
 def full_dataset_latent_clustering(
     model: BaseClassifier,
     dataset: HuggingFaceDataset,
     output_dir: str | Path,
-    max_dim: int | None = 8192,
     device: Literal["cpu", "cuda"] | None = None,
     scaling: Literal["standard", "minmax"] | None = "standard",
     classes: list[int] | LCCClassSelection | None = None,
@@ -600,10 +699,6 @@ def full_dataset_latent_clustering(
             this if there are too many true classes, or if the dataset is just
             too large to fit in memory (e.g. ImageNet). See also
             `nlnas.correction.LCC_CLASS_SELECTIONS`.
-        max_dim (int, optional): If the dimension of a latent space is larger
-            than this, then the latent representation undergo batch-wise PCA to
-            make them `max_dim`-dimensional. Defaults to $8192 = 2^{13}$. Can be
-            set to `None` to never resort to PCA.
 
     Returns:
         A dictionary that maps a submodule name to its latent clustering data,
@@ -616,7 +711,6 @@ def full_dataset_latent_clustering(
         dataset,
         output_dir=output_dir,
         split=split,
-        max_dim=max_dim,
         device=device,
         tqdm_style=tqdm_style,
     )
@@ -626,7 +720,6 @@ def full_dataset_latent_clustering(
     if isinstance(classes, list):
         mask = torch.isin(y_true, torch.tensor(classes))
         y_true = y_true[mask]
-
     # ↓ classes is a LCCClassSelection policy (e.g. "max_connected")
     elif isinstance(classes, str):
         y_pred = load_tensor_batched(
@@ -639,25 +732,36 @@ def full_dataset_latent_clustering(
             y_true = y_true[mask]
         else:
             mask = torch.full_like(y_true, True, dtype=torch.bool)
-
     # ↓ Leaving classes to None means all classes are considered, so no mask
     else:
         mask = torch.full_like(y_true, True, dtype=torch.bool)
 
     result: dict[str, LatentClusteringData] = {}
     tqdm = make_tqdm(tqdm_style)
+    lcc_kwargs = model.hparams.get("lcc_kwargs", {})
     for sm in tqdm(model.lcc_submodules, "Clustering", leave=False):
-        z = load_tensor_batched(
-            output_dir, sm, mask=mask, tqdm_style=tqdm_style, device=device
+        ds = BatchedTensorDataset(
+            batch_dir=output_dir,
+            prefix=sm,
+            key="",
+            mask=mask,
+            device=device,
         )
-        y_clst = get_cluster_labels(z, method, scaling, device)
+        dl = DataLoader(ds, batch_size=1, shuffle=False)
+        _, y_clst = louvain_communities(
+            dl,
+            k=lcc_kwargs.get("k", 5),
+            device=device,
+            tqdm_style=tqdm_style,
+        )
         matching = class_otm_matching(y_true, y_clst)
+        # TODO: fix
         indices = lcc_knn_indices(
-            z,
+            torch.zeros((10, 10)),
             y_true,
             y_clst,
             matching,
-            k=model.hparams.get("lcc_kwargs", {}).get("k", 5),
+            k=lcc_kwargs.get("k", 5),
             device=device,
         )
         result[sm] = LatentClusteringData(
