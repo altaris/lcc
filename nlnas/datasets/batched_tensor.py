@@ -1,7 +1,7 @@
 """See the `nlnas.datasets.BatchedTensorDataset` class documentation."""
 
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 import numpy as np
 import torch
@@ -23,6 +23,7 @@ class BatchedTensorDataset(Dataset):
     key: str
     mask: Tensor | None
     paths: list[Path]
+    transform: Callable[[Tensor], Tensor] | None
 
     def __init__(
         self,
@@ -33,6 +34,7 @@ class BatchedTensorDataset(Dataset):
         mask: np.ndarray | torch.Tensor | None = None,
         batch_size: int | None = None,
         max_n_batches: int | None = None,
+        transform: Callable[[Tensor], Tensor] | None = None,
         device: Literal["cpu", "cuda"] | None = None,
     ):
         """
@@ -66,6 +68,10 @@ class BatchedTensorDataset(Dataset):
                 evenly divisible in `batch_size` batches.
             max_n_batches (int | None, optional): Limit the dataset to the first
                 `max_n_batches` batches.
+            transform (Callable[[Tensor], Tensor] | None, optional): An optional
+                transform (i.e. function) that will be applied to tensors before
+                being returned in `__getitem__`. Note that the tensor will be
+                moved to the correct device before being fed to the transform.
             device (Literal['cpu', 'cuda'] | None, optional): Move the batches
                 to the given device upon loading.
         """
@@ -80,6 +86,7 @@ class BatchedTensorDataset(Dataset):
             self.paths = self.paths[:max_n_batches]
         self.key, self.batch_size, self.device = key, batch_size, device
         self.mask = to_tensor(mask) if mask is not None else None
+        self.transform = transform
 
     def __len__(self):
         return len(self.paths)
@@ -90,8 +97,12 @@ class BatchedTensorDataset(Dataset):
             assert self.batch_size is not None
             j = idx * self.batch_size
             m = self.mask[j : j + batch.shape[0]]
-            return batch[m].to(self.device)
-        return batch.to(self.device)
+            z = batch[m]
+        else:
+            z = batch
+        z = z.to(self.device)
+        z = self.transform(z) if self.transform is not None else z
+        return z
 
 
 def load_tensor_batched(
