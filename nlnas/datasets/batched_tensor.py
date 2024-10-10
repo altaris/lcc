@@ -1,29 +1,25 @@
 """See the `nlnas.datasets.BatchedTensorDataset` class documentation."""
 
 from pathlib import Path
-from typing import Any, Callable, Literal
+from typing import Iterator, Literal
 
 import numpy as np
 import torch
 from safetensors import torch as st
 from torch import Tensor
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, IterableDataset
 
 from ..utils import make_tqdm, to_tensor
 
 
-class BatchedTensorDataset(Dataset):
+class BatchedTensorDataset(IterableDataset):
     """
     Dataset that load tensor batches produced by
     `nlnas.datasets.save_tensor_batched`.
     """
 
-    batch_size: int | None
-    device: Any
     key: str
-    mask: Tensor | None
     paths: list[Path]
-    transform: Callable[[Tensor], Tensor] | None
 
     def __init__(
         self,
@@ -31,11 +27,7 @@ class BatchedTensorDataset(Dataset):
         prefix: str = "batch",
         extension: str = "st",
         key: str = "",
-        mask: np.ndarray | torch.Tensor | None = None,
-        batch_size: int | None = None,
         max_n_batches: int | None = None,
-        transform: Callable[[Tensor], Tensor] | None = None,
-        device: Literal["cpu", "cuda"] | None = None,
     ):
         """
         See `nlnas.datasets.save_tensor_batched` for the precise meaning of the
@@ -58,51 +50,21 @@ class BatchedTensorDataset(Dataset):
                 are stored in safetensor files, which are essentially
                 dictionaries.  This arg specifies which key contains the data of
                 interest.
-            mask (np.ndarray | Tensor | None, optional): A boolean mask of shape
-                `(N,)`, where $N$ is at least the length of the dataset. If
-                provided, only the rows for which the mask is `True` will be
-                kept. This means that some batches might be empty.
-            batch_size (int | None, optional): If `mask` is provided, then so
-                must this argument. Note that the last batch is allowed to be
-                smaller than `batch_size`, which happens when the dataset isn't
-                evenly divisible in `batch_size` batches.
             max_n_batches (int | None, optional): Limit the dataset to the first
                 `max_n_batches` batches.
-            transform (Callable[[Tensor], Tensor] | None, optional): An optional
-                transform (i.e. function) that will be applied to tensors before
-                being returned in `__getitem__`. Note that the tensor will be
-                moved to the correct device before being fed to the transform.
-            device (Literal['cpu', 'cuda'] | None, optional): Move the batches
-                to the given device upon loading.
         """
-        if mask is not None and batch_size is None:
-            raise ValueError(
-                "If a mask is provided, then so must be the batch size."
-            )
         self.paths = list(
             sorted(Path(batch_dir).glob(f"{prefix}.*.{extension}"))
         )
         if max_n_batches is not None:
             self.paths = self.paths[:max_n_batches]
-        self.key, self.batch_size, self.device = key, batch_size, device
-        self.mask = to_tensor(mask) if mask is not None else None
-        self.transform = transform
+        self.key = key
 
-    def __len__(self):
-        return len(self.paths)
-
-    def __getitem__(self, idx: int) -> Tensor:
-        batch = st.load_file(self.paths[idx])[self.key]
-        if self.mask is not None:
-            assert self.batch_size is not None
-            j = idx * self.batch_size
-            m = self.mask[j : j + batch.shape[0]]
-            z = batch[m]
-        else:
-            z = batch
-        z = z.to(self.device)
-        z = self.transform(z) if self.transform is not None else z
-        return z
+    def __iter__(self) -> Iterator[Tensor]:
+        for path in self.paths:
+            batch = st.load_file(path)[self.key]
+            for z in batch:
+                yield z
 
 
 def load_tensor_batched(
