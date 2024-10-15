@@ -54,10 +54,9 @@ class EMETDDataLoader(DataLoader):
                 https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader.
         """
         super().__init__(dataset, **kwargs)
-        self.mask, self.key = to_tensor(mask).bool(), key
-        self.device = device or "cpu"
-        self.transform = transform or (lambda x: x)
-        self.kwargs = kwargs
+        self.mask = None if mask is None else to_tensor(mask).bool()
+        self.device, self.key = device or "cpu", key
+        self.transform, self.kwargs = transform or (lambda x: x), kwargs
 
     def add_mask(self, mask: np.ndarray | Tensor) -> "EMETDDataLoader":
         """

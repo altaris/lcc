@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from itertools import product
+from math import sqrt
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Callable, Literal, Sequence, TypeAlias
@@ -12,17 +13,17 @@ import pytorch_lightning as pl
 import torch
 from safetensors import numpy as st
 from torch import Tensor, nn
-from torch.utils.data import DataLoader
 from torch.utils.hooks import RemovableHandle
 from torchmetrics.functional.classification import multiclass_accuracy
+
+from nlnas.correction.clustering import otm_matching_predicates
+from nlnas.datasets.emetd_dataloader import EMETDDataLoader
 
 from ..correction import (
     LCC_CLASS_SELECTIONS,
     LCCClassSelection,
     choose_classes,
     class_otm_matching,
-    lcc_knn_indices,
-    lcc_loss,
     lcc_targets,
     louvain_communities,
 )
@@ -79,12 +80,29 @@ SCHEDULERS: dict[str, type] = {
 class LatentClusteringData:
     """
     Convenience struct that holds some latent clustering correction data for a
-    given latent space. Contents are self-explanatory.
+    given latent space.
     """
 
-    y_clst: np.ndarray  # (n_samples,)
+    y_clst: np.ndarray
+    """`(N,)` vector of cluster labels."""
+
+    p: np.ndarray
+    """
+    `(N,)` boolean vector that marks misclustered samples (regardless of
+    true class).
+    """
+
     matching: dict[int, set[int]]
-    knn_indices: dict[int, tuple[Any, Tensor]]
+    """
+    Matching between the true and cluster classes. See
+    `nlnas.correction.clustering.class_otm_matching`.
+    """
+
+    targets: dict[int, Tensor]
+    """
+    Dict that maps a true class to a correctly clustered sample in that true
+    class. Note that not every true class may be represented in this dict.
+    """
 
 
 # pylint: disable=arguments-differ
@@ -205,16 +223,18 @@ class BaseClassifier(pl.LightningModule):
         if self._lc_data:
             idx, _losses = batch["_idx"].cpu(), []
             for sm, z in latent.items():
-                targets = lcc_targets(
-                    z,
-                    y_true=y,
-                    y_clst=self._lc_data[sm].y_clst[idx],
-                    matching=self._lc_data[sm].matching,
-                    knn_indices=self._lc_data[sm].knn_indices,
-                    n_true_classes=self.n_classes,
-                )
-                _losses.append(lcc_loss(z, targets))
-            loss_lcc = torch.stack(_losses).mean()
+                sqrt_d = sqrt(z.shape[-1])
+                p, tgts = self._lc_data[sm].p[idx], self._lc_data[sm].targets
+                _losses += [
+                    torch.norm((u - tgts[int(i_true)]) / sqrt_d)
+                    for u, i_true in zip(z[p], y[p])
+                    if int(i_true) in tgts
+                    # Not every true class may have a correctly clustered
+                    # samples...
+                ]
+            loss_lcc = (
+                torch.stack(_losses).mean() if _losses else torch.tensor(0.0)
+            )
             lcc_weight = self.hparams.get("lcc_kwargs", {}).get("weight", 1e-4)
             loss = self.hparams["ce_weight"] * loss_ce + lcc_weight * loss_lcc
             self.log(f"{stage}/lcc", loss_lcc, sync_dist=True)
@@ -428,10 +448,8 @@ class BaseClassifier(pl.LightningModule):
                     model=self,
                     dataset=self.trainer.datamodule,  # type: ignore
                     output_dir=tmp,
-                    max_dim=None,  # no dim-redux
                     device="cuda",
-                    scaling="standard",
-                    classes=lcc_kwargs.get("class_selection"),
+                    # classes=lcc_kwargs.get("class_selection"),
                     tqdm_style="console",
                 )
             log = {}
@@ -609,6 +627,34 @@ def _inflate_vector(
     return w
 
 
+def _y_true_mask(
+    y_true: Tensor,
+    classes: list[int] | LCCClassSelection | None = None,
+    y_true_batch_dir: str | Path | None = None,
+    tqdm_style: Literal["notebook", "console", "none"] | None = None,
+):
+    # ↓ classes is just a list of classes
+    if isinstance(classes, list):
+        return torch.isin(y_true, torch.tensor(classes))
+    # ↓ classes is a LCCClassSelection policy (e.g. "max_connected")
+    if isinstance(classes, str):
+        if y_true_batch_dir is None:
+            raise ValueError(
+                "The batch directory of the true label vector is required for "
+                f"LCC policy '{classes}'."
+            )
+        y_pred = load_tensor_batched(
+            y_true_batch_dir, "y_pred", tqdm_style=tqdm_style
+        )
+        assert isinstance(y_pred, Tensor)  # For typechecking
+        classes = choose_classes(y_true, y_pred, policy=classes)
+        if classes:
+            return torch.isin(y_true, torch.tensor(classes))
+        return torch.full_like(y_true, True, dtype=torch.bool)
+    # ↓ Leaving classes to None means all classes are considered, so no mask
+    return torch.full_like(y_true, True, dtype=torch.bool)
+
+
 def full_dataset_evaluation(
     model: BaseClassifier,
     dataset: HuggingFaceDataset,
@@ -666,13 +712,13 @@ def full_dataset_evaluation(
         )
 
 
+# TODO: Re-enable support for non-trivial class selection policies
 def full_dataset_latent_clustering(
     model: BaseClassifier,
     dataset: HuggingFaceDataset,
     output_dir: str | Path,
     device: Literal["cpu", "cuda"] | None = None,
-    scaling: Literal["standard", "minmax"] | None = "standard",
-    classes: list[int] | LCCClassSelection | None = None,
+    # classes: list[int] | LCCClassSelection | None = None,
     split: Literal["train", "val", "test"] = "train",
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> dict[str, LatentClusteringData]:
@@ -717,39 +763,22 @@ def full_dataset_latent_clustering(
         tqdm_style=tqdm_style,
     )
     y_true = dataset.y_true(split)
-
-    # ↓ classes is just a list of classes
-    if isinstance(classes, list):
-        mask = torch.isin(y_true, torch.tensor(classes))
-        y_true = y_true[mask]
-    # ↓ classes is a LCCClassSelection policy (e.g. "max_connected")
-    elif isinstance(classes, str):
-        y_pred = load_tensor_batched(
-            output_dir, "y_pred", tqdm_style=tqdm_style
-        )
-        assert isinstance(y_pred, Tensor)  # For typechecking
-        classes = choose_classes(y_true, y_pred, policy=classes)
-        if classes:
-            mask = torch.isin(y_true, torch.tensor(classes))
-            y_true = y_true[mask]
-        else:
-            mask = torch.full_like(y_true, True, dtype=torch.bool)
-    # ↓ Leaving classes to None means all classes are considered, so no mask
-    else:
-        mask = torch.full_like(y_true, True, dtype=torch.bool)
+    # mask = _y_true_mask(y_true, classes, output_dir, tqdm_style)
+    # if not mask.all():
+    #     y_true = y_true[mask]
 
     result: dict[str, LatentClusteringData] = {}
     tqdm = make_tqdm(tqdm_style)
     lcc_kwargs = model.hparams.get("lcc_kwargs", {})
     for sm in tqdm(model.lcc_submodules, "Clustering", leave=False):
-        ds = BatchedTensorDataset(
-            batch_dir=output_dir,
-            prefix=sm,
-            key="",
-            mask=mask,
+        ds = BatchedTensorDataset(batch_dir=output_dir, prefix=sm, key="")
+        dl = EMETDDataLoader(
+            ds,
+            # mask=mask,
             device=device,
+            batch_size=256,
+            shuffle=False,
         )
-        dl = DataLoader(ds, batch_size=1, shuffle=False)
         _, y_clst = louvain_communities(
             dl,
             k=lcc_kwargs.get("k", 5),
@@ -757,19 +786,20 @@ def full_dataset_latent_clustering(
             tqdm_style=tqdm_style,
         )
         matching = class_otm_matching(y_true, y_clst)
-        # TODO: fix
-        indices = lcc_knn_indices(
-            torch.zeros((10, 10)),
-            y_true,
-            y_clst,
-            matching,
-            k=lcc_kwargs.get("k", 5),
-            device=device,
+        _, _, p, _ = otm_matching_predicates(y_true, y_clst, matching)
+        p = p.sum(axis=0) > 0  # Select MC samples regardless of true class
+        targets = lcc_targets(
+            dl, y_true, y_clst, matching, n_true_classes=dataset.n_classes()
         )
+        # for i_true, (p, x) in targets.items():
+        #     targets[i_true] = (_inflate_vector(p, mask), x)
+        # y_clst=_inflate_vector(y_clst, mask)
+        # p_mc=_inflate_vector(p_mc, mask)
         result[sm] = LatentClusteringData(
-            y_clst=_inflate_vector(y_clst, mask),
             matching=matching,
-            knn_indices=indices,
+            p=p,
+            targets=targets,
+            y_clst=y_clst,
         )
 
     return result

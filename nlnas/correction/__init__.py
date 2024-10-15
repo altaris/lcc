@@ -12,7 +12,6 @@ from .choice import (
 )
 from .clustering import (
     class_otm_matching,
-    lcc_knn_indices,
     lcc_loss,
     lcc_targets,
     otm_matching_predicates,
@@ -26,7 +25,6 @@ __all__ = [
     "GraphTotallyDisconnected",
     "heaviest_connected_subgraph",
     "LCC_CLASS_SELECTIONS",
-    "lcc_knn_indices",
     "lcc_loss",
     "lcc_targets",
     "LCCClassSelection",

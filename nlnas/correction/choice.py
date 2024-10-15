@@ -13,17 +13,18 @@ from tqdm import tqdm
 
 from ..utils import to_tensor
 
-LCC_CLASS_SELECTIONS = [
-    "top_pair_1",
-    "top_pair_5",
-    "top_pair_10",
-    "top_connected_2",
-    "top_connected_5",
-    "top_connected_10",
-    "max_connected",
+LCC_CLASS_SELECTIONS: list[str] = [
+    # TODO: Re-enable support for non-trivial class selection policies
+    # "top_pair_1",
+    # "top_pair_5",
+    # "top_pair_10",
+    # "top_connected_2",
+    # "top_connected_5",
+    # "top_connected_10",
+    # "max_connected",
 ]
 """
-Supported class selection policies for LCC. See
+Supported non-trivial class selection policies for LCC. See
 `nlnas.correction.LCCClassSelection`.
 """
 
@@ -38,9 +39,9 @@ LCCClassSelection: TypeAlias = Literal[
     "max_connected",
 ]
 """
-How to select (true) classes whose samples will undergo LCC.
-- `all`: Consider all classes, which means that LCC shall be performed on the
-  whole dataset.
+Non-trivial (true) class selection policies for LCC. This is used to determine
+which samples will undergo LCC. On top of the `None` policy (which selects all
+samples), the following are supported:
 - `top_pair_<N>`: Consider the top `N` confusion pairs.  This is **not**
   necessarily a "connected" choice, i.e. it is possible that not every two
   classes are confused with each other. For example, policy `top_pair_2` may
