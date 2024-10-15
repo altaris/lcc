@@ -601,6 +601,8 @@ def _inflate_vector(
     "inflates" `v` into a vector `w` of shape (n_b,) such that `v = w[mask]`.
     Values of `w` that don't fall in the mask are set to -1.
     """
+    if to_array(mask).all():
+        return to_array(v)
     v, mask = to_array(v), to_array(mask).astype(bool)
     w = np.full_like(mask, -1, dtype=v.dtype)
     w[mask] = v
