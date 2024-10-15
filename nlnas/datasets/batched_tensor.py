@@ -1,7 +1,6 @@
 """See the `nlnas.datasets.BatchedTensorDataset` class documentation."""
 
 from pathlib import Path
-from random import shuffle
 from typing import Iterator, Literal
 
 import numpy as np

@@ -5,10 +5,10 @@ from .batched_tensor import (
     load_tensor_batched,
     save_tensor_batched,
 )
+from .emetd_dataloader import EMETDDataLoader
 from .huggingface import HuggingFaceDataset
 from .utils import dl_head, flatten_batches
 from .wrapped import DEFAULT_DATALOADER_KWARGS, WrappedDataset
-from .emetd_dataloader import EMETDDataLoader
 
 __all__ = [
     "BatchedTensorDataset",

@@ -26,6 +26,7 @@ class EMETDDataLoader(DataLoader):
     key: str | None
     mask: Tensor | None
     transform: Callable[[Tensor], Tensor]
+    kwargs: dict
 
     def __init__(
         self,
@@ -56,6 +57,22 @@ class EMETDDataLoader(DataLoader):
         self.mask, self.key = to_tensor(mask).bool(), key
         self.device = device or "cpu"
         self.transform = transform or (lambda x: x)
+        self.kwargs = kwargs
+
+    def add_mask(self, mask: np.ndarray | Tensor) -> "EMETDDataLoader":
+        """
+        Returns a new `EMETDDataLoader` whose mask is the conjunction of the
+        current loader's mask and the provided mask
+        """
+        mask = to_tensor(mask).bool()
+        return EMETDDataLoader(
+            self.dataset,
+            key=self.key,
+            mask=mask if self.mask is None else (self.mask & mask),
+            transform=self.transform,
+            device=self.device,
+            **self.kwargs,
+        )
 
     def __iter__(self) -> Iterator[Tensor]:  # type: ignore
         return emetd(
