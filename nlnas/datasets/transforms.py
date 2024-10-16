@@ -78,4 +78,4 @@ def dataset_normalization(dataset_name: str) -> Callable:
             f"'{dataset_name}'"
         )
     mean, std = parameters[dataset_name]
-    return transforms.Normalize(mean=mean, std=std)
+    return transforms.Normalize(mean=mean, std=std)  # type: ignore

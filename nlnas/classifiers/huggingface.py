@@ -18,7 +18,7 @@ class HuggingFaceClassifier(WrappedClassifier):
         model_name: str,
         n_classes: int,
         head_name: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """
         See also:
@@ -45,7 +45,7 @@ class HuggingFaceClassifier(WrappedClassifier):
 
     @staticmethod
     def get_image_processor(
-        model_name: str, **kwargs
+        model_name: str, **__: Any
     ) -> Callable[[dict[str, Any]], dict[str, Any]]:
         """
         Wraps the HuggingFace `AutoImageProcessor` associated to a given model.

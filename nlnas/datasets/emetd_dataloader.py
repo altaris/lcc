@@ -35,7 +35,7 @@ class EMETDDataLoader(DataLoader):
         mask: np.ndarray | Tensor | None = None,
         transform: Callable[[Tensor], Tensor] | None = None,
         device: Any = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         """
         Args:

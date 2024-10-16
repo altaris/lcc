@@ -144,7 +144,7 @@ def export_png(obj: Any, filename: str | Path) -> Path:
         _export_png(obj, filename=str(filename))
     finally:
         if webdriver is not None:
-            webdriver.close()  # type: ignore
+            webdriver.close()
     return Path(filename)
 
 

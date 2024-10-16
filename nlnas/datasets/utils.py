@@ -22,11 +22,11 @@ def dl_head(dl: DataLoader, n: int) -> list[Batch]:
         Only supports batches that are dicts of tensors.
     """
 
-    def _n():
+    def _n() -> int:
         if not batches:
             return 0
         k = list(batches[0].keys())[0]
-        return sum(map(lambda b: len(b[k]), batches))  # type: ignore
+        return sum(map(lambda b: len(b[k]), batches))
 
     batches: list[Batch] = []
     it = iter(dl)

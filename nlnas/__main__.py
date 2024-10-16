@@ -21,7 +21,7 @@ from loguru import logger as logging
     ),
 )
 @logging.catch
-def main(logging_level: str):
+def main(logging_level: str) -> None:
     """nlnas CLI"""
     from .logging import setup_logging
 
@@ -244,7 +244,9 @@ def train(
     help="Maximum depth to display. Defaults to no limit.",
     type=int,
 )
-def pretty_print(model_name: str, include_non_trainable: bool, max_depth: int):
+def pretty_print(
+    model_name: str, include_non_trainable: bool, max_depth: int
+) -> None:
     """Pretty prints a HuggingFace model's structure"""
 
     from .utils import pretty_print_submodules

@@ -62,7 +62,7 @@ def inflate_vector(
     return w
 
 
-def log_optimizers_lr(model: pl.LightningModule, **kwargs) -> None:
+def log_optimizers_lr(model: pl.LightningModule, **kwargs: Any) -> None:
     """
     Logs all optimizers learning rates to TensorBoard.
 

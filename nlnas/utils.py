@@ -58,7 +58,7 @@ def make_tqdm(
             Defaults to "console".
     """
 
-    def _fake_tqdm(x: Any, *_, **__):
+    def _fake_tqdm(x: Any, *_: Any, **__: Any) -> Any:
         return x
 
     if style is None or style == "none":
@@ -81,7 +81,7 @@ def pretty_print_submodules(
     max_depth: int | None = None,
     _prefix: str = "",
     _current_depth: int = 0,
-):
+) -> None:
     """
     Recursively prints a module and its submodule in a hierarchical manner.
 
@@ -129,7 +129,7 @@ def pretty_print_submodules(
         )
 
 
-def to_array(x: Any, **kwargs) -> np.ndarray:
+def to_array(x: Any, **kwargs: Any) -> np.ndarray:
     """
     Converts an array-like object to a numpy array. If the input is a tensor,
     it is detached and moved to the CPU first
@@ -139,7 +139,7 @@ def to_array(x: Any, **kwargs) -> np.ndarray:
     return x if isinstance(x, np.ndarray) else np.array(x, **kwargs)
 
 
-def to_tensor(x: Any, **kwargs) -> Tensor:
+def to_tensor(x: Any, **kwargs: Any) -> Tensor:
     """
     Converts an array-like object to a torch tensor. If `x` is already a tensor,
     then it is returned as is. In particular, if `x` is a tensor this method is

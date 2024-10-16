@@ -1,5 +1,7 @@
 """See `WrappedClassifier` documentation."""
 
+from typing import Any
+
 from torch import Tensor, nn
 
 from .base import BaseClassifier, Batch
@@ -21,7 +23,7 @@ class WrappedClassifier(BaseClassifier):
         n_classes: int,
         head_name: str | None = None,
         logit_key: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """
         See also:
@@ -51,12 +53,12 @@ class WrappedClassifier(BaseClassifier):
         if head_name:
             replace_head(self.model, head_name, n_classes)
 
-    def forward(self, inputs: Tensor | Batch, *_, **__) -> Tensor:
+    def forward(self, inputs: Tensor | Batch, *_: Any, **__: Any) -> Tensor:
         x: Tensor = (
             inputs if isinstance(inputs, Tensor) else inputs[self.image_key]
         )
-        output = self.model(x.to(self.device))  # type: ignore
-        return output if self.logit_key is None else output[self.logit_key]
+        output = self.model(x.to(self.device))
+        return output if self.logit_key is None else output[self.logit_key]  # type: ignore
 
 
 def replace_head(

@@ -1,6 +1,7 @@
 """Logging utilities (duh)"""
 
 import sys
+from typing import Any
 
 from loguru import logger as logging
 from pytorch_lightning.utilities.rank_zero import rank_zero_only
@@ -12,7 +13,7 @@ Allowed logging levels (case insensitive). See `setup_logging`.
 
 
 @rank_zero_only
-def r0_debug(message: str, *args, **kwargs) -> None:
+def r0_debug(message: str, *args: Any, **kwargs: Any) -> None:
     """
     Logs a message with severity `DEBUG` but only in the rank 0
     process/device/node.
@@ -21,7 +22,7 @@ def r0_debug(message: str, *args, **kwargs) -> None:
 
 
 @rank_zero_only
-def r0_critical(message: str, *args, **kwargs) -> None:
+def r0_critical(message: str, *args: Any, **kwargs: Any) -> None:
     """
     Logs a message with severity `CRITICAL` but only in the rank 0
     process.
@@ -30,7 +31,7 @@ def r0_critical(message: str, *args, **kwargs) -> None:
 
 
 @rank_zero_only
-def r0_error(message: str, *args, **kwargs) -> None:
+def r0_error(message: str, *args: Any, **kwargs: Any) -> None:
     """
     Logs a message with severity `ERROR` but only in the rank 0
     process/device/node.
@@ -39,7 +40,7 @@ def r0_error(message: str, *args, **kwargs) -> None:
 
 
 @rank_zero_only
-def r0_info(message: str, *args, **kwargs) -> None:
+def r0_info(message: str, *args: Any, **kwargs: Any) -> None:
     """
     Logs a message with severity `INFO` but only in the rank 0
     process/device/node.
@@ -48,7 +49,7 @@ def r0_info(message: str, *args, **kwargs) -> None:
 
 
 @rank_zero_only
-def r0_success(message: str, *args, **kwargs) -> None:
+def r0_success(message: str, *args: Any, **kwargs: Any) -> None:
     """
     Logs a message with severity `SUCCESS` but only in the rank 0
     process/device/node.
@@ -57,7 +58,7 @@ def r0_success(message: str, *args, **kwargs) -> None:
 
 
 @rank_zero_only
-def r0_trace(message: str, *args, **kwargs) -> None:
+def r0_trace(message: str, *args: Any, **kwargs: Any) -> None:
     """
     Logs a message with severity `TRACE` but only in the rank 0
     process/device/node.
@@ -66,7 +67,7 @@ def r0_trace(message: str, *args, **kwargs) -> None:
 
 
 @rank_zero_only
-def r0_warning(message: str, *args, **kwargs) -> None:
+def r0_warning(message: str, *args: Any, **kwargs: Any) -> None:
     """
     Logs a message with severity `WARNING` but only in the rank 0
     process/device/node.

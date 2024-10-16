@@ -55,7 +55,7 @@ def analyse_ckpt(
     n_samples: int = 512,
     k: int = 5,
     model_cls: Type[BaseClassifier] = BaseClassifier,
-):
+) -> None:
     """
     Analyses a model checkpoint. I can't be bothered to list everything this
     does. Suffice it to say that the main train-analyse workflow
@@ -154,7 +154,7 @@ def analyse_training(
     k: int,
     n_samples: int = 512,
     model_cls: Type[BaseClassifier] = BaseClassifier,
-):
+) -> None:
     """
     Unlike `analyse_ckpt`, this method analyses the training as a whole. Again,
     I don't feel like explaining it all. Suffice it to say that the main

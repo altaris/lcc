@@ -104,7 +104,7 @@ class BaseClassifier(pl.LightningModule):
         optimizer_kwargs: dict | None = None,
         scheduler: str | None = None,
         scheduler_kwargs: dict | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """
         Args:
@@ -213,7 +213,7 @@ class BaseClassifier(pl.LightningModule):
                 prog_bar=True,
                 sync_dist=True,
             )
-        return loss
+        return loss  # type: ignore
 
     def configure_optimizers(self) -> Any:
         cls = OPTIMIZERS[self.hparams["optimizer"].lower()]
@@ -264,7 +264,7 @@ class BaseClassifier(pl.LightningModule):
         def maybe_detach(x: Tensor) -> Tensor:
             return x if keep_gradients else x.detach().cpu()
 
-        def create_hook(key: str):
+        def create_hook(key: str) -> Callable[[nn.Module, Any, Any], None]:
             def hook(_model: nn.Module, _args: Any, out: Any) -> None:
                 if (
                     isinstance(out, (list, tuple))
@@ -298,7 +298,7 @@ class BaseClassifier(pl.LightningModule):
             submodule = self.get_submodule(name)
             handles.append(submodule.register_forward_hook(create_hook(name)))
         if batched:
-            logits = [  # type: ignore
+            logits = [
                 maybe_detach(
                     self.forward(
                         batch
@@ -321,7 +321,7 @@ class BaseClassifier(pl.LightningModule):
         return logits
 
     @staticmethod
-    def get_image_processor(model_name: str, **kwargs) -> Callable:
+    def get_image_processor(model_name: str, **kwargs: Any) -> Callable:
         """
         Returns an image processor for the model. By defaults, returns the
         identity function.
@@ -346,7 +346,7 @@ class BaseClassifier(pl.LightningModule):
             ]
         )
 
-    def on_train_batch_end(self, *args, **kwargs) -> None:
+    def on_train_batch_end(self, *args: Any, **kwargs: Any) -> None:
         """Just logs all optimizer's learning rate"""
         log_optimizers_lr(self, sync_dist=True)
         super().on_train_batch_end(*args, **kwargs)
@@ -411,7 +411,7 @@ class BaseClassifier(pl.LightningModule):
         would do this automatically, but nope.
         """
         self.logger.log_hyperparams(  # type: ignore
-            self.hparams,  # type: ignore
+            self.hparams,
             {
                 s + "/" + m: np.nan
                 for s, m in product(
@@ -421,15 +421,15 @@ class BaseClassifier(pl.LightningModule):
         )
         super().on_train_start()
 
-    def test_step(self, batch: Batch, *_, **__) -> Tensor:
+    def test_step(self, batch: Batch, *_: Any, **__: Any) -> Tensor:
         """Override from `pl.LightningModule.test_step`."""
         return self._evaluate(batch, "test")
 
-    def training_step(self, batch: Batch, *_, **__) -> Tensor:
+    def training_step(self, batch: Batch, *_: Any, **__: Any) -> Tensor:
         """Override from `pl.LightningModule.training_step`."""
         return self._evaluate(batch, "train")
 
-    def validation_step(self, batch: Batch, *_, **__) -> Tensor:
+    def validation_step(self, batch: Batch, *_: Any, **__: Any) -> Tensor:
         """Override from `pl.LightningModule.validation_step`."""
         return self._evaluate(batch, "val")
 
@@ -556,7 +556,7 @@ def _y_true_mask(
     classes: list[int] | LCCClassSelection | None = None,
     y_true_batch_dir: str | Path | None = None,
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
-):
+) -> Tensor:
     # ↓ classes is just a list of classes
     if isinstance(classes, list):
         return torch.isin(y_true, torch.tensor(classes))

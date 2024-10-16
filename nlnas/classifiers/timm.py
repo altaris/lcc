@@ -23,7 +23,7 @@ class TimmClassifier(WrappedClassifier):
         n_classes: int,
         head_name: str | None = None,
         pretrained: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """
         See also:
@@ -50,7 +50,7 @@ class TimmClassifier(WrappedClassifier):
         self.save_hyperparameters()
 
     @staticmethod
-    def get_image_processor(model_name: str, **kwargs) -> Callable:
+    def get_image_processor(model_name: str, **kwargs: Any) -> Callable:
         """
         Wraps the HuggingFace `AutoImageProcessor` associated to a given model.
 
@@ -88,7 +88,7 @@ class TimmClassifier(WrappedClassifier):
 
         return _transform
 
-    def forward(self, inputs: Tensor | Batch, *_, **__) -> Tensor:
+    def forward(self, inputs: Tensor | Batch, *_: Any, **__: Any) -> Tensor:
         x: Tensor = (
             inputs if isinstance(inputs, Tensor) else inputs[self.image_key]
         )
