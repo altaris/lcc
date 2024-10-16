@@ -1,4 +1,3 @@
-# pylint: disable=ungrouped-imports
 """Clustering of latent representations"""
 
 from itertools import product
@@ -177,7 +176,7 @@ def class_otm_matching(
 #     matching: dict[int, set[int]] | dict[str, set[int]],
 #     k: int,
 #     n_true_classes: int | None = None,
-#     device: Literal["cpu", "cuda"] | None = None,
+#     device: Any = None,
 #     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 # ) -> dict[int, faiss.IndexHNSWFlat]:
 #     """
@@ -213,7 +212,7 @@ def class_otm_matching(
 #             contain all the possible true classes of the dataset at hand. If
 #             `None`, then `y_true` is assumed to contain all classes, and so
 #             `n_true_classes` defaults to `y_true.max() + 1`.
-#         device (Literal["cpu", "cuda"] | None, optional): If left to `None`,
+#         device (Any, optional): If left to `None`,
 #             uses CUDA if it is available, otherwise falls back to CPU. Setting
 #             `cuda` while CUDA isn't available will **silently** fall back to
 #             CPU.

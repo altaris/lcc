@@ -49,8 +49,8 @@ class EMETDDataLoader(DataLoader):
                 `None`, no masking is applied. Defaults to `None`.
             transform (Callable[[Tensor], Tensor] | None, optional): A function
                 to apply to the batches.
-            device (Any):
-            **kwargs: Passed to the DataLoader constructor, see
+            device (Any, optional):
+            kwargs: Passed to the DataLoader constructor, see
                 https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader.
         """
         super().__init__(dataset, **kwargs)

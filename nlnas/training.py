@@ -286,7 +286,6 @@ def train(
         ce_weight=ce_weight,
     )
     if isinstance(ckpt_path, Path):
-        # pylint: disable=no-value-for-parameter
         model.model = classifier_cls.load_from_checkpoint(  # type: ignore
             ckpt_path
         ).model

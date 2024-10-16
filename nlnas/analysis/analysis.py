@@ -1,7 +1,7 @@
 """Main module"""
 
 from pathlib import Path
-from typing import Literal, Type
+from typing import Any, Type
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -23,6 +23,7 @@ from ..correction import (
 from ..datasets import HuggingFaceDataset
 from ..datasets.utils import dl_head, flatten_batches
 from ..training import all_checkpoint_paths
+from ..utils import check_cuda
 from .plotting import louvain_clustering_plots, plot_latent_samples
 
 
@@ -263,7 +264,7 @@ def analyse_training(
 
 def embed_latent_samples(
     z: dict[str, Tensor],
-    device: Literal["cpu", "cuda"] | None = None,
+    device: Any = None,
 ) -> dict[str, np.ndarray]:
     """
     (Used as a step in `analyse_ckpt`) Embeds latent samples using UMAP. The
@@ -272,15 +273,15 @@ def embed_latent_samples(
     Args:
         z (dict[str, Tensor]): The dict of latent samples, a.k.a just a dict of
             tensors of shape `(N, ...)`
-        device (Literal["cpu", "cuda"] | None, optional): If left to `None`,
-            uses CUDA if it is available, otherwise falls back to CPU. Setting
-            `cuda` while CUDA isn't available will **silently** fall back to
-            CPU.
+        device (Any, optional): If left to `None`, uses CUDA if it is available,
+            otherwise falls back to CPU. Setting `cuda` while CUDA isn't
+            available will **silently** fall back to CPU.
 
     Returns:
         A dict with the same keys and tensors of shape `(N, 2)`
     """
-    if (device == "cuda" or device is None) and torch.cuda.is_available():
+    use_cuda, device = check_cuda(device)
+    if use_cuda:
         from cuml import UMAP
     else:
         from umap import UMAP
@@ -332,8 +333,8 @@ def evaluate(
         batches, submodule_names, out, keep_gradients=False
     )
     return {
-        "x": flat[model.image_key],
-        "y_true": flat[model.label_key],
+        "x": flat[model.hparams["image_key"]],
+        "y_true": flat[model.hparams["label_key"]],
         "z": {k: torch.concat(v) for k, v in out.items()},  # type: ignore
         "y_pred": torch.concat(y_pred),  # type: ignore
     }

@@ -20,7 +20,6 @@ from nlnas.correction.clustering import otm_matching_predicates
 from nlnas.datasets.emetd_dataloader import EMETDDataLoader
 
 from ..correction import (
-    LCC_CLASS_SELECTIONS,
     LCCClassSelection,
     choose_classes,
     class_otm_matching,
@@ -33,47 +32,19 @@ from ..datasets import (
     load_tensor_batched,
 )
 from ..utils import (
+    check_cuda,
     get_reasonable_n_jobs,
     make_tqdm,
     to_array,
 )
+from .utils import (
+    OPTIMIZERS,
+    SCHEDULERS,
+    log_optimizers_lr,
+    validate_lcc_kwargs,
+)
 
 Batch: TypeAlias = dict[str, Tensor]
-
-
-OPTIMIZERS: dict[str, type] = {
-    "asgd": torch.optim.ASGD,
-    "adadelta": torch.optim.Adadelta,
-    "adagrad": torch.optim.Adagrad,
-    "adam": torch.optim.Adam,
-    "adamw": torch.optim.AdamW,
-    "adamax": torch.optim.Adamax,
-    "lbfgs": torch.optim.LBFGS,
-    "nadam": torch.optim.NAdam,
-    "optimizer": torch.optim.Optimizer,
-    "radam": torch.optim.RAdam,
-    "rmsprop": torch.optim.RMSprop,
-    "rprop": torch.optim.Rprop,
-    "sgd": torch.optim.SGD,
-    "sparseadam": torch.optim.SparseAdam,
-}
-
-SCHEDULERS: dict[str, type] = {
-    "constantlr": torch.optim.lr_scheduler.ConstantLR,
-    "cosineannealinglr": torch.optim.lr_scheduler.CosineAnnealingLR,
-    "cosineannealingwarmrestarts": torch.optim.lr_scheduler.CosineAnnealingWarmRestarts,
-    "cycliclr": torch.optim.lr_scheduler.CyclicLR,
-    "exponentiallr": torch.optim.lr_scheduler.ExponentialLR,
-    "lambdalr": torch.optim.lr_scheduler.LambdaLR,
-    "linearlr": torch.optim.lr_scheduler.LinearLR,
-    "multisteplr": torch.optim.lr_scheduler.MultiStepLR,
-    "multiplicativelr": torch.optim.lr_scheduler.MultiplicativeLR,
-    "onecyclelr": torch.optim.lr_scheduler.OneCycleLR,
-    "polynomiallr": torch.optim.lr_scheduler.PolynomialLR,
-    "reducelronplateau": torch.optim.lr_scheduler.ReduceLROnPlateau,
-    "sequentiallr": torch.optim.lr_scheduler.SequentialLR,
-    "steplr": torch.optim.lr_scheduler.StepLR,
-}
 
 
 @dataclass
@@ -82,9 +53,6 @@ class LatentClusteringData:
     Convenience struct that holds some latent clustering correction data for a
     given latent space.
     """
-
-    y_clst: np.ndarray
-    """`(N,)` vector of cluster labels."""
 
     p: np.ndarray
     """
@@ -104,8 +72,10 @@ class LatentClusteringData:
     class. Note that not every true class may be represented in this dict.
     """
 
+    y_clst: np.ndarray
+    """`(N,)` vector of cluster labels."""
 
-# pylint: disable=arguments-differ
+
 class BaseClassifier(pl.LightningModule):
     """
     Base image classifier class that supports LCC.
@@ -116,28 +86,12 @@ class BaseClassifier(pl.LightningModule):
         `Tensor`.
     """
 
-    n_classes: int  # TODO: use hparams instead
+    _lcc_data: dict[str, LatentClusteringData] | None = None
     """
-    Number of classes, or equivalently, the number of neurons in the output
-    layer.
-    """
-
-    image_key: Any  # TODO: use hparams instead
-    """
-    When receiving a batch, the input tensor is expected to be at
-    `batch[image_key]`.
+    If LCC is applied, then this is non `None` and updated at the begining of
+    each epoch. See also `full_dataset_latent_clustering`.
     """
 
-    label_key: Any  # TODO: use hparams instead
-    """
-    When receiving a batch, the label tensor is expected to be at
-    `batch[label_key]`.
-    """
-
-    # Used during training with LCC
-    _lc_data: dict[str, LatentClusteringData] | None = None
-
-    # pylint: disable=unused-argument
     def __init__(
         self,
         n_classes: int,
@@ -146,11 +100,11 @@ class BaseClassifier(pl.LightningModule):
         ce_weight: float = 1,
         image_key: Any = 0,
         label_key: Any = 1,
-        optimizer: str = "sgd",
+        optimizer: str = "adam",
         optimizer_kwargs: dict | None = None,
         scheduler: str | None = None,
         scheduler_kwargs: dict | None = None,
-        **kwargs: Any,
+        **kwargs,
     ) -> None:
         """
         Args:
@@ -199,32 +153,35 @@ class BaseClassifier(pl.LightningModule):
         super().__init__(**kwargs)
         self.save_hyperparameters(
             "ce_weight",
+            "image_key",
+            "label_key",
             "lcc_kwargs",
             "lcc_submodules",
+            "n_classes",
             "optimizer_kwargs",
             "optimizer",
             "scheduler_kwargs",
             "scheduler",
         )
-        if lcc_submodules:  # Validate lcc_kwargs
+        if lcc_submodules:
             validate_lcc_kwargs(lcc_kwargs)
-        self.n_classes = n_classes
-        self.image_key, self.label_key = image_key, label_key
 
     def _evaluate(self, batch: Batch, stage: str | None = None) -> Tensor:
         """Self-explanatory"""
-        x, y = batch[self.image_key], batch[self.label_key].to(self.device)
+        image_key = self.hparams["image_key"]
+        label_key = self.hparams["label_key"]
+        x, y = batch[image_key], batch[label_key].to(self.device)
         latent: dict[str, Tensor] = {}
         logits = self.forward_intermediate(
             x, self.lcc_submodules, latent, keep_gradients=True
         )
         assert isinstance(logits, Tensor)
         loss_ce = nn.functional.cross_entropy(logits, y.long())
-        if self._lc_data:
+        if self._lcc_data:
             idx, _losses = batch["_idx"].cpu(), []
             for sm, z in latent.items():
                 sqrt_d = sqrt(z.shape[-1])
-                p, tgts = self._lc_data[sm].p[idx], self._lc_data[sm].targets
+                p, tgts = self._lcc_data[sm].p[idx], self._lcc_data[sm].targets
                 _losses += [
                     torch.norm((u - tgts[int(i_true)]) / sqrt_d)
                     for u, i_true in zip(z[p], y[p])
@@ -248,7 +205,10 @@ class BaseClassifier(pl.LightningModule):
             self.log(
                 f"{stage}/acc",
                 multiclass_accuracy(
-                    logits, y, num_classes=self.n_classes, average="micro"
+                    logits,
+                    y,
+                    num_classes=self.hparams["n_classes"],
+                    average="micro",
                 ),
                 prog_bar=True,
                 sync_dist=True,
@@ -343,7 +303,7 @@ class BaseClassifier(pl.LightningModule):
                     self.forward(
                         batch
                         if isinstance(batch, Tensor)
-                        else batch[self.image_key]
+                        else batch[self.hparams["image_key"]]
                     )
                 )
                 for batch in inputs
@@ -353,7 +313,7 @@ class BaseClassifier(pl.LightningModule):
                 self.forward(
                     inputs
                     if isinstance(inputs, Tensor)
-                    else inputs[self.image_key]
+                    else inputs[self.hparams["image_key"]]
                 )
             )
         for h in handles:
@@ -388,28 +348,13 @@ class BaseClassifier(pl.LightningModule):
 
     def on_train_batch_end(self, *args, **kwargs) -> None:
         """Just logs all optimizer's learning rate"""
-
-        def _lr(o: torch.optim.Optimizer) -> float:
-            return o.param_groups[0]["lr"]
-
-        opts = self.optimizers()
-        if isinstance(opts, list):
-            self.log_dict(
-                {
-                    f"lr_{i}": _lr(opt)
-                    for i, opt in enumerate(opts)
-                    if isinstance(opt, torch.optim.Optimizer)
-                },
-                sync_dist=True,
-            )
-        elif isinstance(opts, torch.optim.Optimizer):
-            self.log("lr", _lr(opts), sync_dist=True)
-        return super().on_train_batch_end(*args, **kwargs)
+        log_optimizers_lr(self, sync_dist=True)
+        super().on_train_batch_end(*args, **kwargs)
 
     def on_train_epoch_end(self) -> None:
         """Cleans up training specific temporary attributes"""
-        self._lc_data = None
-        return super().on_train_end()
+        self._lcc_data = None
+        super().on_train_end()
 
     def on_train_epoch_start(self) -> None:
         """
@@ -444,7 +389,7 @@ class BaseClassifier(pl.LightningModule):
                 joblib.parallel_backend(**joblib_config),
                 TemporaryDirectory() as tmp,
             ):
-                self._lc_data = full_dataset_latent_clustering(
+                self._lcc_data = full_dataset_latent_clustering(
                     model=self,
                     dataset=self.trainer.datamodule,  # type: ignore
                     output_dir=tmp,
@@ -453,12 +398,12 @@ class BaseClassifier(pl.LightningModule):
                     tqdm_style="console",
                 )
             log = {}
-            for sm, d in self._lc_data.items():
+            for sm, d in self._lcc_data.items():
                 outlier_ratio = (d.y_clst < 0).sum() / d.y_clst.shape[0]
                 log["train/outl_r/" + sm] = outlier_ratio
                 log["train/n_clusters/" + sm] = len(np.unique(d.y_clst))
             self.log_dict(log, sync_dist=True)
-        return super().on_train_epoch_start()
+        super().on_train_epoch_start()
 
     def on_train_start(self) -> None:
         """
@@ -474,7 +419,7 @@ class BaseClassifier(pl.LightningModule):
                 )
             },
         )
-        return super().on_train_start()
+        super().on_train_start()
 
     def test_step(self, batch: Batch, *_, **__) -> Tensor:
         """Override from `pl.LightningModule.test_step`."""
@@ -495,7 +440,7 @@ def _fde_pca(
     output_dir: str | Path,
     pca_dim: dict[str, int | None],
     split: Literal["train", "val", "test"] = "train",
-    device: Literal["cpu", "cuda"] | None = None,
+    device: Any = None,
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> None:
     """
@@ -504,9 +449,7 @@ def _fde_pca(
     that in this case, `pca_dim` mist be a dict that maps LCC submodule names to
     PCA dimensions.
     """
-    use_cuda = (
-        device == "cuda" or device is None
-    ) and torch.cuda.is_available()
+    use_cuda, device = check_cuda(device)
     if use_cuda:
         from cuml import IncrementalPCA
 
@@ -534,7 +477,7 @@ def _fde_pca(
         for idx, batch in enumerate(tqdm(dl, "Fitting PCA(s)", leave=False)):
             out: dict[str, Tensor] = {}
             model.forward_intermediate(
-                inputs=batch[model.image_key],
+                inputs=batch[model.hparams["image_key"]],
                 submodules=model.lcc_submodules,
                 output_dict=out,
                 keep_gradients=False,
@@ -545,7 +488,7 @@ def _fde_pca(
         for idx, batch in enumerate(tqdm(dl, "Evaluating", leave=False)):
             out = {}
             y_pred = model.forward_intermediate(
-                inputs=batch[model.image_key],
+                inputs=batch[model.hparams["image_key"]],
                 submodules=model.lcc_submodules,
                 output_dict=out,
                 keep_gradients=False,
@@ -567,7 +510,7 @@ def _fde_no_pca(
     dataset: HuggingFaceDataset,
     output_dir: str | Path,
     split: Literal["train", "val", "test"] = "train",
-    device: Literal["cpu", "cuda"] | None = None,
+    device: Any = None,
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> None:
     """
@@ -575,9 +518,7 @@ def _fde_no_pca(
     applied. See `full_dataset_evaluation` for the precise meaning of the
     arguments.
     """
-    use_cuda = (
-        device == "cuda" or device is None
-    ) and torch.cuda.is_available()
+    use_cuda, device = check_cuda(device)
     dl = dataset.get_dataloader(split)
     output_dir, tqdm = Path(output_dir), make_tqdm(tqdm_style)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -595,7 +536,7 @@ def _fde_no_pca(
                 continue
             out: dict[str, Tensor] = {}
             y_pred = model.forward_intermediate(
-                inputs=batch[model.image_key],
+                inputs=batch[model.hparams["image_key"]],
                 submodules=todo,
                 output_dict=out,
                 keep_gradients=False,
@@ -608,23 +549,6 @@ def _fde_no_pca(
                     output_dir / f"{sm}.{idx:04}.st",
                 )
         model.train()
-
-
-def _inflate_vector(
-    v: np.ndarray | Tensor | list[float],
-    mask: np.ndarray | Tensor | list[bool],
-) -> np.ndarray:
-    """
-    Say `v` has shape (n_a,) while `mask` has shape (n_b,). This function
-    "inflates" `v` into a vector `w` of shape (n_b,) such that `v = w[mask]`.
-    Values of `w` that don't fall in the mask are set to -1.
-    """
-    if to_array(mask).all():
-        return to_array(v)
-    v, mask = to_array(v), to_array(mask).astype(bool)
-    w = np.full_like(mask, -1, dtype=v.dtype)
-    w[mask] = v
-    return w
 
 
 def _y_true_mask(
@@ -661,7 +585,7 @@ def full_dataset_evaluation(
     output_dir: str | Path,
     pca_dim: int | dict[str, int | None] | None = None,
     split: Literal["train", "val", "test"] = "train",
-    device: Literal["cpu", "cuda"] | None = None,
+    device: Any = None,
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> None:
     """
@@ -684,8 +608,8 @@ def full_dataset_evaluation(
             doubles the execution time of this method. It is possible to specify
             a PCA dimension for each or some of the latent spaces.
         split (Literal['train', 'val', 'test'], optional): Defaults to "train".
-        device (Literal['cpu', 'cuda'] | None, optional): Defaults to `None`,
-            which automatically finds the best device.
+        device (Any, optional): Defaults to `None`, which automatically finds
+            the best device.
         tqdm_style (Literal['notebook', 'console', 'none'] | None, optional):
             Defaults to `None`, mearning no progress bar.
     """
@@ -717,7 +641,7 @@ def full_dataset_latent_clustering(
     model: BaseClassifier,
     dataset: HuggingFaceDataset,
     output_dir: str | Path,
-    device: Literal["cpu", "cuda"] | None = None,
+    device: Any = None,
     # classes: list[int] | LCCClassSelection | None = None,
     split: Literal["train", "val", "test"] = "train",
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
@@ -754,6 +678,7 @@ def full_dataset_latent_clustering(
     """
 
     output_dir = Path(output_dir) / split
+    _, device = check_cuda(device)
     full_dataset_evaluation(
         model,
         dataset,
@@ -803,23 +728,3 @@ def full_dataset_latent_clustering(
         )
 
     return result
-
-
-def validate_lcc_kwargs(lcc_kwargs: dict[str, Any] | None) -> None:
-    """Self-explanatory."""
-    if not lcc_kwargs:
-        return
-    if (x := lcc_kwargs.get("weight", 1)) <= 0:
-        raise ValueError(f"LCC weight must be positive, got {x}")
-    if (x := lcc_kwargs.get("interval", 1)) < 1:
-        raise ValueError(f"LCC interval must be at least 1, got {x}")
-    if (x := lcc_kwargs.get("warmup", 0)) < 0:
-        raise ValueError(f"LCC warmup must be at least 0, got {x}")
-    if (x := lcc_kwargs.get("class_selection")) not in LCC_CLASS_SELECTIONS + [
-        None
-    ]:
-        raise ValueError(
-            f"Invalid class selection policy '{x}'. Available: policies are: "
-            + ", ".join(map(lambda a: f"`{a}`", LCC_CLASS_SELECTIONS))
-            + ", or `None`"
-        )

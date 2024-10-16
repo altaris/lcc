@@ -18,7 +18,7 @@ class HuggingFaceClassifier(WrappedClassifier):
         model_name: str,
         n_classes: int,
         head_name: str | None = None,
-        **kwargs: Any,
+        **kwargs,
     ) -> None:
         """
         See also:

@@ -8,6 +8,28 @@ import torch
 from torch import Tensor, nn
 
 
+def check_cuda(
+    requested_device: Any = None,
+) -> tuple[bool, Any]:
+    """
+    Tries to accomodate the requested device. Returns a boolean indicating
+    wether CUDA is requested and available, as well as a device string that may
+    or may not be the same as the requested one.
+
+    If the requested device is `None`, the cuda is used if available.
+    """
+    use_cuda = (
+        requested_device == "cuda" or requested_device is None
+    ) and torch.cuda.is_available()
+    if use_cuda:
+        device = "cuda"
+    elif requested_device is None:
+        device = "cpu"
+    else:
+        device = requested_device
+    return use_cuda, device
+
+
 def get_reasonable_n_jobs() -> int:
     """
     Gets a reasonable number of jobs for parallel processing. Reasonable means

@@ -1,25 +1,22 @@
-# pylint: disable=ungrouped-imports
-
 """Louvain clustering specific stuff"""
 
-from typing import Iterator, Literal
+from typing import Any, Iterator, Literal
 
 import faiss
 import faiss.contrib.torch_utils
 import networkx as nx
 import numpy as np
-import torch
 from torch import Tensor
 from torch.utils.data import DataLoader
 
-from ..utils import make_tqdm, to_array
+from ..utils import check_cuda, make_tqdm, to_array
 
 
 def louvain_communities(
     dl: DataLoader,
     k: int,
     key: str | None = None,
-    device: Literal["cpu", "cuda"] | None = None,
+    device: Any = None,
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> tuple[list[set[int]], np.ndarray]:
     """
@@ -36,10 +33,9 @@ def louvain_communities(
             dataloader batches. If left to `None`, batches are assumed to be
             tensors. Otherwise, they are assumed to be dictionaries and the
             actual tensor is located at that key.
-        device (Literal['cpu', 'cuda'] | None, optional): If left to `None`,
-            uses CUDA if it is available, otherwise falls back to CPU. Setting
-            `cuda` while CUDA isn't available will **silently** fall back to
-            CPU.
+        device (Any, optional): If left to `None`, uses CUDA if it is available,
+            otherwise falls back to CPU. Setting `cuda` while CUDA isn't
+            available will **silently** fall back to CPU.
         tqdm_style (Literal['notebook', 'console', 'none'] | None, optional):
 
     Returns:
@@ -51,10 +47,7 @@ def louvain_communities(
            `y_louvain[i] == j`, then `z[i]` belongs to the $j$-th community
     """
 
-    use_cuda = (
-        device == "cuda" or device is None
-    ) and torch.cuda.is_available()
-    device = "cuda" if use_cuda else "cpu"
+    use_cuda, device = check_cuda(device)
 
     def _batches(desc: str | None = None) -> Iterator[Tensor]:  # shorthand
         if desc:

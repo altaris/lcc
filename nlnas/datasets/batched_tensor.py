@@ -1,7 +1,7 @@
 """See the `nlnas.datasets.BatchedTensorDataset` class documentation."""
 
 from pathlib import Path
-from typing import Iterator, Literal
+from typing import Any, Iterator, Literal
 
 import numpy as np
 import torch
@@ -70,7 +70,7 @@ def load_tensor_batched(
     key: str = "",
     mask: np.ndarray | Tensor | None = None,
     max_n_batches: int | None = None,
-    device: Literal["cpu", "cuda"] | None = None,
+    device: Any = None,
     batch_size: int = 256,
     num_workers: int = 0,
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
@@ -87,7 +87,9 @@ def load_tensor_batched(
         key (str, optional):
         mask (np.ndarray | Tensor | None, optional):
         max_n_batches (int | None, optional):
-        device (Literal['cpu', 'cuda'] | None, optional): Defaults to None.
+        device (Any, optional): If left to `None`, uses CUDA if it is available,
+            otherwise falls back to CPU. Setting `cuda` while CUDA isn't
+            available will **silently** fall back to CPU.
         batch_size (int, optional): Defaults to 256.
         num_workers (int, optional): Defaults to 0, meaning single-process data
             loading.

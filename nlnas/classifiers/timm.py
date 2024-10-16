@@ -23,7 +23,7 @@ class TimmClassifier(WrappedClassifier):
         n_classes: int,
         head_name: str | None = None,
         pretrained: bool = True,
-        **kwargs: Any,
+        **kwargs,
     ) -> None:
         """
         See also:

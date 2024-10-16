@@ -264,6 +264,5 @@ def pretty_print(model_name: str, include_non_trainable: bool, max_depth: int):
     )
 
 
-# pylint: disable=no-value-for-parameter
 if __name__ == "__main__":
     main()

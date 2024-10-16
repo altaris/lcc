@@ -1,9 +1,5 @@
 """See `WrappedClassifier` documentation."""
 
-# pylint: disable=too-many-ancestors
-
-from typing import Any
-
 from torch import Tensor, nn
 
 from .base import BaseClassifier, Batch
@@ -25,7 +21,7 @@ class WrappedClassifier(BaseClassifier):
         n_classes: int,
         head_name: str | None = None,
         logit_key: str | None = None,
-        **kwargs: Any,
+        **kwargs,
     ) -> None:
         """
         See also:
