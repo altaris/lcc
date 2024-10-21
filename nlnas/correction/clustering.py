@@ -1,5 +1,6 @@
 """Clustering of latent representations"""
 
+from collections import defaultdict
 from itertools import product
 from math import sqrt
 from typing import Literal
@@ -252,16 +253,28 @@ def class_otm_matching(
 
 
 def lcc_loss(
-    z: Tensor | np.ndarray | list[float],
-    targets: dict[int, tuple[np.ndarray, Tensor]],
+    z: Tensor,
+    y_true: np.ndarray | Tensor | list[int],
+    y_clst: np.ndarray | Tensor | list[int],
+    matching: dict[int, set[int]] | dict[str, set[int]],
+    targets: dict[int, Tensor],
+    n_true_classes: int | None = None,
 ) -> Tensor:
     """
     Derives the clustering correction loss from a tensor of latent
     representation `z` and dict of targets (see `nlnas.correction.lcc_targets`).
-    The clustering loss is the mean distance between a sample and its target,
-    (divided by $\\\\sqrt{d}$, where $d$ is `z.shape[-1]` is the dimension of
-    the latent space). If a sample does not have a target, then its "distance"
-    is understood to be $0$.
+
+    First, recall that the values of `target` (as produced
+    `nlnas.correction.lcc_targets`) are `(k, d)` tensors, for some length `k`.
+
+    Let's say `a` is a missclusterd latent sample (a.k.a. a row of `z`) in true
+    class `i_true`, and that `(b_1, ..., b_k)` are the rows of
+    `targets[i_true]`. Then `a` contributes a term to the LCC loss equal to the
+    distance between `a` and the closest `b_j`, divided by $\\\\sqrt{d}$.
+
+    It is possible that `i_true` is not in the keys of `targets`, in which case
+    the contribution of `a` to the LCC loss is zero. In particular, if `targets`
+    is empty, then the LCC loss is zero.
 
     Usage:
 
@@ -271,26 +284,53 @@ def lcc_loss(
             y_true,
             y_clst,
             matching,
-            knn_indices,
             n_true_classes=n_true_classes,
         )
-        loss = lcc_loss(z, targets)
+        loss = lcc_loss(
+            z,
+            y_true,
+            y_clst,
+            matching,
+            targets,
+            n_true_classes=n_true_classes,
+        )
         ```
 
     Args:
-        z (Tensor | np.ndarray | list[float]): The tensor of latent
-            representations.
-        targets (dict[int, tuple[np.ndarray, Tensor]]): As produced by
-            `nlnas.correction.lcc_targets`
+        z (Tensor): The tensor of latent representations. *Do not* mask it
+            before passing it to this method.  The correctly samples and the
+            missclustered samples are automatically separated.
+        y_true (np.ndarray | Tensor | list[int]): A `(N,)` integer array of true
+            labels.
+        y_clst (np.ndarray | Tensor | list[int]): A `(N,)` integer array of the
+            cluster labels.
+        matching (dict[int, set[int]] | dict[str, set[int]]): As produced by
+            `nlnas.correction.class_otm_matching`.
+        targets (dict[int, Tensor]): As produced by
+            `nlnas.correction.lcc_targets`.
+        n_true_classes (int | None, optional): Number of true classes. Useful if
+            `y_true` is a slice of the actual true label vector and does not
+            contain all the possible true classes.
     """
-    z = to_tensor(z).flatten(1)
+    z = z.flatten(1)
     if not targets:
+        # ↓ actually need grad?
         return torch.tensor(0.0, requires_grad=True).to(z.device)
-    losses = [
-        torch.norm(z[p] - t.to(z.device), dim=-1).sum() / sqrt(z.shape[-1])
-        for _, (p, t) in targets.items()
-    ]
-    return torch.stack(losses).sum() / len(z)
+    y_true = to_tensor(y_true)
+    p_mc, _ = _mc_cc_predicates(
+        y_true, y_clst, matching, n_true_classes=n_true_classes
+    )
+    sqrt_d, losses = sqrt(z.shape[-1]), []
+    for i_true, p_mc_i_true in enumerate(p_mc):
+        if not (i_true in targets and len(targets[i_true]) > 0):  # no targets
+            continue
+        if not p_mc_i_true.any():  # every sample is correctly clustered
+            continue
+        d = torch.cdist(z[p_mc_i_true], targets[i_true]) / sqrt_d
+        losses.append(d.min(dim=-1).values)
+    if not losses:
+        return torch.tensor(0.0, requires_grad=True).to(z.device)
+    return torch.concat(losses).mean()
 
 
 def lcc_targets(
@@ -305,10 +345,11 @@ def lcc_targets(
     Provides the correction targets for misclustered samples in `z`. In more
     details, this method returns a dict where:
     - the keys are *among* true classes (unique values of `y_true`) and in fact
-      are the same keys as `knn_indices`;
-    - if `i_true` is a true class in the dict, then the value at key `i_true` is
-      a single sample chosen among the correctly clustered samples in true class
-      `i_true`, and so in particular, it is a tensor of shape `(d,)`.
+      are the same keys as `knn_indices`; let's say that `i_true` is a key that
+      owns `k` clusters;
+    - the associated value a `(k, d)` tensor, where `d` is the latent dimension,
+      whose rows, which correspond to clusters matched to `i_true`, is a random
+      correctly clustered sample in that cluster.
 
     Under the hood, this method first choose the samples by their index based on
     the "correctly clustered" predicate of `_mc_cc_predicates`. Then, the whole
@@ -329,23 +370,25 @@ def lcc_targets(
             `n_true_classes` defaults to `y_true.max() + 1`.
         tqdm_style (Literal["notebook", "console", "none"] | None, optional):
     """
+    matching = {int(k): v for k, v in matching.items()}
     _, p_cc = _mc_cc_predicates(y_true, y_clst, matching, n_true_classes)
-    indices: dict[int, int] = {
-        i_true: np.random.choice(np.where(p)[0])
-        for i_true, p in enumerate(p_cc)
-        if p.any()
-    }
-    n_seen, n_todo = 0, len(indices)
-    result: dict[int, Tensor] = {}
+    indices: dict[int, list[int]] = defaultdict(list)
+    for i_true, p_cc_i_true in enumerate(p_cc):
+        for j_clst in matching[i_true]:
+            p = p_cc_i_true & (y_clst == j_clst)
+            indices[i_true].append(np.random.choice(np.where(p)[0]))
+    n_seen, n_todo = 0, sum(len(v) for v in indices.values())
+    result: dict[int, list[Tensor]] = defaultdict(list)
     for batch in make_tqdm(tqdm_style)(
         dl, "Finding correction targets", leave=False
     ):
-        for i_true, idx in indices.items():
-            if n_seen <= idx < n_seen + len(batch):
-                result[i_true] = batch[idx - n_seen]
+        for i_true, idxs in indices.items():
+            lst = [idx for idx in idxs if n_seen <= idx < n_seen + len(batch)]
+            for idx in lst:
+                result[i_true].append(batch[idx - n_seen])
                 n_todo -= 1
         if n_todo <= 0:
-            return result
+            return {k: torch.stack(v).flatten(1) for k, v in result.items()}
         n_seen += len(batch)
     raise RuntimeError("Some correction targets could not be found")
 

@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 from itertools import product
-from math import sqrt
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Callable, Literal, Sequence, TypeAlias
@@ -16,7 +15,7 @@ from torch import Tensor, nn
 from torch.utils.hooks import RemovableHandle
 from torchmetrics.functional.classification import multiclass_accuracy
 
-from nlnas.correction.clustering import otm_matching_predicates
+from nlnas.correction.clustering import lcc_loss, otm_matching_predicates
 from nlnas.datasets.emetd_dataloader import EMETDDataLoader
 
 from ..correction import (
@@ -178,19 +177,23 @@ class BaseClassifier(pl.LightningModule):
         assert isinstance(logits, Tensor)
         loss_ce = nn.functional.cross_entropy(logits, y.long())
         if self._lcc_data:
-            idx, _losses = batch["_idx"].cpu(), []
-            for sm, z in latent.items():
-                sqrt_d = sqrt(z.shape[-1])
-                p, tgts = self._lcc_data[sm].p[idx], self._lcc_data[sm].targets
-                _losses += [
-                    torch.norm((u - tgts[int(i_true)]) / sqrt_d)
-                    for u, i_true in zip(z[p], y[p])
-                    if int(i_true) in tgts
-                    # Not every true class may have a correctly clustered
-                    # samples...
-                ]
+            idx = to_array(batch["_idx"])
+            _losses = [
+                lcc_loss(
+                    z=z,
+                    y_true=y,
+                    y_clst=self._lcc_data[sm].y_clst[idx],
+                    matching=self._lcc_data[sm].matching,
+                    targets=self._lcc_data[sm].targets,
+                    n_true_classes=self.hparams["n_classes"],
+                )
+                for sm, z in latent.items()
+            ]
             loss_lcc = (
-                torch.stack(_losses).mean() if _losses else torch.tensor(0.0)
+                torch.stack(_losses).mean()
+                if _losses
+                else torch.tensor(0.0, requires_grad=True)
+                # ↑ actually need grad?
             )
             lcc_weight = self.hparams.get("lcc_kwargs", {}).get("weight", 1e-4)
             loss = self.hparams["ce_weight"] * loss_ce + lcc_weight * loss_lcc
