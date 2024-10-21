@@ -401,7 +401,7 @@ class BaseClassifier(pl.LightningModule):
             for sm, d in self._lcc_data.items():
                 outlier_ratio = (d.y_clst < 0).sum() / d.y_clst.shape[0]
                 log["train/outl_r/" + sm] = outlier_ratio
-                log["train/n_clusters/" + sm] = len(np.unique(d.y_clst))
+                log["train/n_clst/" + sm] = len(np.unique(d.y_clst))
             self.log_dict(log, sync_dist=True)
         super().on_train_epoch_start()
 
