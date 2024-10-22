@@ -195,6 +195,7 @@ def train(
     label_key: str = "label",
     logit_key: str = "logits",
     head_name: str | None = None,
+    seed: int | None = None,
 ) -> dict:
     """
     Performs fine-tuning on a model, possibly with latent clustering correction.
@@ -226,7 +227,14 @@ def train(
             This must be set if the number of classes in the dataset does not
             match the number components of the output layer of the model. See
             also `nlnas.classifiers.BaseClassifier.__init__`.
+        seed (int | None, optional): Global seed for both CPU and GPU. If not
+            `None`, this is set globally, so one might consider this as a side
+            effect.
     """
+    if seed is not None:
+        logging.debug("Setting global seed to {}", seed)
+        torch.manual_seed(seed)
+
     lcc_kwargs, do_lcc = lcc_kwargs or {}, bool(lcc_submodules)
     if do_lcc:
         logging.debug("Performing latent cluster correction")
@@ -239,8 +247,6 @@ def train(
                 "export CUDA_VISIBLE_DEVICES=0"
             )
             sys.exit(1)
-
-    torch.multiprocessing.set_sharing_strategy("file_system")
 
     output_dir = Path(output_dir)
     _dataset_name = dataset_name.replace("/", "-")
@@ -289,7 +295,7 @@ def train(
         model.model = classifier_cls.load_from_checkpoint(  # type: ignore
             ckpt_path
         ).model
-        r0_info("Loaded checkpoint '{}'", ckpt_path)
+        r0_info("Loaded checkpoint {}", ckpt_path)
     r0_debug("Model hyperparameters:\n{}", json.dumps(model.hparams, indent=4))
 
     trainer = make_trainer(_model_name, _output_dir, max_epochs=max_epochs)
@@ -301,14 +307,14 @@ def train(
     ckpt = Path(trainer.checkpoint_callback.best_model_path)  # type: ignore
     ckpt = ckpt.relative_to(output_dir)
     v, e, s = checkpoint_ves(ckpt)
-    r0_info("Best checkpoint path: '{}'", ckpt)
+    r0_info("Best checkpoint path: {}", ckpt)
     r0_info("version={}, best_epoch={}, n_steps={}", v, e, s)
 
     test_results = trainer.test(model, dataset)
 
     document: dict = {
         "__meta__": {
-            "version": 2,
+            "version": 3,
             "hostname": os.uname().nodename,
             "datetime": start,
         },
@@ -330,6 +336,7 @@ def train(
                 "epoch": e,
                 "n_steps": s,
             },
+            "seed": seed,
             "time": fit_time / timedelta(seconds=1),
             "test": test_results,
         },

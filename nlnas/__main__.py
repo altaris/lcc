@@ -168,6 +168,15 @@ def main(logging_level: str) -> None:
     ),
     type=str,
 )
+@click.option(  # --seed
+    "--seed",
+    default=None,
+    help=(
+        "Global seed (for both CPU and GPU). There is no default seed, so if "
+        "this is not set, a global seed won't be set either."
+    ),
+    type=int,
+)
 def train(
     batch_size: int,
     ce_weight: float,
@@ -188,6 +197,7 @@ def train(
     test_split: str,
     train_split: str,
     val_split: str,
+    seed: int | None,
 ):
     """
     Performs latent cluster correction on a model fine-tuning using the
@@ -199,6 +209,8 @@ def train(
 
     if torch.cuda.is_available():
         torch.set_float32_matmul_precision("medium")
+    # torch.multiprocessing.set_sharing_strategy("file_system")
+
     _do_lcc = lcc_weight > 0 and lcc_interval > 0 and lcc_submodules
     _train(
         batch_size=batch_size,
@@ -226,6 +238,7 @@ def train(
         test_split=test_split,
         train_split=train_split,
         val_split=val_split,
+        seed=seed,
     )
 
 
