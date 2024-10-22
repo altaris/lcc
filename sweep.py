@@ -13,10 +13,9 @@ import torch
 import turbo_broccoli as tb
 from loguru import logger as logging
 
-from nlnas.correction.choice import LCCClassSelection
 from nlnas.training import train as _train
 
-OUTPUT_DIR = Path("out") / "sweep_1"
+OUTPUT_DIR = Path("out") / "sweep"
 
 DATASETS = [
     {  # https://huggingface.co/datasets/uoft-cs/cifar100
@@ -46,20 +45,20 @@ DATASETS = [
 ]
 
 MODELS = [
-    {
-        "name": "google/mobilenet_v2_1.0_224",
-        "head_name": "classifier",
-        "lcc_submodules": [
-            "classifier",
-        ],
-    },
-    {
-        "name": "google/mobilenet_v2_1.0_224",
-        "head_name": "classifier",
-        "lcc_submodules": [
-            "mobilenet_v2.conv_1x1",
-        ],
-    },
+    # {
+    #     "name": "google/mobilenet_v2_1.0_224",
+    #     "head_name": "classifier",
+    #     "lcc_submodules": [
+    #         "classifier",
+    #     ],
+    # },
+    # {
+    #     "name": "google/mobilenet_v2_1.0_224",
+    #     "head_name": "classifier",
+    #     "lcc_submodules": [
+    #         "mobilenet_v2.conv_1x1",
+    #     ],
+    # },
     # {
     #     "name": "google/mobilenet_v2_1.0_224",
     #     "head_name": "classifier",
@@ -109,20 +108,20 @@ MODELS = [
     #         "classifier",
     #     ],
     # },
-    {
-        "name": "timm/tinynet_e.in1k",
-        "head_name": "classifier",
-        "lcc_submodules": [
-            "classifier",
-        ],
-    },
-    {
-        "name": "timm/tinynet_e.in1k",
-        "head_name": "classifier",
-        "lcc_submodules": [
-            "conv_head",
-        ],
-    },
+    # {
+    #     "name": "timm/tinynet_e.in1k",
+    #     "head_name": "classifier",
+    #     "lcc_submodules": [
+    #         "classifier",
+    #     ],
+    # },
+    # {
+    #     "name": "timm/tinynet_e.in1k",
+    #     "head_name": "classifier",
+    #     "lcc_submodules": [
+    #         "conv_head",
+    #     ],
+    # },
     # {
     #     "name": "timm/tinynet_e.in1k",
     #     "head_name": "classifier",
@@ -131,20 +130,20 @@ MODELS = [
     #         "classifier",
     #     ],
     # },
-    {
-        "name": "timm/vgg11.tv_in1k",
-        "head_name": "head.fc",
-        "lcc_submodules": [
-            "head",
-        ],
-    },
-    {
-        "name": "timm/vgg11.tv_in1k",
-        "head_name": "head.fc",
-        "lcc_submodules": [
-            "pre_logits",
-        ],
-    },
+    # {
+    #     "name": "timm/vgg11.tv_in1k",
+    #     "head_name": "head.fc",
+    #     "lcc_submodules": [
+    #         "head",
+    #     ],
+    # },
+    # {
+    #     "name": "timm/vgg11.tv_in1k",
+    #     "head_name": "head.fc",
+    #     "lcc_submodules": [
+    #         "pre_logits",
+    #     ],
+    # },
     # {
     #     "name": "timm/vgg11.tv_in1k",
     #     "head_name": "head.fc",
@@ -153,20 +152,20 @@ MODELS = [
     #         "head",
     #     ],
     # },
-    {
-        "name": "timm/convnext_small.in12k",
-        "head_name": "head.fc",
-        "lcc_submodules": [
-            "head",
-        ],
-    },
-    {
-        "name": "timm/convnext_small.in12k",
-        "head_name": "head.fc",
-        "lcc_submodules": [
-            "stages.3",
-        ],
-    },
+    # {
+    #     "name": "timm/convnext_small.in12k",
+    #     "head_name": "head.fc",
+    #     "lcc_submodules": [
+    #         "head",
+    #     ],
+    # },
+    # {
+    #     "name": "timm/convnext_small.in12k",
+    #     "head_name": "head.fc",
+    #     "lcc_submodules": [
+    #         "stages.3",
+    #     ],
+    # },
     # {
     #     "name": "timm/convnext_small.in12k",
     #     "head_name": "head.fc",
@@ -175,20 +174,20 @@ MODELS = [
     #         "head",
     #     ],
     # },
-    {
-        "name": "timm/tf_efficientnet_l2.ns_jft_in1k",
-        "head_name": "classifier",
-        "lcc_submodules": [
-            "classifier",
-        ],
-    },
-    {
-        "name": "timm/tf_efficientnet_l2.ns_jft_in1k",
-        "head_name": "classifier",
-        "lcc_submodules": [
-            "conv_head",
-        ],
-    },
+    # {
+    #     "name": "timm/tf_efficientnet_l2.ns_jft_in1k",
+    #     "head_name": "classifier",
+    #     "lcc_submodules": [
+    #         "classifier",
+    #     ],
+    # },
+    # {
+    #     "name": "timm/tf_efficientnet_l2.ns_jft_in1k",
+    #     "head_name": "classifier",
+    #     "lcc_submodules": [
+    #         "conv_head",
+    #     ],
+    # },
     # {
     #     "name": "timm/tf_efficientnet_l2.ns_jft_in1k",
     #     "head_name": "classifier",
@@ -202,7 +201,9 @@ MODELS = [
 LCC_WEIGHTS = [0, 1, 1e-2, 1e-4]
 LCC_INTERVALS = [1, 5]
 LCC_WARMUPS = [1]
-LCC_CLASS_SELECTIONS = [None, "max_connected"]
+LCC_CLASS_SELECTIONS = [None]
+
+SEED = 0
 
 STUPID_CUDA_SPAM = r"CUDA call.*failed with initialization error"
 
@@ -218,20 +219,7 @@ def _hash_dict(d: dict) -> str:
 
 
 def setup_logging(logging_level: str = "debug") -> None:
-    """
-    Sets logging format and level. The format is
-
-        %(asctime)s [%(levelname)-8s] %(message)s
-
-    e.g.
-
-        2022-02-01 10:41:43,797 [INFO    ] Hello world
-        2022-02-01 10:42:12,488 [CRITICAL] We're out of beans!
-
-    Args:
-        logging_level (str): Logging level in `LOGGING_LEVELS` (case
-            insensitive).
-    """
+    """Setup custom logging format."""
     logging.remove()
     logging.add(
         sys.stderr,
@@ -314,6 +302,7 @@ def train(
             image_key=image_key,
             label_key=label_key,
             head_name=head_name,
+            seed=SEED,
         )
         tb.save(train_results, OUTPUT_DIR / f"{cfg_hash}.done")
     except KeyboardInterrupt:
