@@ -76,7 +76,7 @@ class TimmClassifier(WrappedClassifier):
             return {
                 k: (
                     (
-                        [timm_transform(img) for img in v]
+                        [timm_transform(img.convert("RGB")) for img in v]
                         if isinstance(v, list)
                         else timm_transform(v)
                     )
