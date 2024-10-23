@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from loguru import logger as logging
 from torch import Tensor, nn
 
 from .base import BaseClassifier, Batch
@@ -67,14 +68,15 @@ def replace_head(
     """
     Replaces the last linear layer of a model with a new one with a specified
     number of output neurons (which is not necessarily different from the old
-    head's).
+    head's). *However*, if the model's head already has the correct number of
+    output neurons, then it is not replaced.
 
     Args:
         module (nn.Module):
         head_name (str): e.g. `model.classifier.1`. The
             name of a submodule can be retried by inspecting the output of
             `nn.Module.named_modules` or `nlnas.utils.pretty_print_submodules`.
-        n_classes (int):
+        n_classes (int): The desired number of output neurons.
 
     Raises:
         RuntimeError: If the head module is not a
@@ -90,6 +92,14 @@ def replace_head(
         raise RuntimeError(
             f"Model head '{head_name}' must have type nn.Linear"
         )
+    if head.out_features == n_classes:
+        logging.debug(
+            "Module head '{}' already have {} output neurons. "
+            "Not replacing it",
+            head_name,
+            n_classes,
+        )
+        return module
     new_head = nn.Linear(
         in_features=head.in_features,
         out_features=n_classes,
