@@ -176,7 +176,7 @@ class BaseClassifier(pl.LightningModule):
         )
         assert isinstance(logits, Tensor)
         loss_ce = nn.functional.cross_entropy(logits, y.long())
-        if self._lcc_data:
+        if self._lcc_data and stage == "train":
             idx = to_array(batch["_idx"])
             _losses = [
                 lcc_loss(
