@@ -4,8 +4,9 @@ from typing import Any, Callable, Literal, TypeAlias
 
 import pytorch_lightning as pl
 from datasets import Dataset as HuggingFaceDataset
-from loguru import logger as logging
 from torch.utils.data import DataLoader, Dataset
+
+from nlnas.logging import r0_debug
 
 DEFAULT_DATALOADER_KWARGS: dict[str, Any] = {
     "batch_size": 1024,
@@ -146,16 +147,16 @@ class WrappedDataset(pl.LightningDataModule):
         if self._prepared:
             return
         if callable(self.train):
-            logging.debug("Preparing the training dataset/split")
+            r0_debug("Preparing the training dataset/split")
             self.train = self.train()
         if callable(self.val):
-            logging.debug("Preparing the validation dataset/split")
+            r0_debug("Preparing the validation dataset/split")
             self.val = self.val()
         if callable(self.test):
-            logging.debug("Preparing the testing dataset/split")
+            r0_debug("Preparing the testing dataset/split")
             self.test = self.test()
         if callable(self.predict):
-            logging.debug("Preparing the prediction dataset/split")
+            r0_debug("Preparing the prediction dataset/split")
             self.predict = self.predict()
         self._prepared = True
 

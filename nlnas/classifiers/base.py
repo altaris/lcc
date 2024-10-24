@@ -10,6 +10,7 @@ import joblib
 import numpy as np
 import pytorch_lightning as pl
 import torch
+import torch.distributed
 from safetensors import numpy as st
 from torch import Tensor, nn
 from torch.utils.hooks import RemovableHandle
@@ -357,7 +358,7 @@ class BaseClassifier(pl.LightningModule):
     def on_train_epoch_end(self) -> None:
         """Cleans up training specific temporary attributes"""
         self._lcc_data = None
-        super().on_train_end()
+        super().on_train_epoch_end()
 
     def on_train_epoch_start(self) -> None:
         """
@@ -383,29 +384,38 @@ class BaseClassifier(pl.LightningModule):
             and lcc_kwargs.get("weight", 0) > 0
         )
         if do_lcc:
-            joblib_config = {
-                "backend": "loky",
-                "n_jobs": get_reasonable_n_jobs(),
-                "verbose": 0,
-            }
-            with (
-                joblib.parallel_backend(**joblib_config),
-                TemporaryDirectory() as tmp,
-            ):
-                self._lcc_data = full_dataset_latent_clustering(
-                    model=self,
-                    dataset=self.trainer.datamodule,  # type: ignore
-                    output_dir=tmp,
-                    device="cuda",
-                    # classes=lcc_kwargs.get("class_selection"),
-                    tqdm_style="console",
+            if self.trainer.global_rank == 0:
+                joblib_config = {
+                    "backend": "loky",
+                    "n_jobs": get_reasonable_n_jobs(),
+                    "verbose": 0,
+                }
+                with (
+                    joblib.parallel_backend(**joblib_config),
+                    TemporaryDirectory() as tmp,
+                ):
+                    self._lcc_data = full_dataset_latent_clustering(
+                        model=self,
+                        dataset=self.trainer.datamodule,  # type: ignore
+                        output_dir=tmp,
+                        device="cuda",
+                        # classes=lcc_kwargs.get("class_selection"),
+                        tqdm_style="console",
+                    )
+            else:
+                self._lcc_data = None
+            if self.trainer.world_size >= 2:
+                if self._lcc_data is not None:
+                    for d in self._lcc_data.values():
+                        for k, v in d.targets.items():
+                            d.targets[k] = v.cpu()
+                self._lcc_data = self.trainer.strategy.broadcast(
+                    self._lcc_data, src=0
                 )
-            log = {}
-            for sm, d in self._lcc_data.items():
-                outlier_ratio = (d.y_clst < 0).sum() / d.y_clst.shape[0]
-                log["train/outl_r/" + sm] = outlier_ratio
-                log["train/n_clst/" + sm] = len(np.unique(d.y_clst))
-            self.log_dict(log, sync_dist=True)
+                assert isinstance(self._lcc_data, dict)
+                for d in self._lcc_data.values():
+                    for k, v in d.targets.items():
+                        d.targets[k] = v.to(self.device)
         super().on_train_epoch_start()
 
     def on_train_start(self) -> None:

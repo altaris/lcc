@@ -3,7 +3,6 @@
 import hashlib
 import json
 import os
-import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Literal
@@ -13,7 +12,6 @@ import pytorch_lightning as pl
 import regex as re
 import torch
 import turbo_broccoli as tb
-from loguru import logger as logging
 
 from nlnas.classifiers.base import validate_lcc_kwargs
 
@@ -133,7 +131,6 @@ def make_trainer(
     model_name: str,
     output_dir: Path,
     max_epochs: int = 512,
-    accelerator: str = "auto",
     save_all_checkpoints: bool = False,
 ) -> pl.Trainer:
     """
@@ -173,7 +170,9 @@ def make_trainer(
         logger=[tb_logger, csv_logger],
         log_every_n_steps=1,
         gradient_clip_val=DEFAULT_MAX_GRAD_NORM,
-        accelerator=accelerator,
+        accelerator="gpu",
+        devices=torch.cuda.device_count(),
+        strategy="ddp",
     )
     return trainer
 
@@ -232,21 +231,13 @@ def train(
             effect.
     """
     if seed is not None:
-        logging.debug("Setting global seed to {}", seed)
+        r0_info("Setting global seed to {}", seed)
         torch.manual_seed(seed)
 
     lcc_kwargs, do_lcc = lcc_kwargs or {}, bool(lcc_submodules)
     if do_lcc:
-        logging.debug("Performing latent cluster correction")
+        r0_info("Performing latent cluster correction")
         validate_lcc_kwargs(lcc_kwargs)
-        if (n_cuda_devices := torch.cuda.device_count()) > 1:
-            logging.critical(
-                "Latent cluster correction only support CPU or single GPU "
-                f"training , but found {n_cuda_devices} CUDA devices. Please "
-                "set CUDA_VISIBLE_DEVICES to a single device, for example: "
-                "export CUDA_VISIBLE_DEVICES=0"
-            )
-            sys.exit(1)
 
     output_dir = Path(output_dir)
     _dataset_name = dataset_name.replace("/", "-")

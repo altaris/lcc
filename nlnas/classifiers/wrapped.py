@@ -2,8 +2,9 @@
 
 from typing import Any
 
-from loguru import logger as logging
 from torch import Tensor, nn
+
+from nlnas.logging import r0_debug
 
 from .base import BaseClassifier, Batch
 
@@ -93,7 +94,7 @@ def replace_head(
             f"Model head '{head_name}' must have type nn.Linear"
         )
     if head.out_features == n_classes:
-        logging.debug(
+        r0_debug(
             "Module head '{}' already have {} output neurons. "
             "Not replacing it",
             head_name,
