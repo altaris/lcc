@@ -5,23 +5,22 @@ from itertools import product
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Callable, Literal, Sequence, TypeAlias
+from uuid import uuid4
 
 import joblib
 import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.distributed
-from safetensors import numpy as st
+from safetensors import torch as st
 from torch import Tensor, nn
+from torch.utils.data import DataLoader
 from torch.utils.hooks import RemovableHandle
 from torchmetrics.functional.classification import multiclass_accuracy
 
 from nlnas.correction.clustering import lcc_loss, otm_matching_predicates
-from nlnas.datasets.emetd_dataloader import EMETDDataLoader
 
 from ..correction import (
-    LCCClassSelection,
-    choose_classes,
     class_otm_matching,
     lcc_targets,
     louvain_communities,
@@ -29,7 +28,6 @@ from ..correction import (
 from ..datasets import (
     BatchedTensorDataset,
     HuggingFaceDataset,
-    load_tensor_batched,
 )
 from ..utils import (
     check_cuda,
@@ -487,7 +485,7 @@ def _fde_pca(
         model.eval()
         if use_cuda:
             model.to("cuda")
-        for idx, batch in enumerate(tqdm(dl, "Fitting PCA(s)", leave=False)):
+        for batch in tqdm(dl, "Fitting PCA(s)", leave=False):
             out: dict[str, Tensor] = {}
             model.forward_intermediate(
                 inputs=batch[model.hparams["image_key"]],
@@ -511,9 +509,10 @@ def _fde_pca(
             for sm, z in out.items():
                 if sm in pcas:
                     z = pcas[sm].transform(z.flatten(1))
+                bid = uuid4().hex
                 st.save_file(
-                    {"": to_array(z)},
-                    output_dir / f"{sm}.{idx:04}.st",
+                    {"": z, "_idx": batch["_idx"]},
+                    output_dir / f"{sm}.{bid}.st",
                 )
         model.train()
 
@@ -539,57 +538,51 @@ def _fde_no_pca(
         model.eval()
         if use_cuda:
             model.to("cuda")
-        for idx, batch in enumerate(tqdm(dl, "Evaluating", leave=False)):
-            todo = [
-                sm
-                for sm in model.lcc_submodules
-                if not (output_dir / f"{sm}.{idx:04}.st").exists()
-            ]
-            if not todo:
-                continue
+        for batch in tqdm(dl, "Evaluating", leave=False):
             out: dict[str, Tensor] = {}
             y_pred = model.forward_intermediate(
                 inputs=batch[model.hparams["image_key"]],
-                submodules=todo,
+                submodules=model.lcc_submodules,
                 output_dict=out,
                 keep_gradients=False,
             )
             assert isinstance(y_pred, Tensor)
             out["y_pred"] = y_pred
             for sm, z in out.items():
+                bid = uuid4().hex
                 st.save_file(
-                    {"": to_array(z.flatten(1))},
-                    output_dir / f"{sm}.{idx:04}.st",
+                    {"": z.flatten(1), "_idx": batch["_idx"]},
+                    output_dir / f"{sm}.{bid}.st",
                 )
         model.train()
 
 
-def _y_true_mask(
-    y_true: Tensor,
-    classes: list[int] | LCCClassSelection | None = None,
-    y_true_batch_dir: str | Path | None = None,
-    tqdm_style: Literal["notebook", "console", "none"] | None = None,
-) -> Tensor:
-    # ↓ classes is just a list of classes
-    if isinstance(classes, list):
-        return torch.isin(y_true, torch.tensor(classes))
-    # ↓ classes is a LCCClassSelection policy (e.g. "max_connected")
-    if isinstance(classes, str):
-        if y_true_batch_dir is None:
-            raise ValueError(
-                "The batch directory of the true label vector is required for "
-                f"LCC policy '{classes}'."
-            )
-        y_pred = load_tensor_batched(
-            y_true_batch_dir, "y_pred", tqdm_style=tqdm_style
-        )
-        assert isinstance(y_pred, Tensor)  # For typechecking
-        classes = choose_classes(y_true, y_pred, policy=classes)
-        if classes:
-            return torch.isin(y_true, torch.tensor(classes))
-        return torch.full_like(y_true, True, dtype=torch.bool)
-    # ↓ Leaving classes to None means all classes are considered, so no mask
-    return torch.full_like(y_true, True, dtype=torch.bool)
+# def _y_true_mask(
+#     y_true: Tensor,
+#     classes: list[int] | LCCClassSelection | None = None,
+#     y_true_batch_dir: str | Path | None = None,
+#     tqdm_style: Literal["notebook", "console", "none"] | None = None,
+# ) -> Tensor:
+#     # ↓ classes is just a list of classes
+#     if isinstance(classes, list):
+#         return torch.isin(y_true, torch.tensor(classes))
+#     # ↓ classes is a LCCClassSelection policy (e.g. "max_connected")
+#     if isinstance(classes, str):
+#         if y_true_batch_dir is None:
+#             raise ValueError(
+#                 "The batch directory of the true label vector is required for "
+#                 f"LCC policy '{classes}'."
+#             )
+#         y_pred = load_tensor_batched(
+#             y_true_batch_dir, "y_pred", tqdm_style=tqdm_style
+#         )
+#         assert isinstance(y_pred, Tensor)  # For typechecking
+#         classes = choose_classes(y_true, y_pred, policy=classes)
+#         if classes:
+#             return torch.isin(y_true, torch.tensor(classes))
+#         return torch.full_like(y_true, True, dtype=torch.bool)
+#     # ↓ Leaving classes to None means all classes are considered, so no mask
+#     return torch.full_like(y_true, True, dtype=torch.bool)
 
 
 def full_dataset_evaluation(
@@ -605,10 +598,14 @@ def full_dataset_evaluation(
     Evaluate model on whole dataset and saves latent representations and
     prediction batches in `output_dir`. The naming pattern is
 
-        <output_dir> / <submodule>.<batch_idx>.st
+        <output_dir> / <submodule>.<unique_id>.st
 
-    and `batch_idx` is a zero-padded 4-digit number. The files are
-    [Safetensors](https://huggingface.co/docs/safetensors/index) files.
+    and `unique_id` is a 32 character hexadecimal representation of a UUID4. The
+    files are [Safetensors](https://huggingface.co/docs/safetensors/index)
+    files. The content of a safetensor file is essentially a dictionary. In this
+    case, the keys are
+    * `""` (empty string): The latent representation tensor of this batch,
+    * `"_idx"`: The indices of the samples in this batch.
 
     Args:
         model (BaseClassifier):
@@ -709,30 +706,23 @@ def full_dataset_latent_clustering(
     tqdm = make_tqdm(tqdm_style)
     lcc_kwargs = model.hparams.get("lcc_kwargs", {})
     for sm in tqdm(model.lcc_submodules, "Clustering", leave=False):
-        ds = BatchedTensorDataset(batch_dir=output_dir, prefix=sm, key="")
-        dl = EMETDDataLoader(
-            ds,
-            # mask=mask,
-            device=device,
-            batch_size=256,
-            shuffle=False,
-        )
+        ds, idx = BatchedTensorDataset(output_dir, prefix=sm).extract_idx()
+        dl = DataLoader(ds, batch_size=256)
         _, y_clst = louvain_communities(
             dl,
             k=lcc_kwargs.get("k", 5),
             device=device,
             tqdm_style=tqdm_style,
         )
-        matching = class_otm_matching(y_true, y_clst)
-        _, _, p, _ = otm_matching_predicates(y_true, y_clst, matching)
+        _y_true = y_true[idx]  # Match the order of y_clst
+        matching = class_otm_matching(_y_true, y_clst)
+        _, _, p, _ = otm_matching_predicates(_y_true, y_clst, matching)
         p = p.sum(axis=0) > 0  # Select MC samples regardless of true class
         targets = lcc_targets(
-            dl, y_true, y_clst, matching, n_true_classes=dataset.n_classes()
+            dl, _y_true, y_clst, matching, n_true_classes=dataset.n_classes()
         )
-        # for i_true, (p, x) in targets.items():
-        #     targets[i_true] = (_inflate_vector(p, mask), x)
-        # y_clst=_inflate_vector(y_clst, mask)
-        # p_mc=_inflate_vector(p_mc, mask)
+        for k, v in targets.items():
+            targets[k] = v.to(model.device)
         result[sm] = LatentClusteringData(
             matching=matching,
             p=p,

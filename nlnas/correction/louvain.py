@@ -48,7 +48,6 @@ def _louvain_or_leiden(graph: nx.Graph, device: Any = None) -> list[set[int]]:
 def louvain_communities(
     dl: DataLoader,
     k: int,
-    key: str | None = None,
     device: Any = None,
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> tuple[list[set[int]], np.ndarray]:
@@ -58,14 +57,10 @@ def louvain_communities(
 
     Args:
 
-        dl (DataLoader): The dataset dataloader.
+        dl (DataLoader): A dataloader that yields tensors.
         k (int, optional): The number of neighbors to consider for the Louvain
             clustering algorithm. Note that a point is not considered as one if
             its nearest neighbors.
-        key (str | None, optional): The key to use to extract the data from the
-            dataloader batches. If left to `None`, batches are assumed to be
-            tensors. Otherwise, they are assumed to be dictionaries and the
-            actual tensor is located at that key.
         device (Any, optional): If left to `None`, uses CUDA if it is available,
             otherwise falls back to CPU. Setting `cuda` while CUDA isn't
             available will **silently** fall back to CPU.
@@ -88,8 +83,6 @@ def louvain_communities(
         else:
             everything = dl
         for x in everything:
-            if key is not None:
-                x = x[key]
             yield x.flatten(1).to(device)
 
     z = next(_batches())
