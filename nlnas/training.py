@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import warnings
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Literal
@@ -291,7 +292,9 @@ def train(
 
     trainer = make_trainer(_model_name, _output_dir, max_epochs=max_epochs)
     start = datetime.now()
-    trainer.fit(model, dataset)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=UserWarning)
+        trainer.fit(model, dataset)
     fit_time = datetime.now() - start
     r0_info("Finished training in {}", fit_time)
 
