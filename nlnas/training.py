@@ -6,6 +6,7 @@ import os
 import warnings
 from datetime import datetime, timedelta
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Literal
 
 import pandas as pd
@@ -129,10 +130,11 @@ def checkpoint_ves(path: str | Path) -> tuple[int, int, int]:
 
 
 def make_trainer(
-    model_name: str,
-    output_dir: Path,
+    output_dir: Path | str,
+    model_name: str | None = None,
     max_epochs: int = 512,
     save_all_checkpoints: bool = False,
+    stage: Literal["train", "test"] = "train",
 ) -> pl.Trainer:
     """
     Makes a [PyTorch Lightning
@@ -140,22 +142,29 @@ def make_trainer(
     with some sensible defaults.
 
     Args:
-        model_name (str):
-        output_dir (Path):
-        max_epochs (int, optional):
+        output_dir (Path | str):
+        model_name (str): Ignored if `stage` is `test`, but must be set if
+            `stage` is `train`.
+        max_epochs (int, optional): Ignored if `stage` is `test`.
         save_all_checkpoints (bool, optional): If set to `False`, then only the
             best checkpoint is saved.
+        stage (str, optional): Either `train` or `test`.
     """
     output_dir = Path(output_dir)
-    tb_logger = pl.loggers.TensorBoardLogger(
-        str(output_dir / "tb_logs"), name=model_name, default_hp_metric=False
-    )
-    csv_logger = pl.loggers.CSVLogger(
-        str(output_dir / "csv_logs"), name=model_name
-    )
-    trainer = pl.Trainer(
-        max_epochs=max_epochs,
-        callbacks=[
+
+    config = {
+        "default_root_dir": str(output_dir),
+        "log_every_n_steps": 1,
+    }
+    if stage == "train":
+        if model_name is None:
+            raise ValueError("model_name must be set if stage is 'train'")
+        config["accelerator"] = "gpu"
+        config["devices"] = torch.cuda.device_count()
+        config["strategy"] = "ddp"
+        config["max_epochs"] = max_epochs
+        config["gradient_clip_val"] = DEFAULT_MAX_GRAD_NORM
+        config["callbacks"] = [
             pl.callbacks.EarlyStopping(
                 monitor="val/ce", patience=10, mode="min"
             ),
@@ -166,16 +175,22 @@ def make_trainer(
                 every_n_epochs=1,
             ),
             pl.callbacks.TQDMProgressBar(),
-        ],
-        default_root_dir=str(output_dir),
-        logger=[tb_logger, csv_logger],
-        log_every_n_steps=1,
-        gradient_clip_val=DEFAULT_MAX_GRAD_NORM,
-        accelerator="gpu",
-        devices=torch.cuda.device_count(),
-        strategy="ddp",
-    )
-    return trainer
+        ]
+        config["logger"] = [
+            pl.loggers.TensorBoardLogger(
+                str(output_dir / "tb_logs"),
+                name=model_name,
+                default_hp_metric=False,
+            ),
+            pl.loggers.CSVLogger(
+                str(output_dir / "csv_logs"),
+                name=model_name,
+            ),
+        ]
+    else:
+        config["devices"] = 1
+        config["num_nodes"] = 1
+    return pl.Trainer(**config)  # type: ignore
 
 
 def train(
@@ -290,7 +305,12 @@ def train(
         r0_info("Loaded checkpoint {}", ckpt_path)
     r0_debug("Model hyperparameters:\n{}", json.dumps(model.hparams, indent=4))
 
-    trainer = make_trainer(_model_name, _output_dir, max_epochs=max_epochs)
+    trainer = make_trainer(
+        _output_dir,
+        model_name=_model_name,
+        max_epochs=max_epochs,
+        stage="train",
+    )
     start = datetime.now()
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=UserWarning)
@@ -304,7 +324,9 @@ def train(
     r0_info("Best checkpoint path: {}", ckpt)
     r0_info("version={}, best_epoch={}, n_steps={}", v, e, s)
 
-    test_results = trainer.test(model, dataset)
+    with TemporaryDirectory() as tmp:
+        trainer = make_trainer(tmp, stage="test")
+        test_results = trainer.test(model, dataset)
 
     document: dict = {
         "__meta__": {
