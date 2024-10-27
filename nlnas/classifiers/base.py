@@ -7,7 +7,6 @@ from tempfile import TemporaryDirectory
 from typing import Any, Callable, Literal, Sequence, TypeAlias
 from uuid import uuid4
 
-import joblib
 import numpy as np
 import pytorch_lightning as pl
 import torch
@@ -25,13 +24,8 @@ from ..correction import (
     lcc_targets,
     louvain_communities,
 )
-from ..datasets import (
-    BatchedTensorDataset,
-    HuggingFaceDataset,
-)
+from ..datasets import BatchedTensorDataset
 from ..utils import (
-    check_cuda,
-    get_reasonable_n_jobs,
     make_tqdm,
     to_array,
 )
@@ -382,38 +376,23 @@ class BaseClassifier(pl.LightningModule):
             and lcc_kwargs.get("weight", 0) > 0
         )
         if do_lcc:
+            # TODO: custom TemporaryDirectory that works with world_size >= 2
             if self.trainer.global_rank == 0:
-                joblib_config = {
-                    "backend": "loky",
-                    "n_jobs": get_reasonable_n_jobs(),
-                    "verbose": 0,
-                }
-                with (
-                    joblib.parallel_backend(**joblib_config),
-                    TemporaryDirectory() as tmp,
-                ):
-                    self._lcc_data = full_dataset_latent_clustering(
-                        model=self,
-                        dataset=self.trainer.datamodule,  # type: ignore
-                        output_dir=tmp,
-                        device="cuda",
-                        # classes=lcc_kwargs.get("class_selection"),
-                        tqdm_style="console",
-                    )
+                handler = TemporaryDirectory()
+                tmp_path = handler.name
             else:
-                self._lcc_data = None
-            if self.trainer.world_size >= 2:
-                if self._lcc_data is not None:
-                    for d in self._lcc_data.values():
-                        for k, v in d.targets.items():
-                            d.targets[k] = v.cpu()
-                self._lcc_data = self.trainer.strategy.broadcast(
-                    self._lcc_data, src=0
-                )
-                assert isinstance(self._lcc_data, dict)
-                for d in self._lcc_data.values():
-                    for k, v in d.targets.items():
-                        d.targets[k] = v.to(self.device)
+                tmp_path = None
+            tmp_path = self.trainer.strategy.broadcast(tmp_path, src=0)
+            assert isinstance(tmp_path, str)  # for typechecking
+            self._lcc_data = full_dataset_latent_clustering(
+                model=self,
+                output_dir=tmp_path,
+                # classes=lcc_kwargs.get("class_selection"),
+                tqdm_style="console",
+            )
+            if self.trainer.global_rank == 0:
+                handler.cleanup()
+            # self.trainer.strategy.barrier()  # probably unnecessary
         super().on_train_epoch_start()
 
     def on_train_start(self) -> None:
@@ -447,11 +426,9 @@ class BaseClassifier(pl.LightningModule):
 
 def _fde_pca(
     model: BaseClassifier,
-    dataset: HuggingFaceDataset,
+    dl: DataLoader,
     output_dir: str | Path,
     pca_dim: dict[str, int | None],
-    split: Literal["train", "val", "test"] = "train",
-    device: Any = None,
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> None:
     """
@@ -460,8 +437,7 @@ def _fde_pca(
     that in this case, `pca_dim` mist be a dict that maps LCC submodule names to
     PCA dimensions.
     """
-    use_cuda, device = check_cuda(device)
-    if use_cuda:
+    if model.device.type == "cuda":
         from cuml import IncrementalPCA
 
         pcas = {
@@ -478,40 +454,42 @@ def _fde_pca(
             if d
         }
 
-    dl = dataset.get_dataloader(split)
+    rank = model.trainer.global_rank
     output_dir, tqdm = Path(output_dir), make_tqdm(tqdm_style)
     output_dir.mkdir(parents=True, exist_ok=True)
     with torch.no_grad():
         model.eval()
-        if use_cuda:
-            model.to("cuda")
-        for batch in tqdm(dl, "Fitting PCA(s)", leave=False):
-            out: dict[str, Tensor] = {}
+        for batch in tqdm(dl, f"[Rank {rank}] Fitting PCA(s)", leave=False):
+            data: dict[str, Tensor] = {}
             model.forward_intermediate(
                 inputs=batch[model.hparams["image_key"]],
                 submodules=model.lcc_submodules,
-                output_dict=out,
+                output_dict=data,
                 keep_gradients=False,
             )
-            for sm, z in out.items():
+            for sm, z in data.items():
                 if sm in pcas:
                     pcas[sm].partial_fit(z.flatten(1))
-        for idx, batch in enumerate(tqdm(dl, "Evaluating", leave=False)):
-            out = {}
+        for batch in tqdm(dl, f"[Rank {rank}] Evaluating", leave=False):
+            data = {}
             y_pred = model.forward_intermediate(
                 inputs=batch[model.hparams["image_key"]],
                 submodules=model.lcc_submodules,
-                output_dict=out,
+                output_dict=data,
                 keep_gradients=False,
             )
             assert isinstance(y_pred, Tensor)
-            out["y_pred"] = y_pred
-            for sm, z in out.items():
+            data["y_true"] = batch[model.hparams["label_key"]]
+            data["y_pred"] = y_pred
+            for sm, z in data.items():
                 if sm in pcas:
                     z = pcas[sm].transform(z.flatten(1))
                 bid = uuid4().hex
                 st.save_file(
-                    {"": z, "_idx": batch["_idx"]},
+                    {
+                        "": z.flatten(1) if z.ndim > 1 else z,
+                        "_idx": batch["_idx"],
+                    },
                     output_dir / f"{sm}.{bid}.st",
                 )
         model.train()
@@ -519,10 +497,8 @@ def _fde_pca(
 
 def _fde_no_pca(
     model: BaseClassifier,
-    dataset: HuggingFaceDataset,
+    dl: DataLoader,
     output_dir: str | Path,
-    split: Literal["train", "val", "test"] = "train",
-    device: Any = None,
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> None:
     """
@@ -530,68 +506,84 @@ def _fde_no_pca(
     applied. See `full_dataset_evaluation` for the precise meaning of the
     arguments.
     """
-    use_cuda, device = check_cuda(device)
-    dl = dataset.get_dataloader(split)
+    rank = model.trainer.global_rank
     output_dir, tqdm = Path(output_dir), make_tqdm(tqdm_style)
     output_dir.mkdir(parents=True, exist_ok=True)
     with torch.no_grad():
         model.eval()
-        if use_cuda:
-            model.to("cuda")
-        for batch in tqdm(dl, "Evaluating", leave=False):
-            out: dict[str, Tensor] = {}
+        for batch in tqdm(dl, f"[Rank {rank}] Evaluating", leave=False):
+            data: dict[str, Tensor] = {}
             y_pred = model.forward_intermediate(
                 inputs=batch[model.hparams["image_key"]],
                 submodules=model.lcc_submodules,
-                output_dict=out,
+                output_dict=data,
                 keep_gradients=False,
             )
             assert isinstance(y_pred, Tensor)
-            out["y_pred"] = y_pred
-            for sm, z in out.items():
+            data["y_true"] = batch[model.hparams["label_key"]]
+            data["y_pred"] = y_pred
+            for sm, z in data.items():
                 bid = uuid4().hex
                 st.save_file(
-                    {"": z.flatten(1), "_idx": batch["_idx"]},
+                    {
+                        "": z.flatten(1) if z.ndim > 1 else z,
+                        "_idx": batch["_idx"],
+                    },
                     output_dir / f"{sm}.{bid}.st",
                 )
         model.train()
 
 
-# def _y_true_mask(
-#     y_true: Tensor,
-#     classes: list[int] | LCCClassSelection | None = None,
-#     y_true_batch_dir: str | Path | None = None,
-#     tqdm_style: Literal["notebook", "console", "none"] | None = None,
-# ) -> Tensor:
-#     # ↓ classes is just a list of classes
-#     if isinstance(classes, list):
-#         return torch.isin(y_true, torch.tensor(classes))
-#     # ↓ classes is a LCCClassSelection policy (e.g. "max_connected")
-#     if isinstance(classes, str):
-#         if y_true_batch_dir is None:
-#             raise ValueError(
-#                 "The batch directory of the true label vector is required for "
-#                 f"LCC policy '{classes}'."
-#             )
-#         y_pred = load_tensor_batched(
-#             y_true_batch_dir, "y_pred", tqdm_style=tqdm_style
-#         )
-#         assert isinstance(y_pred, Tensor)  # For typechecking
-#         classes = choose_classes(y_true, y_pred, policy=classes)
-#         if classes:
-#             return torch.isin(y_true, torch.tensor(classes))
-#         return torch.full_like(y_true, True, dtype=torch.bool)
-#     # ↓ Leaving classes to None means all classes are considered, so no mask
-#     return torch.full_like(y_true, True, dtype=torch.bool)
-
-
-def full_dataset_evaluation(
+def _fdlc_r0(
     model: BaseClassifier,
-    dataset: HuggingFaceDataset,
+    output_dir: str | Path,
+    tqdm_style: Literal["notebook", "console", "none"] | None = None,
+) -> dict[str, LatentClusteringData]:
+    """
+    Full dataset latent clustering, to only be executed on rank 0. It is assumed
+    that the whole dataset has already been evaluated.
+    """
+    y_true, idx = BatchedTensorDataset(output_dir, prefix="y_true").load()
+    y_true = y_true[idx.argsort()]  # y_true is not in order (of the dataset)
+    n_classes = len(torch.unique(y_true))
+
+    lcc_data: dict[str, LatentClusteringData] = {}
+    lcc_kwargs = model.hparams.get("lcc_kwargs", {})
+
+    tqdm = make_tqdm(tqdm_style)
+    for sm in tqdm(model.lcc_submodules, "Clustering", leave=False):
+        ds, idx = BatchedTensorDataset(output_dir, prefix=sm).extract_idx()
+        dl = DataLoader(ds, batch_size=256)
+        _, y_clst = louvain_communities(
+            dl,
+            k=lcc_kwargs.get("k", 5),
+            device=model.device,
+            tqdm_style=tqdm_style,
+        )
+        _y_true = y_true[idx]  # Match the order of y_clst
+        matching = class_otm_matching(_y_true, y_clst)
+        _, _, p, _ = otm_matching_predicates(_y_true, y_clst, matching)
+        p = p.sum(axis=0) > 0  # Select MC samples regardless of true class
+        targets = lcc_targets(
+            dl, _y_true, y_clst, matching, n_true_classes=n_classes
+        )
+        for k, v in targets.items():
+            targets[k] = v.to(model.device)
+        lcc_data[sm] = LatentClusteringData(
+            matching=matching,
+            p=p,
+            targets=targets,
+            y_clst=y_clst,
+        )
+
+    return lcc_data
+
+
+def full_dataloader_evaluation(
+    model: BaseClassifier,
+    dl: DataLoader,
     output_dir: str | Path,
     pca_dim: int | dict[str, int | None] | None = None,
-    split: Literal["train", "val", "test"] = "train",
-    device: Any = None,
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> None:
     """
@@ -609,7 +601,7 @@ def full_dataset_evaluation(
 
     Args:
         model (BaseClassifier):
-        dataset (HuggingFaceDataset):
+        dl (DataLoader):
         output_dir (str | Path):
         pca_dim (int | dict[str, int | None] | None, optional): If specified, a
             PCA is fitted and applied to the latent representations. This is
@@ -617,19 +609,14 @@ def full_dataset_evaluation(
             becomes necessary to iterate over the dataset twice, which more than
             doubles the execution time of this method. It is possible to specify
             a PCA dimension for each or some of the latent spaces.
-        split (Literal['train', 'val', 'test'], optional): Defaults to "train".
-        device (Any, optional): Defaults to `None`, which automatically finds
-            the best device.
         tqdm_style (Literal['notebook', 'console', 'none'] | None, optional):
             Defaults to `None`, mearning no progress bar.
     """
     if pca_dim is None:
         _fde_no_pca(
             model,
-            dataset,
+            dl,
             output_dir,
-            split=split,
-            device=device,
             tqdm_style=tqdm_style,
         )
     else:
@@ -637,11 +624,9 @@ def full_dataset_evaluation(
             pca_dim = {sm: pca_dim for sm in model.lcc_submodules}
         _fde_pca(
             model,
-            dataset,
+            dl,
             output_dir,
-            pca_dim,
-            split=split,
-            device=device,
+            pca_dim=pca_dim,
             tqdm_style=tqdm_style,
         )
 
@@ -649,31 +634,27 @@ def full_dataset_evaluation(
 # TODO: Re-enable support for non-trivial class selection policies
 def full_dataset_latent_clustering(
     model: BaseClassifier,
-    dataset: HuggingFaceDataset,
     output_dir: str | Path,
-    device: Any = None,
     # classes: list[int] | LCCClassSelection | None = None,
-    split: Literal["train", "val", "test"] = "train",
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> dict[str, LatentClusteringData]:
     """
-    Performs latent clustering and matching (against true labels) on the full
-    dataset in one go. Since holding all latent representation tensors in memory
-    isn't realistic, some (aka. a shitload of) temporary tensor files are
-    created in `<output_dir>/<split>`. See
-    `nlnas.classifiers.full_dataset_evaluation`.
+    Distributed full train dataset latent clustering. Each rank evaluates part
+    of the train dataset (accessing it through `model.trainer.train_dataloader`,
+    which is different for every rank). Then, rank 0 loads all the latent
+    representations and computes the latent clustering data (Louvain labels and
+    matching), while all other ranks are waiting. Finally, the computed data is
+    distributed across all ranks. Since holding all latent representation
+    tensors in memory isn't realistic, some (aka. a shitload of) temporary
+    tensor files are created in `<output_dir>/<split>`. See
+    `full_dataset_evaluation`.
 
     Warning:
         The temporary tensor files created by this method are not deleted. You
         need to clean them up manually. Or don't if you want to keep them.
 
-    Warning:
-        Don't forget to execute `dataset.setup("fit")` before calling this
-        method =)
-
     Args:
         model (BaseClassifier):
-        dataset (HuggingFaceDataset):
         output_dir (str | Path):
         classes (list[int] | LCCClassSelection | None, optional): If specified,
             then only the specified true classes are considered for clustering
@@ -681,53 +662,37 @@ def full_dataset_latent_clustering(
             this if there are too many true classes, or if the dataset is just
             too large to fit in memory (e.g. ImageNet). See also
             `nlnas.correction.LCC_CLASS_SELECTIONS`.
+        tqdm_style (Literal['notebook', 'console', 'none'] | None, optional):
 
     Returns:
         A dictionary that maps a submodule name to its latent clustering data,
         see `nlnas.classifiers.LatentClusteringData`.
     """
-
-    output_dir = Path(output_dir) / split
-    _, device = check_cuda(device)
-    full_dataset_evaluation(
+    if not isinstance(model.trainer.train_dataloader, DataLoader):
+        raise RuntimeError(
+            "The model's trainer does not hold a valid training dataloader "
+            "(pl.Train.train_dataloader)"
+        )
+    full_dataloader_evaluation(
         model,
-        dataset,
+        model.trainer.train_dataloader,
         output_dir=output_dir,
-        split=split,
-        device=device,
         tqdm_style=tqdm_style,
     )
-    y_true = dataset.y_true(split)
-    # mask = _y_true_mask(y_true, classes, output_dir, tqdm_style)
-    # if not mask.all():
-    #     y_true = y_true[mask]
-
-    result: dict[str, LatentClusteringData] = {}
-    tqdm = make_tqdm(tqdm_style)
-    lcc_kwargs = model.hparams.get("lcc_kwargs", {})
-    for sm in tqdm(model.lcc_submodules, "Clustering", leave=False):
-        ds, idx = BatchedTensorDataset(output_dir, prefix=sm).extract_idx()
-        dl = DataLoader(ds, batch_size=256)
-        _, y_clst = louvain_communities(
-            dl,
-            k=lcc_kwargs.get("k", 5),
-            device=device,
-            tqdm_style=tqdm_style,
-        )
-        _y_true = y_true[idx]  # Match the order of y_clst
-        matching = class_otm_matching(_y_true, y_clst)
-        _, _, p, _ = otm_matching_predicates(_y_true, y_clst, matching)
-        p = p.sum(axis=0) > 0  # Select MC samples regardless of true class
-        targets = lcc_targets(
-            dl, _y_true, y_clst, matching, n_true_classes=dataset.n_classes()
-        )
-        for k, v in targets.items():
-            targets[k] = v.to(model.device)
-        result[sm] = LatentClusteringData(
-            matching=matching,
-            p=p,
-            targets=targets,
-            y_clst=y_clst,
-        )
-
-    return result
+    model.trainer.strategy.barrier()  # wait for every rank to finish eval.
+    lcc_data: dict[str, LatentClusteringData] | None = None
+    # Do actual clst. on rank 0 only; other ranks wait at the broadcast below
+    if model.trainer.global_rank == 0:
+        lcc_data = _fdlc_r0(model, output_dir, tqdm_style)
+    if model.trainer.world_size >= 2:
+        if lcc_data is not None:  # Only non-None on rank 0
+            for d in lcc_data.values():
+                for k, v in d.targets.items():
+                    d.targets[k] = v.cpu()
+        lcc_data = model.trainer.strategy.broadcast(lcc_data, src=0)
+        assert isinstance(lcc_data, dict)
+        for d in lcc_data.values():
+            for k, v in d.targets.items():
+                d.targets[k] = v.to(model.device)
+    assert isinstance(lcc_data, dict)
+    return lcc_data

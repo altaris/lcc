@@ -3,7 +3,7 @@
 from .base import (
     BaseClassifier,
     LatentClusteringData,
-    full_dataset_evaluation,
+    full_dataloader_evaluation,
     full_dataset_latent_clustering,
     validate_lcc_kwargs,
 )
@@ -13,7 +13,7 @@ from .wrapped import WrappedClassifier
 
 __all__ = [
     "BaseClassifier",
-    "full_dataset_evaluation",
+    "full_dataloader_evaluation",
     "full_dataset_latent_clustering",
     "HuggingFaceClassifier",
     "LatentClusteringData",
