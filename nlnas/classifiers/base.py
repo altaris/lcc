@@ -3,7 +3,6 @@
 from dataclasses import dataclass
 from itertools import product
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Any, Callable, Literal, Sequence, TypeAlias
 from uuid import uuid4
 
@@ -33,6 +32,7 @@ from .utils import (
     OPTIMIZERS,
     SCHEDULERS,
     log_optimizers_lr,
+    temporary_directory,
     validate_lcc_kwargs,
 )
 
@@ -376,23 +376,13 @@ class BaseClassifier(pl.LightningModule):
             and lcc_kwargs.get("weight", 0) > 0
         )
         if do_lcc:
-            # TODO: custom TemporaryDirectory that works with world_size >= 2
-            if self.trainer.global_rank == 0:
-                handler = TemporaryDirectory()
-                tmp_path = handler.name
-            else:
-                tmp_path = None
-            tmp_path = self.trainer.strategy.broadcast(tmp_path, src=0)
-            assert isinstance(tmp_path, str)  # for typechecking
-            self._lcc_data = full_dataset_latent_clustering(
-                model=self,
-                output_dir=tmp_path,
-                # classes=lcc_kwargs.get("class_selection"),
-                tqdm_style="console",
-            )
-            if self.trainer.global_rank == 0:
-                handler.cleanup()
-            # self.trainer.strategy.barrier()  # probably unnecessary
+            with temporary_directory(self) as tmp_path:
+                self._lcc_data = full_dataset_latent_clustering(
+                    model=self,
+                    output_dir=tmp_path,
+                    # classes=lcc_kwargs.get("class_selection"),
+                    tqdm_style="console",
+                )
         super().on_train_epoch_start()
 
     def on_train_start(self) -> None:

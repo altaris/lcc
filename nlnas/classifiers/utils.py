@@ -1,6 +1,9 @@
 """General utility functions for classifiers."""
 
-from typing import Any
+from contextlib import contextmanager
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import Any, Iterator
 
 import numpy as np
 import pytorch_lightning as pl
@@ -84,6 +87,28 @@ def log_optimizers_lr(model: pl.LightningModule, **kwargs: Any) -> None:
         )
     elif isinstance(optimizers, torch.optim.Optimizer):
         model.log("lr", _lr(optimizers), **kwargs)
+
+
+@contextmanager
+def temporary_directory(model: pl.LightningModule) -> Iterator[Path]:
+    """
+    Makes rank 0 create a temporary directory and propagates the path to all
+    other ranks. This context manager also acts as a barrier (due to the
+    directory name being broadcasted), so there is no need for explicit
+    syncronization on top of this.
+    """
+    if model.trainer.global_rank == 0:
+        handler = TemporaryDirectory(prefix="nlnas-")
+        name = handler.name
+    else:
+        name = None
+    name = model.trainer.strategy.broadcast(name, src=0)
+    assert isinstance(name, str)  # for typechecking
+    try:
+        yield Path(name)
+    finally:
+        if model.trainer.global_rank == 0:
+            handler.cleanup()
 
 
 def validate_lcc_kwargs(lcc_kwargs: dict[str, Any] | None) -> None:
