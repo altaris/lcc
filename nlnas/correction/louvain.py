@@ -48,7 +48,7 @@ def _louvain_or_leiden(graph: nx.Graph, device: Any = None) -> list[set[int]]:
 def louvain_communities(
     dl: DataLoader,
     k: int,
-    device: Any = None,
+    device: Any = "cpu",
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> tuple[list[set[int]], np.ndarray]:
     """
@@ -74,8 +74,6 @@ def louvain_communities(
            has integer values in $\\\\{ 0, 1, ..., c-1 \\\\}$, and if
            `y_louvain[i] == j`, then `z[i]` belongs to the $j$-th community
     """
-
-    _, device = check_cuda(device)
 
     def _batches(desc: str | None = None) -> Iterator[Tensor]:  # shorthand
         if desc:
