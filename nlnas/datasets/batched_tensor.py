@@ -1,7 +1,7 @@
 """See the `nlnas.datasets.BatchedTensorDataset` class documentation."""
 
 from pathlib import Path
-from typing import Any, Iterator, Literal
+from typing import Iterator, Literal
 
 import numpy as np
 import torch
@@ -87,6 +87,12 @@ class BatchedTensorDataset(IterableDataset):
         self.paths = list(Path(batch_dir).glob(f"{prefix}.*.{extension}"))
         self.key = key
 
+    def __iter__(self) -> Iterator[tuple[Tensor, Tensor]]:
+        for path in self.paths:
+            data = st.load_file(path)
+            for z, i in zip(data[self.key], data["_idx"]):
+                yield z, i
+
     def extract_idx(self) -> tuple[IterableDataset, Tensor]:
         """
         Splits this dataset in two. The first one yeilds the data, the second
@@ -97,109 +103,85 @@ class BatchedTensorDataset(IterableDataset):
         from tqdm import tqdm
 
         a, b = _ProjectionDataset(self, 0), _ProjectionDataset(self, 1)
-        dl = DataLoader(b, batch_size=256)
+        dl = DataLoader(b, batch_size=256, num_workers=1)
         dl = tqdm(dl, "Extracting indices", leave=False)
-        # TODO: setting n_workers to > 1 makes the index tensor n_workers times
-        # too long... problem with tqdm?
+        # TODO: setting num_workers to > 1 makes the index tensor n_workers
+        # times too long... problem with tqdm?
         return a, torch.cat(list(dl), dim=0)
 
-    def __iter__(self) -> Iterator[tuple[Tensor, Tensor]]:
-        for path in self.paths:
-            data = st.load_file(path)
-            for z, i in zip(data[self.key], data["_idx"]):
-                yield z, i
+    def load(
+        self,
+        batch_size: int = 256,
+        num_workers: int = 0,
+        tqdm_style: Literal["notebook", "console", "none"] | None = None,
+    ) -> tuple[Tensor, Tensor]:
+        """
+        Loads a batched tensor in one go. See `BatchedTensorDataset.save`.
 
+        Args:
+            batch_size (int, optional): Defaults to 256. Does not impact the
+                actual result.
+            num_workers (int, optional): Defaults to 0, meaning single-process
+                data loading.
+            tqdm_style (Literal['notebook', 'console', 'none'] | None,
+                optional):
 
-def load_tensor_batched(
-    batch_dir: str | Path,
-    prefix: str = "batch",
-    extension: str = "st",
-    key: str = "",
-    device: Any = None,
-    batch_size: int = 256,
-    num_workers: int = 0,
-    tqdm_style: Literal["notebook", "console", "none"] | None = None,
-) -> tuple[Tensor, Tensor]:
-    """
-    Loads a batched tensor in one go. See `nlnas.datasets.save_tensor_batched`
-    and `nlnas.datasets.BatchedTensorDataset` for the precise meaning of the
-    arguments.
+        Returns:
+            A tuple `(data, idx)` where `data` is a `(N, ...)` tensor and `idx`
+            is `(N,)` int tensor.
+        """
+        dl = DataLoader(self, batch_size=batch_size, num_workers=num_workers)
+        u = make_tqdm(tqdm_style)(dl, "Loading", leave=False)
+        v = list(zip(*u))
+        return torch.cat(v[0], dim=0), torch.cat(v[1], dim=0)
 
-    Args:
-        batch_dir (str | Path):
-        prefix (str, optional):
-        extension (str, optional):
-        key (str, optional):
-        mask (np.ndarray | Tensor | None, optional):
-        device (Any, optional): If left to `None`, uses CUDA if it is available,
-            otherwise falls back to CPU. Setting `cuda` while CUDA isn't
-            available will **silently** fall back to CPU. Note that both the
-            data and index tensor will be moved to the device.
-        batch_size (int, optional): Defaults to 256. Does not impact the actual
-            result.
-        num_workers (int, optional): Defaults to 0, meaning single-process data
-            loading.
-        tqdm_style (Literal['notebook', 'console', 'none'] | None, optional):
+    @staticmethod
+    def save(
+        x: Tensor | np.ndarray | list,
+        output_dir: str | Path,
+        prefix: str = "batch",
+        extension: str = "st",
+        key: str = "",
+        batch_size: int = 256,
+        tqdm_style: Literal["notebook", "console", "none"] | None = None,
+    ) -> None:
+        """
+        Saves a tensor in batches of `batch_size` elements. The files will be
+        named
 
-    Returns:
-        A tuple `(data, idx)` where `data` is a `(N, ...)` tensor and `idx` is
-        `(N,)` int tensor. Both are on the specified device, or on the CPU if
-        `device` was not specified.
-    """
-    ds = BatchedTensorDataset(
-        batch_dir=batch_dir,
-        prefix=prefix,
-        extension=extension,
-        key=key,
-    )
-    dl = DataLoader(ds, batch_size=batch_size, num_workers=num_workers)
-    u = make_tqdm(tqdm_style)(dl, "Loading", leave=False)
-    v = list(zip(*u))
-    return torch.cat(v[0], dim=0).to(device), torch.cat(v[0], dim=0).to(device)
+            output_dir/<prefix>.<batch_idx>.<extension>
 
+        The batches are saved using
+        [Safetensors](https://huggingface.co/docs/safetensors/index).
+        Safetensors files are essentially dictionaries, and each batch file is
+        structured as follows:
+        * `key` (see below): some `(batch_size, ...)` slice from `x`,
+        * `"_idx"`: a `(batch_size,)` integer tensor containing the indices in
+          `x`.
 
-def save_tensor_batched(
-    x: Tensor | np.ndarray | list,
-    output_dir: str | Path,
-    prefix: str = "batch",
-    extension: str = "st",
-    key: str = "",
-    batch_size: int = 1024,
-    tqdm_style: Literal["notebook", "console", "none"] | None = None,
-) -> None:
-    """
-    Saves a tensor in batches of `batch_size` elements. The files will be named
+        The `batch_idx` string is 4 digits long, so would be great if you could
+        adjust the batch size so that there are less than 10000 batches :]
 
-        output_dir/<prefix>.<batch_idx>.<extension>
-
-    The batches are saved using
-    [Safetensors](https://huggingface.co/docs/safetensors/index). Safetensors
-    files are essentially dictionaries, and each batch file is structured as
-    follows:
-    * `key` (see below): some `(batch_size, ...)` slice from `x`,
-    * `"_idx"`: a `(batch_size,)` integer tensor containing the indices in `x`.
-
-    The `batch_idx` string is 4 digits long, so would be great if you could
-    adjust the batch size so that there are less than 10000 batches :]
-
-    Args:
-        x (Tensor | np.ndarray | list):
-        output_dir (str):
-        prefix (str, optional):
-        extension (str, optional): Without the first `.`. Defaults to `st`.
-        key (str, optional): The key to use when saving the file. Batches are
-            stored in safetensor files, which are essentially dictionaries. This
-            arg specifies which key contains the data of interest. Cannot be
-            `"_idx"`.
-        batch_size (int, optional): Defaults to $1024$.
-        tqdm_style (Literal["notebook", "console", "none"] | None, optional):
-            Progress bar style.
-    """
-    batches = to_tensor(x).split(batch_size)
-    t = make_tqdm(tqdm_style)
-    for i, batch in enumerate(t(batches, "Saving", leave=False)):
-        data = {
-            key: batch,
-            "_idx": torch.arange(i * batch_size, (i + 1) * batch_size),
-        }
-        st.save_file(data, Path(output_dir) / f"{prefix}.{i:04}.{extension}")
+        Args:
+            x (Tensor | np.ndarray | list):
+            output_dir (str):
+            prefix (str, optional):
+            extension (str, optional): Without the first `.`. Defaults to `st`.
+            key (str, optional): The key to use when saving the file. Batches
+                are stored in safetensor files, which are essentially
+                dictionaries.  This arg specifies which key contains the data of
+                interest. Cannot be `"_idx"`.
+            batch_size (int, optional): Defaults to $256$.
+            tqdm_style (Literal["notebook", "console", "none"] | None,
+                optional): Progress bar style.
+        """
+        batches = to_tensor(x).split(batch_size)
+        t = make_tqdm(tqdm_style)
+        for i, batch in enumerate(t(batches, "Saving", leave=False)):
+            data = {
+                key: batch,
+                "_idx": torch.arange(i * batch_size, (i + 1) * batch_size),
+            }
+            st.save_file(
+                data, Path(output_dir) / f"{prefix}.{i:04}.{extension}"
+            )
