@@ -13,40 +13,6 @@ from torch import Tensor
 from ..correction import LCC_CLASS_SELECTIONS
 from ..utils import to_array
 
-OPTIMIZERS: dict[str, type] = {
-    "asgd": torch.optim.ASGD,
-    "adadelta": torch.optim.Adadelta,
-    "adagrad": torch.optim.Adagrad,
-    "adam": torch.optim.Adam,
-    "adamw": torch.optim.AdamW,
-    "adamax": torch.optim.Adamax,
-    "lbfgs": torch.optim.LBFGS,
-    "nadam": torch.optim.NAdam,
-    "optimizer": torch.optim.Optimizer,
-    "radam": torch.optim.RAdam,
-    "rmsprop": torch.optim.RMSprop,
-    "rprop": torch.optim.Rprop,
-    "sgd": torch.optim.SGD,
-    "sparseadam": torch.optim.SparseAdam,
-}
-
-SCHEDULERS: dict[str, type] = {
-    "constantlr": torch.optim.lr_scheduler.ConstantLR,
-    "cosineannealinglr": torch.optim.lr_scheduler.CosineAnnealingLR,
-    "cosineannealingwarmrestarts": torch.optim.lr_scheduler.CosineAnnealingWarmRestarts,
-    "cycliclr": torch.optim.lr_scheduler.CyclicLR,
-    "exponentiallr": torch.optim.lr_scheduler.ExponentialLR,
-    "lambdalr": torch.optim.lr_scheduler.LambdaLR,
-    "linearlr": torch.optim.lr_scheduler.LinearLR,
-    "multisteplr": torch.optim.lr_scheduler.MultiStepLR,
-    "multiplicativelr": torch.optim.lr_scheduler.MultiplicativeLR,
-    "onecyclelr": torch.optim.lr_scheduler.OneCycleLR,
-    "polynomiallr": torch.optim.lr_scheduler.PolynomialLR,
-    "reducelronplateau": torch.optim.lr_scheduler.ReduceLROnPlateau,
-    "sequentiallr": torch.optim.lr_scheduler.SequentialLR,
-    "steplr": torch.optim.lr_scheduler.StepLR,
-}
-
 
 def inflate_vector(
     v: np.ndarray | Tensor | list[float],

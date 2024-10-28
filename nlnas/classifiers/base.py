@@ -8,6 +8,8 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.distributed
+from timm.loss import BinaryCrossEntropy
+from timm.optim import create_optimizer_v2
 from torch import Tensor, nn
 from torch.utils.hooks import RemovableHandle
 from torchmetrics.functional.classification import multiclass_accuracy
@@ -18,8 +20,6 @@ from ..utils import (
     to_array,
 )
 from .utils import (
-    OPTIMIZERS,
-    SCHEDULERS,
     log_optimizers_lr,
     temporary_directory,
     validate_lcc_kwargs,
@@ -73,6 +73,9 @@ class BaseClassifier(pl.LightningModule):
     each epoch. See also `full_dataset_latent_clustering`.
     """
 
+    standard_loss: nn.Module
+    """'Standard' loss to use together with LCC."""
+
     def __init__(
         self,
         n_classes: int,
@@ -81,10 +84,6 @@ class BaseClassifier(pl.LightningModule):
         ce_weight: float = 1,
         image_key: Any = 0,
         label_key: Any = 1,
-        optimizer: str = "adam",
-        optimizer_kwargs: dict | None = None,
-        scheduler: str | None = None,
-        scheduler_kwargs: dict | None = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -118,16 +117,6 @@ class BaseClassifier(pl.LightningModule):
                 tuple (most common) or a dict. This parameter specifies the key
                 to use to retrieve the input tensor.
             label_key (Any, optional): Analogous to `image_key`.
-            optimizer (str, optional): Optimizer name, case insensitive.
-                See `nlnas.classifier.base.OPTIMIZERS` and
-                https://pytorch.org/docs/stable/optim.html#algorithms .
-            optimizer_kwargs (dict | None, optional): Forwarded to the optimizer
-                constructor
-            scheduler (str | None, optional): Scheduler name, case insensitive. See
-                `nlnas.classifier.base.SCHEDULERS`. If left to `None`, then no
-                scheduler is used.
-            scheduler_kwargs (dict | None, optional): Forwarded to the
-                scheduler, if any.
             kwargs: Forwarded to
                 [`pl.LightningModule`](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#)
         """
@@ -139,13 +128,10 @@ class BaseClassifier(pl.LightningModule):
             "lcc_kwargs",
             "lcc_submodules",
             "n_classes",
-            "optimizer_kwargs",
-            "optimizer",
-            "scheduler_kwargs",
-            "scheduler",
         )
         if lcc_submodules:
             validate_lcc_kwargs(lcc_kwargs)
+        self.standard_loss = BinaryCrossEntropy()
 
     def _evaluate(self, batch: Batch, stage: str | None = None) -> Tensor:
         """Self-explanatory"""
@@ -157,7 +143,7 @@ class BaseClassifier(pl.LightningModule):
             x, self.lcc_submodules, latent, keep_gradients=True
         )
         assert isinstance(logits, Tensor)
-        loss_ce = nn.functional.cross_entropy(logits, y.long())
+        loss_ce = self.standard_loss(logits, y)
         if self._lcc_data and stage == "train":
             idx = to_array(batch["_idx"])
             _losses = [
@@ -201,25 +187,15 @@ class BaseClassifier(pl.LightningModule):
         return loss  # type: ignore
 
     def configure_optimizers(self) -> Any:
-        cls = OPTIMIZERS[self.hparams["optimizer"].lower()]
-        optimizer = cls(
-            self.parameters(),
-            **(self.hparams.get("optimizer_kwargs") or {}),
-        )
-        if self.hparams["scheduler"]:
-            cls = SCHEDULERS[self.hparams["scheduler"]]
-            scheduler = cls(
-                optimizer,
-                **(self.hparams.get("scheduler_kwargs") or {}),
-            )
-            return {
-                "optimizer": optimizer,
-                "lr_scheduler": {
-                    "scheduler": scheduler,
-                    "monitor": "train/loss",
-                },
-            }
-        return optimizer
+        optimizer = create_optimizer_v2(self.parameters(), opt="lamb", lr=1e-5)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, 100)
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "train/loss",
+            },
+        }
 
     def forward_intermediate(
         self,

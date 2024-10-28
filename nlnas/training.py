@@ -19,6 +19,7 @@ from nlnas.classifiers.base import validate_lcc_kwargs
 
 from .classifiers import BaseClassifier, HuggingFaceClassifier, TimmClassifier
 from .datasets import HuggingFaceDataset
+from .ema import EMACallback
 from .logging import r0_debug, r0_info
 from .utils import get_reasonable_n_jobs
 
@@ -132,7 +133,7 @@ def checkpoint_ves(path: str | Path) -> tuple[int, int, int]:
 def make_trainer(
     output_dir: Path | str,
     model_name: str | None = None,
-    max_epochs: int = 512,
+    max_epochs: int = 100,
     save_all_checkpoints: bool = False,
     stage: Literal["train", "test"] = "train",
 ) -> pl.Trainer:
@@ -165,8 +166,9 @@ def make_trainer(
         config["max_epochs"] = max_epochs
         config["gradient_clip_val"] = DEFAULT_MAX_GRAD_NORM
         config["callbacks"] = [
+            EMACallback(),
             pl.callbacks.EarlyStopping(
-                monitor="val/ce", patience=10, mode="min"
+                monitor="val/ce", patience=20, mode="min"
             ),
             pl.callbacks.ModelCheckpoint(
                 save_top_k=(-1 if save_all_checkpoints else 1),
@@ -202,7 +204,7 @@ def train(
     lcc_submodules: list[str] | None = None,
     lcc_kwargs: dict | None = None,
     max_epochs: int = 100,
-    batch_size: int = 1024,
+    batch_size: int = 2048,
     train_split: str = "train",
     val_split: str = "val",
     test_split: str = "test",
@@ -231,7 +233,7 @@ def train(
         lcc_kwargs (dict | None, optional): Optional parameters for LCC. See
             `nlnas.classifiers.BaseClassifier.__init__`.
         max_epochs (int, optional): Defaults to $100$.
-        batch_size (int, optional): Defaults to $1024$.
+        batch_size (int, optional): Defaults to $2048$.
         train_split (str, optional):
         val_split (str, optional):
         test_split (str, optional):
@@ -292,8 +294,6 @@ def train(
         image_key=image_key,
         label_key=label_key,
         logit_key=logit_key,
-        optimizer="adam",
-        optimizer_kwargs={"lr": 5e-5},
         lcc_submodules=lcc_submodules if do_lcc else None,
         lcc_kwargs=lcc_kwargs if do_lcc else None,
         ce_weight=ce_weight,
