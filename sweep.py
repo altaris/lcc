@@ -3,17 +3,17 @@
 import hashlib
 import json
 import os
+import subprocess
 import sys
 import warnings
 from datetime import datetime
 from itertools import product
 from pathlib import Path
+from time import sleep
 
 import torch
 import turbo_broccoli as tb
 from loguru import logger as logging
-
-from nlnas.training import train as _train
 
 OUTPUT_DIR = Path("out") / "sweep"
 
@@ -162,20 +162,58 @@ def train(
     try:
         logging.info("Starting training")
         logging.debug("Lock file: {}", lock_file)
-        train_results = _train(
-            model_name=model_name,
-            dataset_name=dataset_name,
-            output_dir=OUTPUT_DIR,
-            lcc_submodules=lcc_submodules,
-            lcc_kwargs=lcc_kwargs,
-            train_split=train_split,
-            val_split=val_split,
-            image_key=image_key,
-            label_key=label_key,
-            head_name=head_name,
-            seed=SEED,
+        command = [
+            "uv",
+            "run",
+            "python",
+            "-m",
+            "nlnas",
+            "train",
+            model_name,
+            dataset_name,
+            str(OUTPUT_DIR),
+            "--train-split",
+            train_split,
+            "--val-split",
+            val_split,
+            "--image-key",
+            image_key,
+            "--label-key",
+            label_key,
+            "--head-name",
+            head_name,
+            "--seed",
+            SEED,
+        ]
+        if lcc_submodules:
+            command += ["--lcc-submodules", ",".join(lcc_submodules)]
+        if lcc_kwargs:
+            command += [
+                "--lcc-weight",
+                str(lcc_kwargs["weight"]),
+                "--lcc-interval",
+                str(lcc_kwargs["interval"]),
+                "--lcc-warmup",
+                str(lcc_kwargs["warmup"]),
+                "--lcc-k",
+                5,
+                "--ce-weight",
+                1,
+            ]
+        command = list(map(str, command))
+        logging.debug("Spawning subprocess: {}", " ".join(command))
+        process = subprocess.Popen(command)
+        process.wait()
+        if process.returncode != 0:
+            raise RuntimeError(f"LCC failed (code {process.returncode})")
+        tb.save(
+            {
+                "hostname": os.uname().nodename,
+                "start": datetime.now(),
+                "conf": cfg,
+            },
+            OUTPUT_DIR / f"{cfg_hash}.done",
         )
-        tb.save(train_results, OUTPUT_DIR / f"{cfg_hash}.done")
     except KeyboardInterrupt:
         pass
     except Exception as e:
@@ -241,3 +279,7 @@ if __name__ == "__main__":
                     label_key=dataset_config["label_key"],
                     head_name=model_config["head_name"],
                 )
+                logging.debug(
+                    "Sleeping for 5 seconds in case you want to abort the sweep"
+                )
+                sleep(5)
