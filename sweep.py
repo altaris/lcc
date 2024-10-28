@@ -222,6 +222,8 @@ def train(
     finally:
         logging.debug("Removing lock file {}", lock_file)
         lock_file.unlink()
+    logging.debug("Sleeping for 5 seconds in case you want to abort the sweep")
+    sleep(5)
 
 
 if __name__ == "__main__":
@@ -279,7 +281,3 @@ if __name__ == "__main__":
                     label_key=dataset_config["label_key"],
                     head_name=model_config["head_name"],
                 )
-                logging.debug(
-                    "Sleeping for 5 seconds in case you want to abort the sweep"
-                )
-                sleep(5)
