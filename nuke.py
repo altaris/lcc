@@ -14,5 +14,9 @@ if __name__ == "__main__":
     for line in raw.decode("utf-8").split("\n"):
         if m := re.search(r, line):
             pids.append(m.group(1))
-    print("PIDS:", pids)
-    subprocess.run(["kill", "-9"] + pids, check=False)
+    if not pids:
+        print("No matching processes found.")
+    else:
+        print("Nuking processes:", pids)
+        print("Shhh. No tears. Only dreams now.")
+        subprocess.run(["kill", "-9"] + pids, check=False)
