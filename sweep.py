@@ -26,176 +26,47 @@ DATASETS = [
         "image_key": "img",
         "label_key": "fine_label",
     },
-    # {  # https://huggingface.co/datasets/timm/eurosat-rgb
-    #     "name": "timm/eurosat-rgb",
-    #     "train_split": "train",
-    #     "val_split": "validation",
-    #     "test_split": "test",
-    #     "image_key": "image",
-    #     "label_key": "label",
-    # },
-    # {  # https://huggingface.co/datasets/timm/resisc45
-    #     "name": "timm/resisc45rgb",
-    #     "train_split": "train",
-    #     "val_split": "validation",
-    #     "test_split": "test",
-    #     "image_key": "image",
-    #     "label_key": "label",
-    # },
+    {  # https://huggingface.co/datasets/timm/imagenet-1k-wds
+        "name": "timm/imagenet-1k-wds",
+        "train_split": "train",
+        "val_split": "validation",
+        "test_split": "validation",
+        "image_key": "jpg",
+        "label_key": "cls",
+    },
 ]
 
 MODELS = [
-    # {
-    #     "name": "google/mobilenet_v2_1.0_224",
-    #     "head_name": "classifier",
-    #     "lcc_submodules": [
-    #         "classifier",
-    #     ],
-    # },
-    # {
-    #     "name": "google/mobilenet_v2_1.0_224",
-    #     "head_name": "classifier",
-    #     "lcc_submodules": [
-    #         "mobilenet_v2.conv_1x1",
-    #     ],
-    # },
-    # {
-    #     "name": "google/mobilenet_v2_1.0_224",
-    #     "head_name": "classifier",
-    #     "lcc_submodules": [
-    #         "mobilenet_v2.conv_1x1",
-    #         "classifier",
-    #     ],
-    # },
     {
-        "name": "microsoft/resnet-18",
-        "head_name": "classifier.1",
-        "lcc_submodules": [
-            "classifier",
-        ],
+        "name": "timm/mobilenetv3_small_050.lamb_in1k",
+        "head_name": "classifier",
+        "lcc_submodules": ["classifier"],
     },
     {
-        "name": "microsoft/resnet-18",
-        "head_name": "classifier.1",
-        "lcc_submodules": [
-            "resnet.encoder.stages.3",
-        ],
+        "name": "timm/mobilenetv3_small_050.lamb_in1k",
+        "head_name": "classifier",
+        "lcc_submodules": ["conv_head"],
     },
-    # {
-    #     "name": "microsoft/resnet-18",
-    #     "head_name": "classifier.1",
-    #     "lcc_submodules": [
-    #         "resnet.encoder.stages.3",
-    #         "classifier",
-    #     ],
-    # },
-    # {
-    #     "name": "microsoft/resnet-18",
-    #     "head_name": "classifier.1",
-    #     "lcc_submodules": [
-    #         "resnet.encoder.stages.2",
-    #         "resnet.encoder.stages.3",
-    #         "classifier",
-    #     ],
-    # },
-    # {
-    #     "name": "microsoft/resnet-18",
-    #     "head_name": "classifier.1",
-    #     "lcc_submodules": [
-    #         "resnet.encoder.stages.1",
-    #         "resnet.encoder.stages.2",
-    #         "resnet.encoder.stages.3",
-    #         "classifier",
-    #     ],
-    # },
-    # {
-    #     "name": "timm/tinynet_e.in1k",
-    #     "head_name": "classifier",
-    #     "lcc_submodules": [
-    #         "classifier",
-    #     ],
-    # },
-    # {
-    #     "name": "timm/tinynet_e.in1k",
-    #     "head_name": "classifier",
-    #     "lcc_submodules": [
-    #         "conv_head",
-    #     ],
-    # },
-    # {
-    #     "name": "timm/tinynet_e.in1k",
-    #     "head_name": "classifier",
-    #     "lcc_submodules": [
-    #         "conv_head",
-    #         "classifier",
-    #     ],
-    # },
-    # {
-    #     "name": "timm/vgg11.tv_in1k",
-    #     "head_name": "head.fc",
-    #     "lcc_submodules": [
-    #         "head",
-    #     ],
-    # },
-    # {
-    #     "name": "timm/vgg11.tv_in1k",
-    #     "head_name": "head.fc",
-    #     "lcc_submodules": [
-    #         "pre_logits",
-    #     ],
-    # },
-    # {
-    #     "name": "timm/vgg11.tv_in1k",
-    #     "head_name": "head.fc",
-    #     "lcc_submodules": [
-    #         "pre_logits",
-    #         "head",
-    #     ],
-    # },
-    # {
-    #     "name": "timm/convnext_small.in12k",
-    #     "head_name": "head.fc",
-    #     "lcc_submodules": [
-    #         "head",
-    #     ],
-    # },
-    # {
-    #     "name": "timm/convnext_small.in12k",
-    #     "head_name": "head.fc",
-    #     "lcc_submodules": [
-    #         "stages.3",
-    #     ],
-    # },
-    # {
-    #     "name": "timm/convnext_small.in12k",
-    #     "head_name": "head.fc",
-    #     "lcc_submodules": [
-    #         "stages.3",
-    #         "head",
-    #     ],
-    # },
-    # {
-    #     "name": "timm/tf_efficientnet_l2.ns_jft_in1k",
-    #     "head_name": "classifier",
-    #     "lcc_submodules": [
-    #         "classifier",
-    #     ],
-    # },
-    # {
-    #     "name": "timm/tf_efficientnet_l2.ns_jft_in1k",
-    #     "head_name": "classifier",
-    #     "lcc_submodules": [
-    #         "conv_head",
-    #     ],
-    # },
-    # {
-    #     "name": "timm/tf_efficientnet_l2.ns_jft_in1k",
-    #     "head_name": "classifier",
-    #     "lcc_submodules": [
-    #         "conv_head",
-    #         "classifier",
-    #     ],
-    # },
+    {
+        "name": "timm/resnet18.a3_in1k",
+        "head_name": "fc",
+        "lcc_submodules": ["fc"],
+    },
+    {
+        "name": "timm/resnet18.a3_in1k",
+        "head_name": "fc",
+        "lcc_submodules": ["layer4"],
+    },
+    {
+        "name": "timm/tinynet_e.in1k",
+        "head_name": "classifier",
+        "lcc_submodules": ["classifier"],
+    },
+    {
+        "name": "timm/tinynet_e.in1k",
+        "head_name": "classifier",
+        "lcc_submodules": ["conv_head"],
+    },
 ]
 
 LCC_WEIGHTS = [0, 1, 1e-2, 1e-4]
