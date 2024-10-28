@@ -8,7 +8,6 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.distributed
-from timm.loss import BinaryCrossEntropy
 from timm.optim import create_optimizer_v2
 from torch import Tensor, nn
 from torch.utils.hooks import RemovableHandle
@@ -131,7 +130,8 @@ class BaseClassifier(pl.LightningModule):
         )
         if lcc_submodules:
             validate_lcc_kwargs(lcc_kwargs)
-        self.standard_loss = BinaryCrossEntropy()
+        self.standard_loss = torch.nn.CrossEntropyLoss()
+        # self.standard_loss = BinaryCrossEntropy()
 
     def _evaluate(self, batch: Batch, stage: str | None = None) -> Tensor:
         """Self-explanatory"""
@@ -187,7 +187,7 @@ class BaseClassifier(pl.LightningModule):
         return loss  # type: ignore
 
     def configure_optimizers(self) -> Any:
-        optimizer = create_optimizer_v2(self.parameters(), opt="lamb", lr=1e-5)
+        optimizer = create_optimizer_v2(self.parameters(), opt="lamb")
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, 100)
         return {
             "optimizer": optimizer,

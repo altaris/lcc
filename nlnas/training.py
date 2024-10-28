@@ -19,7 +19,6 @@ from nlnas.classifiers.base import validate_lcc_kwargs
 
 from .classifiers import BaseClassifier, HuggingFaceClassifier, TimmClassifier
 from .datasets import HuggingFaceDataset
-from .ema import EMACallback
 from .logging import r0_debug, r0_info
 from .utils import get_reasonable_n_jobs
 
@@ -166,7 +165,7 @@ def make_trainer(
         config["max_epochs"] = max_epochs
         config["gradient_clip_val"] = DEFAULT_MAX_GRAD_NORM
         config["callbacks"] = [
-            EMACallback(),
+            # EMACallback(),
             pl.callbacks.EarlyStopping(
                 monitor="val/ce", patience=20, mode="min"
             ),
