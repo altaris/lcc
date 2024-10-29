@@ -179,7 +179,7 @@ class HuggingFaceDataset(WrappedDataset):
                 just either `train`, `val`, or `test`. Defaults to `train`.
         """
         ds = self._get_dataset(split)
-        return ds.features[self.label_key].num_classes  # type: ignore
+        return len(ds.unique(self.label_key))
 
     def y_true(
         self, split: Literal["train", "val", "test"] = "train"
