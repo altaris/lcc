@@ -57,16 +57,6 @@ MODELS = [
         "head_name": "fc",
         "lcc_submodules": ["layer4"],
     },
-    {
-        "name": "timm/tinynet_e.in1k",
-        "head_name": "classifier",
-        "lcc_submodules": ["classifier"],
-    },
-    {
-        "name": "timm/tinynet_e.in1k",
-        "head_name": "classifier",
-        "lcc_submodules": ["conv_head"],
-    },
 ]
 
 LCC_WEIGHTS = [0, 1, 1e-2, 1e-4]
