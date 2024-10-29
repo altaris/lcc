@@ -21,6 +21,7 @@ from .classifiers import BaseClassifier, HuggingFaceClassifier, TimmClassifier
 from .datasets import HuggingFaceDataset
 from .logging import r0_debug, r0_info
 from .utils import get_reasonable_n_jobs
+# from .ema import EMACallback
 
 DEFAULT_MAX_GRAD_NORM = 1.0
 """For gradient clipping."""
