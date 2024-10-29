@@ -72,7 +72,6 @@ MODELS = [
 LCC_WEIGHTS = [0, 1, 1e-2, 1e-4]
 LCC_INTERVALS = [1, 5]
 LCC_WARMUPS = [1]
-LCC_CLASS_SELECTIONS = [None]
 
 SEED = 0
 
@@ -117,6 +116,7 @@ def train(
     lcc_kwargs: dict | None,
     train_split: str,
     val_split: str,
+    test_split: str,
     image_key: str,
     label_key: str,
     head_name: str | None,
@@ -133,6 +133,7 @@ def train(
         "lcc_kwargs": lcc_kwargs,
         "train_split": train_split,
         "val_split": val_split,
+        "test_split": test_split,
         "image_key": image_key,
         "label_key": label_key,
         "head_name": head_name,
@@ -162,47 +163,25 @@ def train(
     try:
         logging.info("Starting training")
         logging.debug("Lock file: {}", lock_file)
-        command = [
-            "uv",
-            "run",
-            "python",
-            "-m",
-            "nlnas",
-            "train",
-            model_name,
-            dataset_name,
-            str(OUTPUT_DIR),
-            "--train-split",
-            train_split,
-            "--val-split",
-            val_split,
-            "--image-key",
-            image_key,
-            "--label-key",
-            label_key,
-            "--head-name",
-            head_name,
-            "--seed",
-            SEED,
-        ]
+        cmd = ["uv", "run", "python", "-m", "nlnas"]
+        cmd += ["train", model_name, dataset_name, str(OUTPUT_DIR)]
+        cmd += ["--train-split", train_split]
+        cmd += ["--val-split", val_split]
+        cmd += ["--test-split", test_split]
+        cmd += ["--image-key", image_key]
+        cmd += ["--label-key", label_key]
+        cmd += ["--head-name", head_name]
+        cmd += ["--seed", SEED]
         if lcc_submodules:
-            command += ["--lcc-submodules", ",".join(lcc_submodules)]
+            cmd += ["--lcc-submodules", ",".join(lcc_submodules)]
         if lcc_kwargs:
-            command += [
-                "--lcc-weight",
-                str(lcc_kwargs["weight"]),
-                "--lcc-interval",
-                str(lcc_kwargs["interval"]),
-                "--lcc-warmup",
-                str(lcc_kwargs["warmup"]),
-                "--lcc-k",
-                5,
-                "--ce-weight",
-                1,
-            ]
-        command = list(map(str, command))
-        logging.debug("Spawning subprocess: {}", " ".join(command))
-        process = subprocess.Popen(command)
+            cmd += ["--lcc-weight", str(lcc_kwargs["weight"])]
+            cmd += ["--lcc-interval", str(lcc_kwargs["interval"])]
+            cmd += ["--lcc-warmup", str(lcc_kwargs["warmup"])]
+            cmd += ["--lcc-k", 5]
+        cmd = list(map(str, cmd))
+        logging.debug("Spawning subprocess: {}", " ".join(cmd))
+        process = subprocess.Popen(cmd)
         process.wait()
         if process.returncode != 0:
             raise RuntimeError(f"LCC failed (code {process.returncode})")
@@ -234,18 +213,8 @@ if __name__ == "__main__":
     warnings.filterwarnings("ignore", message=STUPID_CUDA_SPAM)
 
     for dataset_config, model_config in product(DATASETS, MODELS):
-        everything = product(
-            LCC_WEIGHTS,
-            LCC_INTERVALS,
-            LCC_WARMUPS,
-            LCC_CLASS_SELECTIONS,
-        )
-        for (
-            lcc_weight,
-            lcc_interval,
-            lcc_warmup,
-            lcc_class_selection,
-        ) in everything:
+        everything = product(LCC_WEIGHTS, LCC_INTERVALS, LCC_WARMUPS)
+        for lcc_weight, lcc_interval, lcc_warmup in everything:
             lcc_submodules = model_config["lcc_submodules"]
             do_lcc = (
                 (lcc_weight or 0) > 0
@@ -270,13 +239,13 @@ if __name__ == "__main__":
                             "weight": lcc_weight,
                             "interval": lcc_interval,
                             "warmup": lcc_warmup,
-                            "class_selection": lcc_class_selection,
                         }
                         if do_lcc
                         else None
                     ),
                     train_split=dataset_config["train_split"],
                     val_split=dataset_config["val_split"],
+                    test_split=dataset_config["test_split"],
                     image_key=dataset_config["image_key"],
                     label_key=dataset_config["label_key"],
                     head_name=model_config["head_name"],
