@@ -80,7 +80,8 @@ class TimmClassifier(WrappedClassifier):
                         if isinstance(v, list)
                         else timm_transform(v)
                     )
-                    if k in ["img", "image"]  # TODO: pass image_key from DS
+                    # TODO: pass image_key from DS ↓
+                    if k in ["img", "image", "jpg", "png"]
                     else v
                 )
                 for k, v in batch.items()

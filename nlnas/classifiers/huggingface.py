@@ -68,7 +68,8 @@ class HuggingFaceClassifier(WrappedClassifier):
                     hf_transorm(
                         [img.convert("RGB") for img in v], return_tensors="pt"
                     )["pixel_values"]
-                    if k in ["img", "image"]  # TODO: pass image_key
+                    # TODO: pass image_key from DS ↓
+                    if k in ["img", "image", "jpg", "png"]
                     else v
                 )
                 for k, v in batch.items()
