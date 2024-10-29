@@ -62,6 +62,10 @@ class WrappedClassifier(BaseClassifier):
         output = self.model(x.to(self.device))
         return output if self.logit_key is None else output[self.logit_key]  # type: ignore
 
+    def on_train_start(self) -> None:
+        self.model.train()
+        super().on_train_start()
+
 
 def replace_head(
     module: nn.Module, head_name: str, n_classes: int
