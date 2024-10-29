@@ -206,7 +206,7 @@ def train(
     batch_size: int = 2048,
     train_split: str = "train",
     val_split: str = "val",
-    test_split: str = "test",
+    test_split: str | None = None,
     image_key: str = "image",
     label_key: str = "label",
     logit_key: str = "logits",
@@ -235,7 +235,7 @@ def train(
         batch_size (int, optional): Defaults to $2048$.
         train_split (str, optional):
         val_split (str, optional):
-        test_split (str, optional):
+        test_split (str | None, optional):
         image_key (str, optional):
         label_key (str, optional):
         logit_key (str, optional):
@@ -322,6 +322,10 @@ def train(
     v, e, s = checkpoint_ves(ckpt)
     r0_info("Best checkpoint path: {}", ckpt)
     r0_info("version={}, best_epoch={}, n_steps={}", v, e, s)
+
+    # TODO: fix testing loop. Right now, every rank reinstanciates a single-node
+    # single-device trainer to run the model on the test dataset. So every rank
+    # is testing the model independently which is stupid.
 
     with TemporaryDirectory() as tmp:
         trainer = make_trainer(tmp, stage="test")

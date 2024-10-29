@@ -129,8 +129,8 @@ def main(logging_level: str) -> None:
 @click.option(  # --test-split
     "-es",
     "--test-split",
-    default="test",
-    help="Name of the test data split in the dataset. Defaults to 'train'.",
+    default="",
+    help="Name of the test data split in the dataset.",
     type=str,
 )
 @click.option(  # --image-key
@@ -235,7 +235,7 @@ def train(
         max_epochs=max_epochs,
         model_name=model_name,
         output_dir=output_dir,
-        test_split=test_split,
+        test_split=test_split or None,
         train_split=train_split,
         val_split=val_split,
         seed=seed,
