@@ -26,14 +26,14 @@ DATASETS = [
         "image_key": "img",
         "label_key": "fine_label",
     },
-    {  # https://huggingface.co/datasets/timm/imagenet-1k-wds
-        "name": "timm/imagenet-1k-wds",
-        "train_split": "train",
-        "val_split": "validation",
-        "test_split": "validation",
-        "image_key": "jpg",
-        "label_key": "cls",
-    },
+    # {  # https://huggingface.co/datasets/timm/imagenet-1k-wds
+    #     "name": "timm/imagenet-1k-wds",
+    #     "train_split": "train",
+    #     "val_split": "validation",
+    #     "test_split": "validation",
+    #     "image_key": "jpg",
+    #     "label_key": "cls",
+    # },
 ]
 
 MODELS = [
@@ -48,6 +48,11 @@ MODELS = [
         "lcc_submodules": ["conv_head"],
     },
     {
+        "name": "timm/mobilenetv3_small_050.lamb_in1k",
+        "head_name": "classifier",
+        "lcc_submodules": ["conv_head", "classifier"],
+    },
+    {
         "name": "timm/resnet18.a3_in1k",
         "head_name": "fc",
         "lcc_submodules": ["fc"],
@@ -57,11 +62,17 @@ MODELS = [
         "head_name": "fc",
         "lcc_submodules": ["layer4"],
     },
+    {
+        "name": "timm/resnet18.a3_in1k",
+        "head_name": "fc",
+        "lcc_submodules": ["layer4", "fc"],
+    },
 ]
 
 LCC_WEIGHTS = [0, 1, 1e-2, 1e-4]
 LCC_INTERVALS = [1, 5]
 LCC_WARMUPS = [1]
+LCC_KS = [5, 10]
 
 SEED = 0
 
@@ -89,6 +100,7 @@ def setup_logging(logging_level: str = "debug") -> None:
             + (
                 "(<blue>{extra[model_name]} {extra[dataset_name]} "
                 "sm={extra[lcc_submodules]} w={extra[lcc_weight]} "
+                "k={extra[lcc_k]} "
                 "itv={extra[lcc_interval]} wmp={extra[lcc_warmup]}</blue>) "
             )
             + "<level>{message}</level>"
@@ -168,7 +180,7 @@ def train(
             cmd += ["--lcc-weight", str(lcc_kwargs["weight"])]
             cmd += ["--lcc-interval", str(lcc_kwargs["interval"])]
             cmd += ["--lcc-warmup", str(lcc_kwargs["warmup"])]
-            cmd += ["--lcc-k", 5]
+            cmd += ["--lcc-k", str(lcc_kwargs["k"])]
         cmd = list(map(str, cmd))
         logging.debug("Spawning subprocess: {}", " ".join(cmd))
         process = subprocess.Popen(cmd)
@@ -203,8 +215,8 @@ if __name__ == "__main__":
     warnings.filterwarnings("ignore", message=STUPID_CUDA_SPAM)
 
     for dataset_config, model_config in product(DATASETS, MODELS):
-        everything = product(LCC_WEIGHTS, LCC_INTERVALS, LCC_WARMUPS)
-        for lcc_weight, lcc_interval, lcc_warmup in everything:
+        everything = product(LCC_WEIGHTS, LCC_INTERVALS, LCC_WARMUPS, LCC_KS)
+        for lcc_weight, lcc_interval, lcc_warmup, lcc_k in everything:
             lcc_submodules = model_config["lcc_submodules"]
             do_lcc = (
                 (lcc_weight or 0) > 0
@@ -219,6 +231,7 @@ if __name__ == "__main__":
                 lcc_weight=lcc_weight,
                 lcc_interval=lcc_interval,
                 lcc_warmup=lcc_warmup,
+                lcc_k=lcc_k,
             ):
                 train(
                     model_name=model_config["name"],
@@ -229,6 +242,7 @@ if __name__ == "__main__":
                             "weight": lcc_weight,
                             "interval": lcc_interval,
                             "warmup": lcc_warmup,
+                            "k": lcc_k,
                         }
                         if do_lcc
                         else None
