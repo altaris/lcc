@@ -1,11 +1,30 @@
 """
-Kills every `/nlnas/.venv/bin/python3` process listed by `nvidia-smi`.
+Kills every `/nlnas/.venv/bin/python3` process listed by `nvidia-smi`, and then
+every `/nlnas/.venv/bin/python3 -m nlnas` process listed by `ps`.
 """
 
 import re
 import subprocess
 
 if __name__ == "__main__":
+    print()
+    print("        ⣀⣠⣀⣀  ⣀⣤⣤⣄⡀           ")
+    print("   ⣀⣠⣤⣤⣾⣿⣿⣿⣿⣷⣾⣿⣿⣿⣿⣿⣶⣿⣿⣿⣶⣤⡀    ")
+    print(" ⢠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷    ")
+    print(" ⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣶⡀ ")
+    print(" ⢀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇ ")
+    print(" ⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠟⠁ ")
+    print("  ⠻⢿⡿⢿⣿⣿⣿⣿⠟⠛⠛⠋⣀⣀⠙⠻⠿⠿⠋⠻⢿⣿⣿⠟    ")
+    print("      ⠈⠉⣉⣠⣴⣷⣶⣿⣿⣿⣿⣶⣶⣶⣾⣶        ")
+    print("        ⠉⠛⠋⠈⠛⠿⠟⠉⠻⠿⠋⠉⠛⠁        ")
+    print("              ⣶⣷⡆             ")
+    print("      ⢀⣀⣠⣤⣤⣤⣤⣶⣿⣿⣷⣦⣤⣤⣤⣤⣀⣀      ")
+    print("    ⢰⣿⠛⠉⠉⠁   ⢸⣿⣿⣧    ⠉⠉⠙⢻⣷    ")
+    print("     ⠙⠻⠷⠶⣶⣤⣤⣤⣿⣿⣿⣿⣦⣤⣤⣴⡶⠶⠟⠛⠁    ")
+    print("          ⢀⣴⣿⣿⣿⣿⣿⣿⣷⣄          ")
+    print("         ⠒⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠓         ")
+    print()
+
     raw = subprocess.check_output(["nvidia-smi"])
     pids = []
     r = re.compile(
@@ -14,9 +33,22 @@ if __name__ == "__main__":
     for line in raw.decode("utf-8").split("\n"):
         if m := re.search(r, line):
             pids.append(m.group(1))
+
     if not pids:
-        print("No matching processes found.")
+        print("[nvidia-smi] No matching processes found.")
     else:
-        print("Nuking processes:", pids)
-        print("Shhh. No tears. Only dreams now.")
-        subprocess.run(["kill", "-9"] + pids, check=False)
+        print("[nvidia-smi] Nuking processes:", pids)
+        subprocess.run(["kill", "-9"] + pids, check=True)
+
+    raw = subprocess.check_output(["ps", "-u", "cedric", "-eo", "pid,comm"])
+    pids = []
+    r = re.compile(r"(\d+) .*/nlnas/\.venv/bin/python3.*m nlnas.*")
+    for line in raw.decode("utf-8").split("\n"):
+        if m := re.search(r, line):
+            pids.append(m.group(1))
+
+    if not pids:
+        print("[ps] No matching processes found.")
+    else:
+        print("[ps] Nuking processes:", pids)
+        subprocess.run(["kill", "-9"] + pids, check=True)
