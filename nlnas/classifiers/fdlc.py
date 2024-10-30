@@ -238,7 +238,6 @@ def full_dataloader_evaluation(
 def full_dataset_latent_clustering(
     model: BaseClassifier,
     output_dir: str | Path,
-    # classes: list[int] | LCCClassSelection | None = None,
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> dict[str, LatentClusteringData]:
     """
@@ -259,12 +258,6 @@ def full_dataset_latent_clustering(
     Args:
         model (BaseClassifier):
         output_dir (str | Path):
-        classes (list[int] | LCCClassSelection | None, optional): If specified,
-            then only the specified true classes are considered for clustering
-            (however, all samples are still evaluated regardless of class). Use
-            this if there are too many true classes, or if the dataset is just
-            too large to fit in memory (e.g. ImageNet). See also
-            `nlnas.correction.LCC_CLASS_SELECTIONS`.
         tqdm_style (Literal['notebook', 'console', 'none'] | None, optional):
 
     Returns:

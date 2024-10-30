@@ -349,7 +349,6 @@ class BaseClassifier(pl.LightningModule):
                 self._lcc_data = full_dataset_latent_clustering(
                     model=self,
                     output_dir=tmp_path,
-                    # classes=lcc_kwargs.get("class_selection"),
                     tqdm_style="console",
                 )
         super().on_train_epoch_start()
