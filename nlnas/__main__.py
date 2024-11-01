@@ -70,6 +70,15 @@ def main(logging_level: str) -> None:
     help="Number of neigh. to consider for LCC. Defaults to 5 neigh.",
     type=int,
 )
+@click.option(  # --lcc-ccspc
+    "--lcc-ccspc",
+    default=1,
+    help=(
+        "Number of CC per cluster to use as targets for correction. "
+        "Defaults to 1."
+    ),
+    type=int,
+)
 @click.option(  # --ce-weight
     "-cw",
     "--ce-weight",
@@ -185,6 +194,7 @@ def train(
     head_name: str | None,
     image_key: str,
     label_key: str,
+    lcc_ccspc: int,
     lcc_interval: int,
     lcc_k: int,
     lcc_submodules: str,
@@ -194,10 +204,10 @@ def train(
     max_epochs: int,
     model_name: str,
     output_dir: Path,
+    seed: int | None,
     test_split: str,
     train_split: str,
     val_split: str,
-    seed: int | None,
 ):
     """
     Performs latent cluster correction on a model fine-tuning using the
@@ -223,10 +233,11 @@ def train(
         lcc_submodules=lcc_submodules.split(",") if _do_lcc else None,
         lcc_kwargs=(
             {
+                "ccspc": lcc_ccspc,
                 "interval": lcc_interval,
+                "k": lcc_k,
                 "warmup": lcc_warmup,
                 "weight": lcc_weight,
-                "k": lcc_k,
             }
             if _do_lcc
             else None
