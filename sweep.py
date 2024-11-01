@@ -166,21 +166,22 @@ def train(
         logging.info("Starting training")
         logging.debug("Lock file: {}", lock_file)
         cmd = ["uv", "run", "python", "-m", "nlnas"]
-        cmd += ["train", model_name, dataset_name, str(OUTPUT_DIR)]
+        cmd += ["train", model_name, dataset_name, OUTPUT_DIR]
         cmd += ["--train-split", train_split]
         cmd += ["--val-split", val_split]
         cmd += ["--test-split", test_split]
         cmd += ["--image-key", image_key]
         cmd += ["--label-key", label_key]
         cmd += ["--head-name", head_name]
+        cmd += ["--batch-size", 256]
         cmd += ["--seed", SEED]
         if lcc_submodules:
             cmd += ["--lcc-submodules", ",".join(lcc_submodules)]
         if lcc_kwargs:
-            cmd += ["--lcc-weight", str(lcc_kwargs["weight"])]
-            cmd += ["--lcc-interval", str(lcc_kwargs["interval"])]
-            cmd += ["--lcc-warmup", str(lcc_kwargs["warmup"])]
-            cmd += ["--lcc-k", str(lcc_kwargs["k"])]
+            cmd += ["--lcc-weight", lcc_kwargs["weight"]]
+            cmd += ["--lcc-interval", lcc_kwargs["interval"]]
+            cmd += ["--lcc-warmup", lcc_kwargs["warmup"]]
+            cmd += ["--lcc-k", lcc_kwargs["k"]]
         cmd = list(map(str, cmd))
         logging.debug("Spawning subprocess: {}", " ".join(cmd))
         process = subprocess.Popen(cmd)
