@@ -257,6 +257,7 @@ def lcc_targets(
     y_clst: np.ndarray | Tensor | list[int],
     matching: dict[int, set[int]] | dict[str, set[int]],
     n_true_classes: int | None = None,
+    ccspc: int = 1,
     tqdm_style: Literal["notebook", "console", "none"] | None = None,
 ) -> dict[int, Tensor]:
     """
@@ -265,9 +266,10 @@ def lcc_targets(
     - the keys are *among* true classes (unique values of `y_true`) and in fact
       are the same keys as `knn_indices`; let's say that `i_true` is a key that
       owns `k` clusters;
-    - the associated value a `(k, d)` tensor, where `d` is the latent dimension,
-      whose rows, which correspond to clusters matched to `i_true`, is a random
-      correctly clustered sample in that cluster.
+    - the associated value a `(n, d)` tensor, where `d` is the latent dimension,
+      whose rows are among correctly clustered samples in true class `i_true`.
+      If `ccspc` is $1$, then `n` is the number of clusters matched with
+      `i_true`, say `k`. Otherwise, `n <= k * ccspc`.
 
     Under the hood, this method first choose the samples by their index based on
     the "correctly clustered" predicate of `_mc_cc_predicates`. Then, the whole
@@ -286,6 +288,8 @@ def lcc_targets(
             contain all the possible true classes of the dataset at hand. If
             `None`, then `y_true` is assumed to contain all classes, and so
             `n_true_classes` defaults to `y_true.max() + 1`.
+        ccspc (int, optional): Maximum number of correctly clustered samples to
+            collect per cluster.
         tqdm_style (Literal["notebook", "console", "none"] | None, optional):
     """
     matching = {int(k): v for k, v in matching.items()}
@@ -294,7 +298,8 @@ def lcc_targets(
     for i_true, p_cc_i_true in enumerate(p_cc):
         for j_clst in matching[i_true]:
             p = p_cc_i_true & (y_clst == j_clst)
-            indices[i_true].append(np.random.choice(np.where(p)[0]))
+            ccids = list(np.unique(np.random.choice(np.where(p)[0], ccspc)))
+            indices[i_true] += ccids
     n_seen, n_todo = 0, sum(len(v) for v in indices.values())
     result: dict[int, list[Tensor]] = defaultdict(list)
     for batch in make_tqdm(tqdm_style)(

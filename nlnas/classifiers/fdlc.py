@@ -168,7 +168,12 @@ def _fdlc_r0(
         _, _, p, _ = otm_matching_predicates(_y_true, y_clst, matching)
         p = p.sum(axis=0) > 0  # Select MC samples regardless of true class
         targets = lcc_targets(
-            dl, _y_true, y_clst, matching, n_true_classes=n_classes
+            dl,
+            _y_true,
+            y_clst,
+            matching,
+            n_true_classes=n_classes,
+            ccspc=lcc_kwargs.get("ccspc", 1),
         )
         for k, v in targets.items():
             targets[k] = v.to(model.device)
