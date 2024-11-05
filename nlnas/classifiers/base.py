@@ -131,7 +131,7 @@ class BaseClassifier(pl.LightningModule):
         )
         if lcc_submodules:
             validate_lcc_kwargs(lcc_kwargs)
-        self.standard_loss = torch.nn.CrossEntropyLoss(label_smoothing=0.1)
+        self.standard_loss = torch.nn.CrossEntropyLoss()
         # self.standard_loss = BinaryCrossEntropy()
 
     def _evaluate(self, batch: Batch, stage: str | None = None) -> Tensor:
