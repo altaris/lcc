@@ -238,7 +238,9 @@ if __name__ == "__main__":
             with logging.contextualize(
                 model_name=model_config["name"],
                 dataset_name=dataset_config["name"],
-                lcc_submodules=lcc_submodules if do_lcc else "/",
+                lcc_submodules=(
+                    ",".join(lcc_submodules) if lcc_submodules else "/"
+                ),
                 lcc_weight=lcc_weight if do_lcc else "/",
                 lcc_interval=lcc_interval if do_lcc else "/",
                 lcc_warmup=lcc_warmup if do_lcc else "/",
