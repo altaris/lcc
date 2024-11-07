@@ -12,13 +12,8 @@ from safetensors import torch as st
 from torch import Tensor
 from torch.utils.data import DataLoader
 
-from nlnas.correction.clustering import otm_matching_predicates
-
-from ..correction import (
-    class_otm_matching,
-    lcc_targets,
-    louvain_communities,
-)
+from ..correction import class_otm_matching, louvain_communities
+from ..correction.loss import RandomizedLCCLoss
 from ..datasets import BatchedTensorDataset
 from ..utils import TqdmStyle, make_tqdm
 from .base import BaseClassifier, LatentClusteringData
@@ -107,6 +102,7 @@ def _fde_no_pca(
     arguments.
     """
     rank = model.trainer.global_rank
+    print("RANK", rank)
     output_dir, tqdm = Path(output_dir), make_tqdm(tqdm_style)
     output_dir.mkdir(parents=True, exist_ok=True)
     with torch.no_grad():
@@ -135,9 +131,7 @@ def _fde_no_pca(
 
 
 def _fdlc_r0(
-    model: BaseClassifier,
-    output_dir: str | Path,
-    tqdm_style: TqdmStyle = None,
+    model: BaseClassifier, output_dir: str | Path, tqdm_style: TqdmStyle = None
 ) -> dict[str, LatentClusteringData]:
     """
     Full dataset latent clustering, to only be executed on rank 0. It is assumed
@@ -145,11 +139,8 @@ def _fdlc_r0(
     """
     y_true, idx = BatchedTensorDataset(output_dir, prefix="y_true").load()
     y_true = y_true[idx.argsort()]  # y_true is not in order (of the dataset)
-    n_classes = len(torch.unique(y_true))
-
     lcc_data: dict[str, LatentClusteringData] = {}
     lcc_kwargs = model.hparams.get("lcc_kwargs", {})
-
     progress = make_tqdm(tqdm_style)(model.lcc_submodules, "Clustering")
     for sm in progress:
         progress.set_postfix(submodule=sm)
@@ -163,25 +154,13 @@ def _fdlc_r0(
         )
         _y_true = y_true[idx]  # Match the order of y_clst
         matching = class_otm_matching(_y_true, y_clst)
-        _, _, p, _ = otm_matching_predicates(_y_true, y_clst, matching)
-        p = p.sum(axis=0) > 0  # Select MC samples regardless of true class
-        targets = lcc_targets(
-            dl,
-            _y_true,
-            y_clst,
-            matching,
-            n_true_classes=n_classes,
+        loss = RandomizedLCCLoss(
+            n_classes=model.hparams["n_classes"],
             ccspc=lcc_kwargs.get("ccspc", 1),
+            tqdm_style=tqdm_style,
         )
-        for k, v in targets.items():
-            targets[k] = v.to(model.device)
-        lcc_data[sm] = LatentClusteringData(
-            matching=matching,
-            p=p,
-            targets=targets,
-            y_clst=y_clst,
-        )
-
+        loss.update(dl, _y_true, y_clst, matching)
+        lcc_data[sm] = LatentClusteringData(loss=loss, y_clst=y_clst)
     return lcc_data
 
 
@@ -239,9 +218,7 @@ def full_dataloader_evaluation(
 
 # TODO: Re-enable support for non-trivial class selection policies
 def full_dataset_latent_clustering(
-    model: BaseClassifier,
-    output_dir: str | Path,
-    tqdm_style: TqdmStyle = None,
+    model: BaseClassifier, output_dir: str | Path, tqdm_style: TqdmStyle = None
 ) -> dict[str, LatentClusteringData]:
     """
     Distributed full train dataset latent clustering. Each rank evaluates part
@@ -279,19 +256,11 @@ def full_dataset_latent_clustering(
         tqdm_style=tqdm_style,
     )
     model.trainer.strategy.barrier()  # wait for every rank to finish eval.
-    lcc_data: dict[str, LatentClusteringData] | None = None
-    # Do actual clst. on rank 0 only; other ranks wait at the broadcast below
+    lcc_data: dict[str, LatentClusteringData] = {}
     if model.trainer.global_rank == 0:
+        # Do actual clst. on rank 0 only; other ranks wait at the broadcasts
+        # below
         lcc_data = _fdlc_r0(model, output_dir, tqdm_style)
-    if model.trainer.world_size >= 2:
-        if lcc_data is not None:  # Only non-None on rank 0
-            for d in lcc_data.values():
-                for k, v in d.targets.items():
-                    d.targets[k] = v.cpu()
-        lcc_data = model.trainer.strategy.broadcast(lcc_data, src=0)
-        assert isinstance(lcc_data, dict)
-        for d in lcc_data.values():
-            for k, v in d.targets.items():
-                d.targets[k] = v.to(model.device)
-    assert isinstance(lcc_data, dict)
+    # TODO: is lcc_data too big to be broadcasted like that?
+    lcc_data = model.trainer.strategy.broadcast(lcc_data, src=0)
     return lcc_data

@@ -12,9 +12,8 @@ from torch import Tensor, nn
 from torch.utils.hooks import RemovableHandle
 from torchmetrics.functional.classification import multiclass_accuracy
 
-from nlnas.correction import lcc_loss
+from nlnas.correction import RandomizedLCCLoss
 
-from ..correction.utils import Matching
 from ..utils import (
     to_array,
 )
@@ -34,24 +33,14 @@ class LatentClusteringData:
     given latent space.
     """
 
-    p: np.ndarray
+    loss: RandomizedLCCLoss
     """
-    `(N,)` boolean vector that marks misclustered samples (regardless of
-    true class).
-    """
-
-    matching: Matching
-    """
-    Matching between the true and cluster classes. See
-    `nlnas.correction.clustering.class_otm_matching`.
+    The actual LCC loss object (which is callable) that compute the LCC loss for
+    LCC correction.
     """
 
-    targets: dict[int, Tensor]
-    """
-    Dict that maps a true class to a correctly clustered sample in that true
-    class. Note that not every true class may be represented in this dict.
-    """
-
+    # TODO: Write the y_clst to disk and loading alongside the train dataset, so
+    # that this whole datastructure becomes unnecessary
     y_clst: np.ndarray
     """`(N,)` vector of cluster labels."""
 
@@ -66,7 +55,7 @@ class BaseClassifier(pl.LightningModule):
         `Tensor`.
     """
 
-    _lcc_data: dict[str, LatentClusteringData] | None = None
+    lcc_data: dict[str, LatentClusteringData] | None = None
     """
     If LCC is applied, then this is non `None` and updated at the begining of
     each epoch. See also `full_dataset_latent_clustering`.
@@ -133,7 +122,6 @@ class BaseClassifier(pl.LightningModule):
         if lcc_submodules:
             validate_lcc_kwargs(lcc_kwargs)
         self.standard_loss = torch.nn.CrossEntropyLoss()
-        # self.standard_loss = BinaryCrossEntropy()
 
     def _evaluate(self, batch: Batch, stage: str | None = None) -> Tensor:
         """Self-explanatory"""
@@ -146,16 +134,11 @@ class BaseClassifier(pl.LightningModule):
         )
         assert isinstance(logits, Tensor)
         loss_ce = self.standard_loss(logits, y)
-        if self._lcc_data and stage == "train":
+        if self.lcc_data and stage == "train":
             idx = to_array(batch["_idx"])
             _losses = [
-                lcc_loss(
-                    z=z,
-                    y_true=y,
-                    y_clst=self._lcc_data[sm].y_clst[idx],
-                    matching=self._lcc_data[sm].matching,
-                    targets=self._lcc_data[sm].targets,
-                    n_true_classes=self.hparams["n_classes"],
+                self.lcc_data[sm].loss(
+                    z, y_true=y, y_clst=self.lcc_data[sm].y_clst[idx]
                 )
                 for sm, z in latent.items()
             ]
@@ -317,7 +300,7 @@ class BaseClassifier(pl.LightningModule):
 
     def on_train_epoch_end(self) -> None:
         """Cleans up training specific temporary attributes"""
-        self._lcc_data = None
+        self.lcc_data = None
         super().on_train_epoch_end()
 
     def on_train_epoch_start(self) -> None:
@@ -349,7 +332,7 @@ class BaseClassifier(pl.LightningModule):
             from .fdlc import full_dataset_latent_clustering
 
             with temporary_directory(self) as tmp_path:
-                self._lcc_data = full_dataset_latent_clustering(
+                self.lcc_data = full_dataset_latent_clustering(
                     model=self,
                     output_dir=tmp_path,
                     tqdm_style="console",

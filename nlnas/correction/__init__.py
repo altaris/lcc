@@ -14,8 +14,8 @@ from .clustering import (
     class_otm_matching,
     otm_matching_predicates,
 )
+from .loss import RandomizedLCCLoss
 from .louvain import louvain_communities
-from .targets import lcc_loss, lcc_targets
 
 __all__ = [
     "choose_classes",
@@ -24,11 +24,10 @@ __all__ = [
     "GraphTotallyDisconnected",
     "heaviest_connected_subgraph",
     "LCC_CLASS_SELECTIONS",
-    "lcc_loss",
-    "lcc_targets",
     "LCCClassSelection",
     "louvain_communities",
     "max_connected_confusion_choice",
     "otm_matching_predicates",
+    "RandomizedLCCLoss",
     "top_confusion_pairs",
 ]
