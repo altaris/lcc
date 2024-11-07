@@ -13,6 +13,7 @@ from torch import Tensor
 from torch.utils.data import DataLoader
 
 from ..utils import TqdmStyle, make_tqdm, to_int_array, to_int_tensor
+from .utils import Matching, to_int_matching
 
 
 def _otm_matching(
@@ -70,7 +71,7 @@ def _otm_matching(
 def _mc_cc_predicates(
     y_true: ArrayLike,
     y_clst: ArrayLike,
-    matching: dict[int, set[int]] | dict[str, set[int]],
+    matching: Matching,
     n_true_classes: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
@@ -89,7 +90,7 @@ def _mc_cc_predicates(
     Args:
         y_true (ArrayLike): A `(N,)` integer array.
         y_clst (ArrayLike): A `(N,)` integer array.
-        matching (dict[int, set[int]] | dict[str, set[int]]):
+        matching (Matching):
         n_true_classes (int | None, optional): Number of true classes. Useful if
             `y_true` is a slice of the real true label vector and does not
             contain all the possible true classes of the dataset at hand.  If
@@ -97,14 +98,13 @@ def _mc_cc_predicates(
             `n_true_classes` defaults to `y_true.max() + 1`.
     """
     y_true, y_clst = to_int_array(y_true), to_int_array(y_clst)
-    matching = {int(a): bs for a, bs in matching.items()}
     p1, p2, p_mc, _ = otm_matching_predicates(
         y_true, y_clst, matching, c_a=n_true_classes or int(y_true.max() + 1)
     )
     return p_mc, p1 & p2
 
 
-def class_otm_matching(y_a: ArrayLike, y_b: ArrayLike) -> dict[int, set[int]]:
+def class_otm_matching(y_a: ArrayLike, y_b: ArrayLike) -> Matching:
     """
     Let `y_a` and `y_b` be `(N,)` integer arrays. We think of them as classes on
     some dataset, say `x`, which we call respectively *$a$-classes* and
@@ -173,7 +173,7 @@ def lcc_loss(
     z: Tensor,
     y_true: ArrayLike,
     y_clst: ArrayLike,
-    matching: dict[int, set[int]] | dict[str, set[int]],
+    matching: Matching,
     targets: dict[int, Tensor],
     n_true_classes: int | None = None,
 ) -> Tensor:
@@ -221,7 +221,7 @@ def lcc_loss(
             labels.
         y_clst (ArrayLike): A `(N,)` integer array of the
             cluster labels.
-        matching (dict[int, set[int]] | dict[str, set[int]]): As produced by
+        matching (Matching): As produced by
             `nlnas.correction.class_otm_matching`.
         targets (dict[int, Tensor]): As produced by
             `nlnas.correction.lcc_targets`.
@@ -254,7 +254,7 @@ def lcc_targets(
     dl: DataLoader,
     y_true: ArrayLike,
     y_clst: ArrayLike,
-    matching: dict[int, set[int]] | dict[str, set[int]],
+    matching: Matching,
     n_true_classes: int | None = None,
     ccspc: int = 1,
     tqdm_style: TqdmStyle = None,
@@ -278,7 +278,7 @@ def lcc_targets(
         dl (DataLoader): A dataloader over a tensor dataset.
         y_true (ArrayLike): A `(N,)` integer array.
         y_clst (ArrayLike): A `(N,)` integer array.
-        matching (dict[int, set[int]] | dict[str, set[int]]): Produced by
+        matching (Matching): Produced by
             `nlnas.correction.class_otm_matching`.
         knn_indices (dict[int, tuple[Any, Tensor]]): As produced by
             `lcc_knn_indices`
@@ -291,7 +291,7 @@ def lcc_targets(
             collect per cluster.
         tqdm_style (TqdmStyle, optional):
     """
-    matching = {int(k): v for k, v in matching.items()}
+    matching = to_int_matching(matching)
     _, p_cc = _mc_cc_predicates(y_true, y_clst, matching, n_true_classes)
     indices: dict[int, list[int]] = defaultdict(list)
     for i_true, p_cc_i_true in enumerate(p_cc):
@@ -319,7 +319,7 @@ def lcc_targets(
 def otm_matching_predicates(
     y_a: ArrayLike,
     y_b: ArrayLike,
-    matching: dict[int, set[int]] | dict[str, set[int]],
+    matching: Matching,
     c_a: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
@@ -358,7 +358,7 @@ def otm_matching_predicates(
             ..., c_a - 1 \\\\}$ for some $c_a > 0$.
         y_b (np.ndarray): A `(N,)` integer array with values in $\\\\{ 0, 1,
             ..., c_b - 1 \\\\}$ for some $c_b > 0$.
-        matching (dict[int, set[int]] | dict[str, set[int]]): A partition of
+        matching (Matching): A partition of
             $\\\\{ 0, ..., c_b - 1 \\\\}$ into $c_a$ sets. The $i$-th set is
             understood to be the set of all classes of `y_b` that matched with
             the $i$-th class of `y_a`. If some keys are strings, they must be
@@ -370,21 +370,21 @@ def otm_matching_predicates(
             = y_a.max() + 1`.
     """
     y_a, y_b = to_int_array(y_a), to_int_array(y_b)
+    matching = to_int_matching(matching)
     if (la := len(y_a)) != (lb := len(y_b)):
         raise ValueError(
             f"y_a and y_b must have the same length, got {la} and {lb}"
         )
     c_a = c_a or int(y_a.max() + 1)
-    m = {int(k): v for k, v in matching.items()}
     p1 = [y_a == a for a in range(c_a)]
     p2 = [
         (
             np.sum(
-                [np.zeros_like(y_b)] + [y_b == b for b in m.get(a, [])],
+                [np.zeros_like(y_b)] + [y_b == b for b in matching.get(a, [])],
                 axis=0,
             )
             > 0
-            if a in m
+            if a in matching
             else np.full_like(y_b, False, dtype=bool)  # a isn't matched in m
         )
         for a in range(c_a)

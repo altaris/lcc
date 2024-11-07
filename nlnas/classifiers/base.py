@@ -14,6 +14,7 @@ from torchmetrics.functional.classification import multiclass_accuracy
 
 from nlnas.correction.clustering import lcc_loss
 
+from ..correction.utils import Matching
 from ..utils import (
     to_array,
 )
@@ -39,7 +40,7 @@ class LatentClusteringData:
     true class).
     """
 
-    matching: dict[int, set[int]]
+    matching: Matching
     """
     Matching between the true and cluster classes. See
     `nlnas.correction.clustering.class_otm_matching`.

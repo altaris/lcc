@@ -8,6 +8,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 from tqdm import tqdm
 
+from ..correction.utils import Matching
 from ..plotting import (
     class_matching_plot,
     class_scatter,
@@ -21,7 +22,7 @@ def louvain_clustering_plots(
     z: ArrayLike,
     y_true: ArrayLike,
     y_louvain: ArrayLike,
-    matching: dict[int, set[int]],
+    matching: Matching,
     k: int,
     output_dir: Path,
 ) -> tuple:
@@ -36,7 +37,7 @@ def louvain_clustering_plots(
         z (np.ndarray): An array of latent embeddings, which has shape `(N, 2)`
         y_true (np.ndarray): A `(N,)` tensor of true labels
         y_louvain (np.ndarray): A `(N,)` tensor of Louvain labels
-        matching (dict[int, set[int]]): See
+        matching (Matching): See
             `nlnas.correction.clustering.class_otm_matching`
         k (int): Number of neighbots that have been consitered when
             creating `y_louvain`. This is used in the title of the plot.

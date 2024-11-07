@@ -13,6 +13,7 @@ from numpy.typing import ArrayLike
 from sklearn.preprocessing import MinMaxScaler
 
 from .correction import otm_matching_predicates
+from .correction.utils import Matching, to_int_matching
 from .utils import to_array, to_int_array
 
 BK_PALETTE_FUNCTIONS = {
@@ -153,7 +154,7 @@ def class_matching_plot(
     x: ArrayLike,
     y_a: ArrayLike,
     y_b: ArrayLike,
-    matching: dict[int, set[int]] | dict[str, set[int]],
+    matching: Matching,
     size: int = 400,
 ) -> bkm.GridBox:
     """
@@ -173,7 +174,7 @@ def class_matching_plot(
             values in $\\\\{ 0, 1, ..., c_a - 1 \\\\}$ for some $c_a > 0$.
         y_b (ArrayLike): A `(N,)` integer array with
             values in $\\\\{ 0, 1, ..., c_b - 1 \\\\}$ for some $c_b > 0$.
-        matching (dict[int, set[int]] | dict[str, set[int]]): Matching between
+        matching (Matching): Matching between
             the labels of `y_a` and the labels of `y_b`. If some keys are
             strings, they must be convertible to ints. Probably generated from
             `nlnas.correction.class_otm_matching`.
@@ -182,8 +183,8 @@ def class_matching_plot(
     x, y_a, y_b = to_array(x), to_int_array(y_a), to_int_array(y_b)
     x = MinMaxScaler().fit_transform(x)
     assert isinstance(x, np.ndarray)  # for typechecking
-    m = {int(k): v for k, v in matching.items()}
-    p1, p2, p3, p4 = otm_matching_predicates(y_a, y_b, m)
+    matching = to_int_matching(matching)
+    p1, p2, p3, p4 = otm_matching_predicates(y_a, y_b, matching)
     n_true, n_matched = p1.sum(axis=1), p2.sum(axis=1)
     n_inter = (p1 & p2).sum(axis=1)
     n_miss, n_exc = p3.sum(axis=1), p4.sum(axis=1)
@@ -195,7 +196,7 @@ def class_matching_plot(
         "x_range": (-0.04, 1.04),
         "y_range": (-0.04, 1.04),
     }
-    for a, bs in m.items():
+    for a, bs in matching.items():
         n_true, n_matched = p1[a].sum(), p2[a].sum()
         n_inter = (p1[a] & p2[a]).sum()
         n_miss, n_exc = p3[a].sum(), p4[a].sum()
