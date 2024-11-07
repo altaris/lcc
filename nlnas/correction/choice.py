@@ -14,21 +14,6 @@ from tqdm import tqdm
 
 from ..utils import to_int_tensor
 
-LCC_CLASS_SELECTIONS: list[str] = [
-    # TODO: Re-enable support for non-trivial class selection policies
-    # "top_pair_1",
-    # "top_pair_5",
-    # "top_pair_10",
-    # "top_connected_2",
-    # "top_connected_5",
-    # "top_connected_10",
-    # "max_connected",
-]
-"""
-Supported non-trivial class selection policies for LCC. See
-`nlnas.correction.LCCClassSelection`.
-"""
-
 LCCClassSelection: TypeAlias = Literal[
     # "all",  # Use `None` instead
     "top_pair_1",
@@ -57,6 +42,12 @@ samples), the following are supported:
 - `max_connected`: Consider the largest connected component of the confusion
   graph (see `nlnas.correction.choice.max_connected_confusion_choice` and
   `nlnas.correction.choice.confusion_graph`).
+"""
+
+LCC_CLASS_SELECTIONS: list[str] = list(LCCClassSelection.__args__)  # type: ignore
+"""
+Supported non-trivial class selection policies for LCC. See
+`nlnas.correction.LCCClassSelection`.
 """
 
 
