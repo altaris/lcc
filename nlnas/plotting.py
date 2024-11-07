@@ -9,11 +9,11 @@ import bokeh.palettes as bkp
 import bokeh.plotting as bk
 import numpy as np
 from loguru import logger as logging
+from numpy.typing import ArrayLike
 from sklearn.preprocessing import MinMaxScaler
-from torch import Tensor
 
 from .correction import otm_matching_predicates
-from .utils import to_array
+from .utils import to_array, to_int_array
 
 BK_PALETTE_FUNCTIONS = {
     "cividis": bkp.cividis,
@@ -31,8 +31,8 @@ https://docs.bokeh.org/en/latest/docs/reference/palettes.html#functions.
 
 def class_scatter(
     figure: bk.figure,
-    x: np.ndarray | Tensor | list[float],
-    y: np.ndarray | Tensor | list[float],
+    x: ArrayLike,
+    y: ArrayLike,
     palette: bkp.Palette | list[str] | str | None = None,
     size: float = 3,
     rescale: bool = True,
@@ -75,9 +75,10 @@ def class_scatter(
     Raises:
         `ValueError` if the palette is unknown
     """
-    x, y = to_array(x), to_array(y)
+    x, y = to_array(x), to_int_array(y)
     if rescale:
         x = MinMaxScaler().fit_transform(x)
+    assert isinstance(x, np.ndarray)  # for typechecking
     n_classes = min(len(np.unique(y[y >= 0])), 256)
     if palette is None:
         palette = bkp.viridis(n_classes)
@@ -149,9 +150,9 @@ def export_png(obj: Any, filename: str | Path) -> Path:
 
 
 def class_matching_plot(
-    x: np.ndarray | Tensor | list[float],
-    y_a: np.ndarray | Tensor | list[int],
-    y_b: np.ndarray | Tensor | list[int],
+    x: ArrayLike,
+    y_a: ArrayLike,
+    y_b: ArrayLike,
     matching: dict[int, set[int]] | dict[str, set[int]],
     size: int = 400,
 ) -> bkm.GridBox:
@@ -167,10 +168,10 @@ def class_matching_plot(
         The array `x` is always rescaled to fit in the $[0, 1]$ range.
 
     Args:
-        x: (np.ndarray | Tensor | list[float]): A `(N, 2)` array
-        y_a (np.ndarray | Tensor | list[int]): A `(N,)` integer array with
+        x: (ArrayLike): A `(N, 2)` array
+        y_a (ArrayLike): A `(N,)` integer array with
             values in $\\\\{ 0, 1, ..., c_a - 1 \\\\}$ for some $c_a > 0$.
-        y_b (np.ndarray | Tensor | list[int]): A `(N,)` integer array with
+        y_b (ArrayLike): A `(N,)` integer array with
             values in $\\\\{ 0, 1, ..., c_b - 1 \\\\}$ for some $c_b > 0$.
         matching (dict[int, set[int]] | dict[str, set[int]]): Matching between
             the labels of `y_a` and the labels of `y_b`. If some keys are
@@ -178,8 +179,9 @@ def class_matching_plot(
             `nlnas.correction.class_otm_matching`.
         size (int, optional): The size of each scatter plot. Defaults to 400.
     """
-    x, y_a, y_b = to_array(x), to_array(y_a), to_array(y_b)
+    x, y_a, y_b = to_array(x), to_int_array(y_a), to_int_array(y_b)
     x = MinMaxScaler().fit_transform(x)
+    assert isinstance(x, np.ndarray)  # for typechecking
     m = {int(k): v for k, v in matching.items()}
     p1, p2, p3, p4 = otm_matching_predicates(y_a, y_b, m)
     n_true, n_matched = p1.sum(axis=1), p2.sum(axis=1)

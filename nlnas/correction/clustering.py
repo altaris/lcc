@@ -8,10 +8,11 @@ from typing import Literal
 import networkx as nx
 import numpy as np
 import torch
+from numpy.typing import ArrayLike
 from torch import Tensor
 from torch.utils.data import DataLoader
 
-from ..utils import TqdmStyle, make_tqdm, to_array, to_tensor
+from ..utils import TqdmStyle, make_tqdm, to_int_array, to_int_tensor
 
 
 def _otm_matching(
@@ -67,8 +68,8 @@ def _otm_matching(
 
 
 def _mc_cc_predicates(
-    y_true: np.ndarray | Tensor | list[int],
-    y_clst: np.ndarray | Tensor | list[int],
+    y_true: ArrayLike,
+    y_clst: ArrayLike,
     matching: dict[int, set[int]] | dict[str, set[int]],
     n_true_classes: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -86,8 +87,8 @@ def _mc_cc_predicates(
         `p_mc != ~p_cc` in general ;)
 
     Args:
-        y_true (np.ndarray | Tensor | list[int]): A `(N,)` integer array.
-        y_clst (np.ndarray | Tensor | list[int]): A `(N,)` integer array.
+        y_true (ArrayLike): A `(N,)` integer array.
+        y_clst (ArrayLike): A `(N,)` integer array.
         matching (dict[int, set[int]] | dict[str, set[int]]):
         n_true_classes (int | None, optional): Number of true classes. Useful if
             `y_true` is a slice of the real true label vector and does not
@@ -95,7 +96,7 @@ def _mc_cc_predicates(
             `None`, then `y_true` is assumed to contain all classes, and so
             `n_true_classes` defaults to `y_true.max() + 1`.
     """
-    y_true, y_clst = to_array(y_true), to_array(y_clst)
+    y_true, y_clst = to_int_array(y_true), to_int_array(y_clst)
     matching = {int(a): bs for a, bs in matching.items()}
     p1, p2, p_mc, _ = otm_matching_predicates(
         y_true, y_clst, matching, c_a=n_true_classes or int(y_true.max() + 1)
@@ -103,9 +104,7 @@ def _mc_cc_predicates(
     return p_mc, p1 & p2
 
 
-def class_otm_matching(
-    y_a: np.ndarray | Tensor | list[int], y_b: np.ndarray | Tensor | list[int]
-) -> dict[int, set[int]]:
+def class_otm_matching(y_a: ArrayLike, y_b: ArrayLike) -> dict[int, set[int]]:
     """
     Let `y_a` and `y_b` be `(N,)` integer arrays. We think of them as classes on
     some dataset, say `x`, which we call respectively *$a$-classes* and
@@ -145,14 +144,14 @@ def class_otm_matching(
         negative values either.
 
     Args:
-        y_a (np.ndarray | Tensor | list[int]): A `(N,)` integer array.
-        y_b (np.ndarray | Tensor | list[int]): A `(N,)` integer array.
+        y_a (ArrayLike): A `(N,)` integer array.
+        y_b (ArrayLike): A `(N,)` integer array.
 
     Returns:
         A dict that maps each class in `y_a` to the set of classes in `y_b` that
         it has matched.
     """
-    y_a, y_b, match_graph = to_array(y_a), to_array(y_b), nx.DiGraph()
+    y_a, y_b, match_graph = to_int_array(y_a), to_int_array(y_b), nx.DiGraph()
     for i, j in product(np.unique(y_a), np.unique(y_b)):
         if i < 0 or j < 0:
             continue
@@ -172,8 +171,8 @@ def class_otm_matching(
 
 def lcc_loss(
     z: Tensor,
-    y_true: np.ndarray | Tensor | list[int],
-    y_clst: np.ndarray | Tensor | list[int],
+    y_true: ArrayLike,
+    y_clst: ArrayLike,
     matching: dict[int, set[int]] | dict[str, set[int]],
     targets: dict[int, Tensor],
     n_true_classes: int | None = None,
@@ -218,9 +217,9 @@ def lcc_loss(
         z (Tensor): The tensor of latent representations. *Do not* mask it
             before passing it to this method.  The correctly samples and the
             missclustered samples are automatically separated.
-        y_true (np.ndarray | Tensor | list[int]): A `(N,)` integer array of true
+        y_true (ArrayLike): A `(N,)` integer array of true
             labels.
-        y_clst (np.ndarray | Tensor | list[int]): A `(N,)` integer array of the
+        y_clst (ArrayLike): A `(N,)` integer array of the
             cluster labels.
         matching (dict[int, set[int]] | dict[str, set[int]]): As produced by
             `nlnas.correction.class_otm_matching`.
@@ -234,7 +233,7 @@ def lcc_loss(
     if not targets:
         # ↓ actually need grad?
         return torch.tensor(0.0, requires_grad=True).to(z.device)
-    y_true = to_tensor(y_true)
+    y_true = to_int_tensor(y_true)
     p_mc, _ = _mc_cc_predicates(
         y_true, y_clst, matching, n_true_classes=n_true_classes
     )
@@ -253,8 +252,8 @@ def lcc_loss(
 
 def lcc_targets(
     dl: DataLoader,
-    y_true: np.ndarray | Tensor | list[int],
-    y_clst: np.ndarray | Tensor | list[int],
+    y_true: ArrayLike,
+    y_clst: ArrayLike,
     matching: dict[int, set[int]] | dict[str, set[int]],
     n_true_classes: int | None = None,
     ccspc: int = 1,
@@ -277,8 +276,8 @@ def lcc_targets(
 
     Args:
         dl (DataLoader): A dataloader over a tensor dataset.
-        y_true (np.ndarray | Tensor): A `(N,)` integer array.
-        y_clst (np.ndarray | Tensor): A `(N,)` integer array.
+        y_true (ArrayLike): A `(N,)` integer array.
+        y_clst (ArrayLike): A `(N,)` integer array.
         matching (dict[int, set[int]] | dict[str, set[int]]): Produced by
             `nlnas.correction.class_otm_matching`.
         knn_indices (dict[int, tuple[Any, Tensor]]): As produced by
@@ -318,8 +317,8 @@ def lcc_targets(
 
 
 def otm_matching_predicates(
-    y_a: np.ndarray | Tensor | list[int],
-    y_b: np.ndarray | Tensor | list[int],
+    y_a: ArrayLike,
+    y_b: ArrayLike,
     matching: dict[int, set[int]] | dict[str, set[int]],
     c_a: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -370,11 +369,11 @@ def otm_matching_predicates(
             If `None`, then `y_a` is assumed to contain all classes, and so `c_a
             = y_a.max() + 1`.
     """
+    y_a, y_b = to_int_array(y_a), to_int_array(y_b)
     if (la := len(y_a)) != (lb := len(y_b)):
         raise ValueError(
             f"y_a and y_b must have the same length, got {la} and {lb}"
         )
-    y_a, y_b = to_array(y_a), to_array(y_b)
     c_a = c_a or int(y_a.max() + 1)
     m = {int(k): v for k, v in matching.items()}
     p1 = [y_a == a for a in range(c_a)]

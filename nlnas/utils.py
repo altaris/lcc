@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 import numpy as np
 import torch
+from numpy.typing import ArrayLike
 from torch import Tensor, nn
 from tqdm import tqdm
 
@@ -131,17 +132,36 @@ def pretty_print_submodules(
         )
 
 
-def to_array(x: Any, **kwargs: Any) -> np.ndarray:
+def to_array(x: ArrayLike, **kwargs: Any) -> np.ndarray:
     """
     Converts an array-like object to a numpy array. If the input is a tensor,
-    it is detached and moved to the CPU first
+    it is detached and moved to the CPU first.
     """
     if isinstance(x, Tensor):
         return x.detach().cpu().numpy()
     return x if isinstance(x, np.ndarray) else np.array(x, **kwargs)
 
 
-def to_tensor(x: Any, **kwargs: Any) -> Tensor:
+def to_int_array(x: ArrayLike, **kwargs: Any) -> np.ndarray:
+    """
+    Converts an array-like object to a numpy array of integers. If the input is
+    a tensor, it is detached and moved to the CPU first.
+    """
+    return to_array(x, **kwargs).astype(int)
+
+
+def to_int_tensor(x: ArrayLike, **kwargs: Any) -> Tensor:
+    """
+    Converts an array-like object to a torch tensor of integers. If the input is
+    already a tensor of integers, it is returned as is. If `x` is a tensor but
+    not of integers, it is just converted to integers.
+    """
+    if isinstance(x, Tensor) and x.dtype == torch.int:
+        return x
+    return to_tensor(x, **kwargs).to(dtype=torch.int)
+
+
+def to_tensor(x: ArrayLike, **kwargs: Any) -> Tensor:
     """
     Converts an array-like object to a torch tensor. If `x` is already a tensor,
     then it is returned as is. In particular, if `x` is a tensor this method is

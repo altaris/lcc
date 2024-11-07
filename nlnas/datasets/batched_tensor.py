@@ -3,8 +3,8 @@
 from pathlib import Path
 from typing import Iterator
 
-import numpy as np
 import torch
+from numpy.typing import ArrayLike
 from safetensors import torch as st
 from torch import Tensor
 from torch.utils.data import DataLoader, IterableDataset
@@ -137,7 +137,7 @@ class BatchedTensorDataset(IterableDataset):
 
     @staticmethod
     def save(
-        x: Tensor | np.ndarray | list,
+        x: ArrayLike,
         output_dir: str | Path,
         prefix: str = "batch",
         extension: str = "st",
@@ -163,7 +163,7 @@ class BatchedTensorDataset(IterableDataset):
         adjust the batch size so that there are less than 10000 batches :]
 
         Args:
-            x (Tensor | np.ndarray | list):
+            x (ArrayLike):
             output_dir (str):
             prefix (str, optional):
             extension (str, optional): Without the first `.`. Defaults to `st`.

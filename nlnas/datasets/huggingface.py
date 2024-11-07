@@ -5,10 +5,11 @@ See `nlnas.datasets.HuggingFace` class documentation.
 from pathlib import Path
 from typing import Any, Callable, Literal
 
-import numpy as np
 from datasets import Dataset, load_dataset
+from numpy.typing import ArrayLike
 from torch import Tensor
 
+from ..utils import to_int_array
 from .wrapped import WrappedDataset
 
 DEFAULT_CACHE_DIR = Path.home() / ".cache" / "huggingface" / "datasets"
@@ -59,7 +60,7 @@ class HuggingFaceDataset(WrappedDataset):
         test_dl_kwargs: dict[str, Any] | None = None,
         predict_dl_kwargs: dict[str, Any] | None = None,
         cache_dir: Path | str = DEFAULT_CACHE_DIR,
-        classes: list | Tensor | np.ndarray | None = None,
+        classes: ArrayLike | None = None,
         label_key: str = "label",
     ) -> None:
         """
@@ -78,8 +79,8 @@ class HuggingFaceDataset(WrappedDataset):
             predict_split (str | None, optional): Name of the split containing
                 the prediction samples. If left to `None`, setting up this
                 datamodule at the `predict` stage will raise a `RuntimeError`
-            image_processor (Callable | None, optional):
-            train_dl_kwargs (dict[str, Any] | None, optional): Dataloader
+            image_processor (Callable | None, optional): train_dl_kwargs
+            (dict[str, Any] | None, optional): Dataloader
                 parameters. See also https://pytorch.org/docs/stable/data.html.
             val_dl_kwargs (dict[str, Any] | None, optional): Dataloader
                 parameters.
@@ -91,7 +92,7 @@ class HuggingFaceDataset(WrappedDataset):
                 Hugging Face `datasets` package will download the dataset files.
                 This should not be a temporary directory and be consistent
                 between runs.
-            classes (list | Tensor | np.ndarray | None, optional): List of
+            classes (ArrayLike | None, optional): List of
                 classes to keep. For example if `classes=[1, 2]`, only those
                 samples whose label is `1` or `2` will be present in the
                 dataset. If `None`, all classes are kept. Note that this only
@@ -100,6 +101,8 @@ class HuggingFaceDataset(WrappedDataset):
             label_key (str, optional): Name of the column containing the
                 label. Only relevant if `classes` is not `None`.
         """
+
+        classes = classes if classes is None else to_int_array(classes)
 
         def ds_split_factory(
             split: str, apply_filter: bool = True

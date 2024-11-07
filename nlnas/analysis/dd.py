@@ -7,9 +7,9 @@ import bokeh.plotting as bk
 import numpy as np
 from joblib import Parallel, delayed
 from loguru import logger as logging
+from numpy.typing import ArrayLike
 from scipy.spatial.distance import cdist
 from scipy.stats import chi
-from torch import Tensor
 
 from ..utils import to_array
 
@@ -29,8 +29,8 @@ def _batch_dh(
 
 
 def distance_distribution(
-    a: np.ndarray | Tensor | list[float],
-    b: np.ndarray | Tensor | list[float] | None = None,
+    a: ArrayLike,
+    b: ArrayLike | None = None,
     batch_size: int = 1024,
     resolution: int = 500,
     interval: tuple[float, float] = (0.0, 2.5),
@@ -85,8 +85,8 @@ def distance_distribution(
 
 
 def distance_distribution_plot(
-    hist: np.ndarray | Tensor | list[float],
-    edges: np.ndarray | Tensor | list[float],
+    hist: ArrayLike,
+    edges: ArrayLike,
     n_dims: int | None = None,
     height: int = 500,
     x_range: tuple[int, int] | None = None,

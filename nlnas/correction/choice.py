@@ -7,11 +7,12 @@ from typing import Literal, TypeAlias
 import networkx as nx
 import numpy as np
 from loguru import logger as logging
+from numpy.typing import ArrayLike
 from torch import Tensor
 from torchmetrics.functional.classification import multiclass_confusion_matrix
 from tqdm import tqdm
 
-from ..utils import to_tensor
+from ..utils import to_int_tensor
 
 LCC_CLASS_SELECTIONS: list[str] = [
     # TODO: Re-enable support for non-trivial class selection policies
@@ -67,10 +68,7 @@ class GraphTotallyDisconnected(ValueError):
 
 
 def confusion_graph(
-    y_pred: Tensor | np.ndarray | list[int],
-    y_true: Tensor | np.ndarray | list[int],
-    n_classes: int,
-    threshold: int = 10,
+    y_pred: ArrayLike, y_true: ArrayLike, n_classes: int, threshold: int = 10
 ) -> nx.Graph:
     """
     Create a confusion graph from predicted and true labels. Two labels $a$ and
@@ -81,9 +79,9 @@ def confusion_graph(
     labels are confused for each other.
 
     Args:
-        y_pred (Tensor | np.ndarray): A `(N,)` int tensor or an `(N, n_classes)`
+        y_pred (ArrayLike): A `(N,)` int tensor or an `(N, n_classes)`
             probabilities/logits float tensor
-        y_true (Tensor | np.ndarray): A `(N,)` int tensor
+        y_true (ArrayLike): A `(N,)` int tensor
         n_classes (int):
         threshold (int, optional): Minimum number of times two classes must be
             confused (in either direction) to be included in the graph.
@@ -92,7 +90,7 @@ def confusion_graph(
         There are no loops, i.e. correct predictions are not reported in the
         graph unlike in usual confusion matrices.
     """
-    y_pred, y_true = to_tensor(y_pred), to_tensor(y_true)
+    y_pred, y_true = to_int_tensor(y_pred), to_int_tensor(y_true)
     cm = multiclass_confusion_matrix(y_pred, y_true, num_classes=n_classes)
     cm = cm + cm.T  # Confusion in either direction
     cg = nx.Graph()
@@ -103,8 +101,8 @@ def confusion_graph(
 
 
 def choose_classes(
-    y_true: Tensor | np.ndarray | list[int],
-    y_pred: Tensor | np.ndarray | list[int],
+    y_true: ArrayLike,
+    y_pred: ArrayLike,
     policy: LCCClassSelection | Literal["all"] | None = None,
 ) -> list[int] | None:
     """
@@ -119,7 +117,7 @@ def choose_classes(
         than `N` elements. For example, this happens when there are fewer than
         `N` classes in the dataset.
     """
-    y_true, y_pred = to_tensor(y_true), to_tensor(y_pred)
+    y_true, y_pred = to_int_tensor(y_true), to_int_tensor(y_pred)
     if policy is None:
         return None
     if policy == "all":
@@ -243,8 +241,8 @@ def total_weight(graph: nx.Graph, key: str = "weight") -> int:
 
 
 def max_connected_confusion_choice(
-    y_pred: Tensor | np.ndarray | list[int],
-    y_true: Tensor | np.ndarray | list[int],
+    y_pred: ArrayLike,
+    y_true: ArrayLike,
     n_classes: int,
     n: int | None = None,
     threshold: int = 0,
@@ -274,8 +272,8 @@ def max_connected_confusion_choice(
 
 
 def top_confusion_pairs(
-    y_pred: Tensor | np.ndarray | list[int],
-    y_true: Tensor | np.ndarray | list[int],
+    y_pred: ArrayLike,
+    y_true: ArrayLike,
     n_classes: int,
     n_pairs: int | None = None,
     threshold: int = 0,
@@ -306,7 +304,7 @@ def top_confusion_pairs(
         The top `n_pairs` pairs **or less** of labels that exhibit the most
         confusion.
     """
-    y_pred, y_true = to_tensor(y_pred), to_tensor(y_true)
+    y_pred, y_true = to_int_tensor(y_pred), to_int_tensor(y_true)
     cm = multiclass_confusion_matrix(y_pred, y_true, n_classes).numpy()
     cm = cm + cm.T  # Confusion in either direction
     cm = cm * (1 - np.eye(len(cm)))  # Remove the diagonal

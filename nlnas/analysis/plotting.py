@@ -5,7 +5,7 @@ from pathlib import Path
 import bokeh.layouts as bkl
 import bokeh.plotting as bk
 import numpy as np
-from torch import Tensor
+from numpy.typing import ArrayLike
 from tqdm import tqdm
 
 from ..plotting import (
@@ -14,12 +14,13 @@ from ..plotting import (
     export_png,
     make_same_xy_range,
 )
+from ..utils import to_int_array
 
 
 def louvain_clustering_plots(
-    z: np.ndarray | Tensor | list[float],
-    y_true: np.ndarray | Tensor | list[int],
-    y_louvain: np.ndarray | Tensor | list[int],
+    z: ArrayLike,
+    y_true: ArrayLike,
+    y_louvain: ArrayLike,
     matching: dict[int, set[int]],
     k: int,
     output_dir: Path,
@@ -58,9 +59,7 @@ def louvain_clustering_plots(
 
 
 def plot_latent_samples(
-    e: dict[str, np.ndarray],
-    y_true: Tensor | np.ndarray | list[int],
-    output_dir: Path,
+    e: dict[str, np.ndarray], y_true: ArrayLike, output_dir: Path
 ) -> dict[str, bk.figure]:
     """
     (Used as a step in `analyse_ckpt`) Plots UMAP embeddings of latent samples.
@@ -75,7 +74,7 @@ def plot_latent_samples(
     Returns:
         A dict of bokeh figures. The keys are the same as `e`.
     """
-    y_true, figures = np.array(y_true), {}
+    y_true, figures = to_int_array(y_true), {}
     progress = tqdm(e.items(), desc="UMAP plotting")
     for k, v in progress:
         progress.set_postfix({"submodule": k})

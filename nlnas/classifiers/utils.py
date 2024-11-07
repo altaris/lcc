@@ -8,16 +8,13 @@ from typing import Any, Iterator
 import numpy as np
 import pytorch_lightning as pl
 import torch
-from torch import Tensor
+from numpy.typing import ArrayLike
 
 from ..correction import LCC_CLASS_SELECTIONS
 from ..utils import to_array
 
 
-def inflate_vector(
-    v: np.ndarray | Tensor | list[float],
-    mask: np.ndarray | Tensor | list[bool],
-) -> np.ndarray:
+def inflate_vector(v: ArrayLike, mask: ArrayLike) -> np.ndarray:
     """
     Say `v` has shape (n_a,) while `mask` has shape (n_b,). This function
     "inflates" `v` into a vector `w` of shape (n_b,) such that `v = w[mask]`.
