@@ -12,7 +12,7 @@ from torch import Tensor, nn
 from torch.utils.hooks import RemovableHandle
 from torchmetrics.functional.classification import multiclass_accuracy
 
-from nlnas.correction.clustering import lcc_loss
+from nlnas.correction import lcc_loss
 
 from ..correction.utils import Matching
 from ..utils import (

@@ -12,11 +12,10 @@ from .choice import (
 )
 from .clustering import (
     class_otm_matching,
-    lcc_loss,
-    lcc_targets,
     otm_matching_predicates,
 )
 from .louvain import louvain_communities
+from .targets import lcc_loss, lcc_targets
 
 __all__ = [
     "choose_classes",
