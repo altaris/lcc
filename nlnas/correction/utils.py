@@ -1,6 +1,8 @@
 """Some random utilities"""
 
-Matching = (
+from typing import TypeAlias
+
+Matching: TypeAlias = (
     dict[int, set[int]]
     | dict[str, set[int]]
     | dict[int, set[str]]

@@ -2,7 +2,7 @@
 
 import os
 from functools import partial
-from typing import Any, Literal
+from typing import Any, Literal, TypeAlias
 
 import numpy as np
 import torch
@@ -10,7 +10,7 @@ from numpy.typing import ArrayLike
 from torch import Tensor, nn
 from tqdm import tqdm
 
-TqdmStyle = Literal["notebook", "console", "none"] | None
+TqdmStyle: TypeAlias = Literal["notebook", "console", "none"] | None
 """Type alias for supported TQDM styles of `make_tqdm`."""
 
 
