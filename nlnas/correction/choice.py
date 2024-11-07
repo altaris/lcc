@@ -206,7 +206,7 @@ def heaviest_connected_subgraph(
         graph.edges(data=True), key=lambda e: e[2][key], reverse=True
     )
     subgraphs = []
-    for u, v, _ in tqdm(edges, desc="Finding heaviest subgraph", leave=False):
+    for u, v, _ in tqdm(edges, desc="Finding heaviest subgraph"):
         if not subgraphs:
             subgraphs.append(graph.subgraph([u, v]))
             continue

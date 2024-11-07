@@ -1,11 +1,16 @@
 """Useful stuff."""
 
 import os
-from typing import Any, Callable, Literal
+from functools import partial
+from typing import Any, Literal
 
 import numpy as np
 import torch
 from torch import Tensor, nn
+from tqdm import tqdm
+
+TqdmStyle = Literal["notebook", "console", "none"] | None
+"""Type alias for supported TQDM styles of `make_tqdm`."""
 
 
 def check_cuda(
@@ -44,35 +49,32 @@ def get_reasonable_n_jobs() -> int:
     return int(n * 2 / 3)
 
 
-def make_tqdm(
-    style: Literal["notebook", "console", "none"] | None = "console",
-) -> Callable:
+def make_tqdm(style: TqdmStyle = "console") -> tqdm:
     """
-    Returns the appropriate tqdm factory function based on the style. Note that
-    if the style is `"none"` or `None`, a fake tqdm function is returned that is
-    just the identity function. In particular, the usual `tqdm` methods like
-    `set_postfix` cannot be used.
+    Returns the appropriate tqdm factory function based on the style.
 
     Args:
-        style (Literal['notebook', 'console', 'none'] | None, optional):
-            Defaults to "console".
+        style (TqdmStyle, optional): Defaults to "console".
     """
 
-    def _fake_tqdm(x: Any, *_: Any, **__: Any) -> Any:
-        return x
-
     if style is None or style == "none":
-        f = _fake_tqdm
+        from tqdm import tqdm as _tqdm
+
+        _tqdm = partial(_tqdm, disable=True, leave=False)
     elif style == "console":
-        from tqdm import tqdm as f  # type: ignore
+        from tqdm import tqdm as _tqdm
+
+        _tqdm = partial(_tqdm, leave=False)
     elif style == "notebook":
-        from tqdm.notebook import tqdm as f  # type: ignore
+        from tqdm.notebook import tqdm as _tqdm
+
+        _tqdm = partial(_tqdm, leave=False)
     else:
         raise ValueError(
             f"Unknown TQDM style '{style}'. Available styles are 'notebook', "
             "'console', or None"
         )
-    return f
+    return _tqdm
 
 
 def pretty_print_submodules(

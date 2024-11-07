@@ -1,7 +1,7 @@
 """See the `nlnas.datasets.BatchedTensorDataset` class documentation."""
 
 from pathlib import Path
-from typing import Iterator, Literal
+from typing import Iterator
 
 import numpy as np
 import torch
@@ -9,7 +9,7 @@ from safetensors import torch as st
 from torch import Tensor
 from torch.utils.data import DataLoader, IterableDataset
 
-from ..utils import make_tqdm, to_tensor
+from ..utils import TqdmStyle, make_tqdm, to_tensor
 
 
 class _ProjectionDataset(IterableDataset):
@@ -104,7 +104,7 @@ class BatchedTensorDataset(IterableDataset):
 
         a, b = _ProjectionDataset(self, 0), _ProjectionDataset(self, 1)
         dl = DataLoader(b, batch_size=256, num_workers=1)
-        dl = tqdm(dl, "Extracting indices", leave=False)
+        dl = tqdm(dl, "Extracting indices")
         # TODO: setting num_workers to > 1 makes the index tensor n_workers
         # times too long... problem with tqdm?
         return a, torch.cat(list(dl), dim=0)
@@ -113,7 +113,7 @@ class BatchedTensorDataset(IterableDataset):
         self,
         batch_size: int = 256,
         num_workers: int = 0,
-        tqdm_style: Literal["notebook", "console", "none"] | None = None,
+        tqdm_style: TqdmStyle = None,
     ) -> tuple[Tensor, Tensor]:
         """
         Loads a batched tensor in one go. See `BatchedTensorDataset.save`.
@@ -123,7 +123,7 @@ class BatchedTensorDataset(IterableDataset):
                 actual result.
             num_workers (int, optional): Defaults to 0, meaning single-process
                 data loading.
-            tqdm_style (Literal['notebook', 'console', 'none'] | None,
+            tqdm_style (TqdmStyle,
                 optional):
 
         Returns:
@@ -131,7 +131,7 @@ class BatchedTensorDataset(IterableDataset):
             is `(N,)` int tensor.
         """
         dl = DataLoader(self, batch_size=batch_size, num_workers=num_workers)
-        u = make_tqdm(tqdm_style)(dl, "Loading", leave=False)
+        u = make_tqdm(tqdm_style)(dl, "Loading")
         v = list(zip(*u))
         return torch.cat(v[0], dim=0), torch.cat(v[1], dim=0)
 
@@ -143,7 +143,7 @@ class BatchedTensorDataset(IterableDataset):
         extension: str = "st",
         key: str = "",
         batch_size: int = 256,
-        tqdm_style: Literal["notebook", "console", "none"] | None = None,
+        tqdm_style: TqdmStyle = None,
     ) -> None:
         """
         Saves a tensor in batches of `batch_size` elements. The files will be
@@ -172,12 +172,11 @@ class BatchedTensorDataset(IterableDataset):
                 dictionaries.  This arg specifies which key contains the data of
                 interest. Cannot be `"_idx"`.
             batch_size (int, optional): Defaults to $256$.
-            tqdm_style (Literal["notebook", "console", "none"] | None,
+            tqdm_style (TqdmStyle,
                 optional): Progress bar style.
         """
         batches = to_tensor(x).split(batch_size)
-        t = make_tqdm(tqdm_style)
-        for i, batch in enumerate(t(batches, "Saving", leave=False)):
+        for i, batch in enumerate(make_tqdm(tqdm_style)(batches, "Saving")):
             data = {
                 key: batch,
                 "_idx": torch.arange(i * batch_size, (i + 1) * batch_size),

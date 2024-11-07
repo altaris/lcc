@@ -4,7 +4,6 @@ This module revolves around the implementation of
 """
 
 from pathlib import Path
-from typing import Literal
 from uuid import uuid4
 
 import torch
@@ -21,9 +20,7 @@ from ..correction import (
     louvain_communities,
 )
 from ..datasets import BatchedTensorDataset
-from ..utils import (
-    make_tqdm,
-)
+from ..utils import TqdmStyle, make_tqdm
 from .base import BaseClassifier, LatentClusteringData
 
 
@@ -32,7 +29,7 @@ def _fde_pca(
     dl: DataLoader,
     output_dir: str | Path,
     pca_dim: dict[str, int | None],
-    tqdm_style: Literal["notebook", "console", "none"] | None = None,
+    tqdm_style: TqdmStyle = None,
 ) -> None:
     """
     `full_dataset_evaluation` in the case where PCA dim-redux has to be applied.
@@ -62,7 +59,7 @@ def _fde_pca(
     output_dir.mkdir(parents=True, exist_ok=True)
     with torch.no_grad():
         model.eval()
-        for batch in tqdm(dl, f"[Rank {rank}] Fitting PCA(s)", leave=False):
+        for batch in tqdm(dl, f"[Rank {rank}] Fitting PCA(s)"):
             data: dict[str, Tensor] = {}
             model.forward_intermediate(
                 inputs=batch[model.hparams["image_key"]],
@@ -73,7 +70,7 @@ def _fde_pca(
             for sm, z in data.items():
                 if sm in pcas:
                     pcas[sm].partial_fit(z.flatten(1))
-        for batch in tqdm(dl, f"[Rank {rank}] Evaluating", leave=False):
+        for batch in tqdm(dl, f"[Rank {rank}] Evaluating"):
             data = {}
             y_pred = model.forward_intermediate(
                 inputs=batch[model.hparams["image_key"]],
@@ -102,7 +99,7 @@ def _fde_no_pca(
     model: BaseClassifier,
     dl: DataLoader,
     output_dir: str | Path,
-    tqdm_style: Literal["notebook", "console", "none"] | None = None,
+    tqdm_style: TqdmStyle = None,
 ) -> None:
     """
     `full_dataset_evaluation` in the case where no PCA dim-redux is to be
@@ -114,7 +111,7 @@ def _fde_no_pca(
     output_dir.mkdir(parents=True, exist_ok=True)
     with torch.no_grad():
         model.eval()
-        for batch in tqdm(dl, f"[Rank {rank}] Evaluating", leave=False):
+        for batch in tqdm(dl, f"[Rank {rank}] Evaluating"):
             data: dict[str, Tensor] = {}
             y_pred = model.forward_intermediate(
                 inputs=batch[model.hparams["image_key"]],
@@ -140,7 +137,7 @@ def _fde_no_pca(
 def _fdlc_r0(
     model: BaseClassifier,
     output_dir: str | Path,
-    tqdm_style: Literal["notebook", "console", "none"] | None = None,
+    tqdm_style: TqdmStyle = None,
 ) -> dict[str, LatentClusteringData]:
     """
     Full dataset latent clustering, to only be executed on rank 0. It is assumed
@@ -153,8 +150,9 @@ def _fdlc_r0(
     lcc_data: dict[str, LatentClusteringData] = {}
     lcc_kwargs = model.hparams.get("lcc_kwargs", {})
 
-    tqdm = make_tqdm(tqdm_style)
-    for sm in tqdm(model.lcc_submodules, "Clustering", leave=False):
+    progress = make_tqdm(tqdm_style)(model.lcc_submodules, "Clustering")
+    for sm in progress:
+        progress.set_postfix(submodule=sm)
         ds, idx = BatchedTensorDataset(output_dir, prefix=sm).extract_idx()
         dl = DataLoader(ds, batch_size=256)
         _, y_clst = louvain_communities(
@@ -192,7 +190,7 @@ def full_dataloader_evaluation(
     dl: DataLoader,
     output_dir: str | Path,
     pca_dim: int | dict[str, int | None] | None = None,
-    tqdm_style: Literal["notebook", "console", "none"] | None = None,
+    tqdm_style: TqdmStyle = None,
 ) -> None:
     """
     Evaluate model on whole dataset and saves latent representations and
@@ -217,7 +215,7 @@ def full_dataloader_evaluation(
             becomes necessary to iterate over the dataset twice, which more than
             doubles the execution time of this method. It is possible to specify
             a PCA dimension for each or some of the latent spaces.
-        tqdm_style (Literal['notebook', 'console', 'none'] | None, optional):
+        tqdm_style (TqdmStyle, optional):
             Defaults to `None`, mearning no progress bar.
     """
     if pca_dim is None:
@@ -243,7 +241,7 @@ def full_dataloader_evaluation(
 def full_dataset_latent_clustering(
     model: BaseClassifier,
     output_dir: str | Path,
-    tqdm_style: Literal["notebook", "console", "none"] | None = None,
+    tqdm_style: TqdmStyle = None,
 ) -> dict[str, LatentClusteringData]:
     """
     Distributed full train dataset latent clustering. Each rank evaluates part
@@ -263,7 +261,7 @@ def full_dataset_latent_clustering(
     Args:
         model (BaseClassifier):
         output_dir (str | Path):
-        tqdm_style (Literal['notebook', 'console', 'none'] | None, optional):
+        tqdm_style (TqdmStyle, optional):
 
     Returns:
         A dictionary that maps a submodule name to its latent clustering data,

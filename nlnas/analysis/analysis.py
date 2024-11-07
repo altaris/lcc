@@ -110,9 +110,7 @@ def analyse_ckpt(
         )
 
     # LOUVAIN CLUSTERING FOR EACH LATENT SPACE
-    progress = tqdm(
-        outputs["z"].items(), desc="Louvain clustering", leave=False
-    )
+    progress = tqdm(outputs["z"].items(), desc="Louvain clustering")
     for sm, z in progress:
         progress.set_postfix({"submodule": sm})
 
@@ -170,7 +168,7 @@ def analyse_training(
     )
     ckpts = all_checkpoint_paths(output_dir)
     logging.debug("Found {} checkpoints", len(ckpts))
-    progress = tqdm(ckpts, desc="Analysing checkpoints", leave=False)
+    progress = tqdm(ckpts, desc="Analysing checkpoints")
     for i, p in enumerate(progress):
         analyse_ckpt(
             model=p,
@@ -198,7 +196,7 @@ def analyse_training(
                 "acc_miss",
             ]
         )
-        progress = tqdm(ckpt_an_dir, desc="Collecting metrics", leave=False)
+        progress = tqdm(ckpt_an_dir, desc="Collecting metrics")
         for epoch, path in enumerate(progress):
             progress.set_postfix({"epoch": epoch})
             evaluations = tb.load_json(path / "eval" / "eval.json")
@@ -286,7 +284,7 @@ def embed_latent_samples(
     else:
         from umap import UMAP
     embeddings = {}
-    progress = tqdm(z.items(), desc="UMAP embedding", leave=False)
+    progress = tqdm(z.items(), desc="UMAP embedding")
     for k, v in progress:
         progress.set_postfix({"submodule": k})
         t = UMAP(n_components=2, metric="euclidean")

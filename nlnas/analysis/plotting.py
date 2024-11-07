@@ -76,7 +76,7 @@ def plot_latent_samples(
         A dict of bokeh figures. The keys are the same as `e`.
     """
     y_true, figures = np.array(y_true), {}
-    progress = tqdm(e.items(), desc="UMAP plotting", leave=False)
+    progress = tqdm(e.items(), desc="UMAP plotting")
     for k, v in progress:
         progress.set_postfix({"submodule": k})
         figure = bk.figure(title=k, toolbar_location=None)

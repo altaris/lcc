@@ -2,7 +2,7 @@
 
 import warnings
 from collections import defaultdict
-from typing import Any, Iterator, Literal
+from typing import Any, Iterator
 
 import faiss
 import faiss.contrib.torch_utils
@@ -11,7 +11,7 @@ import numpy as np
 from torch import Tensor
 from torch.utils.data import DataLoader
 
-from ..utils import check_cuda, make_tqdm, to_array
+from ..utils import TqdmStyle, check_cuda, make_tqdm, to_array
 
 
 def _louvain_or_leiden(graph: nx.Graph, device: Any = None) -> list[set[int]]:
@@ -49,7 +49,7 @@ def louvain_communities(
     dl: DataLoader,
     k: int,
     device: Any = "cpu",
-    tqdm_style: Literal["notebook", "console", "none"] | None = None,
+    tqdm_style: TqdmStyle = None,
 ) -> tuple[list[set[int]], np.ndarray]:
     """
     Returns louvain communities of a set of points, iterated through a torch
@@ -64,7 +64,7 @@ def louvain_communities(
         device (Any, optional): If left to `None`, uses CUDA if it is available,
             otherwise falls back to CPU. Setting `cuda` while CUDA isn't
             available will **silently** fall back to CPU.
-        tqdm_style (Literal['notebook', 'console', 'none'] | None, optional):
+        tqdm_style (TqdmStyle, optional):
 
     Returns:
         1. (`list[set[int]]`) The actual louvain communities, which is a
@@ -77,7 +77,7 @@ def louvain_communities(
 
     def _batches(desc: str | None = None) -> Iterator[Tensor]:  # shorthand
         if desc:
-            everything = make_tqdm(tqdm_style)(dl, desc, leave=False)
+            everything = make_tqdm(tqdm_style)(dl, desc)
         else:
             everything = dl
         for x in everything:
@@ -88,12 +88,12 @@ def louvain_communities(
     n_features = z.shape[-1]
 
     index = faiss.IndexHNSWFlat(n_features, k)
-    for batch in _batches(f"Building KNN index (k={k})"):
+    for batch in _batches(f"Building KNN index ({k=})"):
         u = to_array(batch).astype(np.float32)
         index.add(u)
 
     graph, n = nx.DiGraph(), 0
-    for batch in _batches(f"Building KNN graph (k={k})"):
+    for batch in _batches(f"Building KNN graph ({k=})"):
         u = to_array(batch).astype(np.float32)
         dst, idx = index.search(u, k + 1)
         for j, all_i, all_d in zip(range(len(idx)), idx, dst):

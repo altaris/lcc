@@ -11,7 +11,7 @@ import torch
 from torch import Tensor
 from torch.utils.data import DataLoader
 
-from ..utils import make_tqdm, to_array, to_tensor
+from ..utils import TqdmStyle, make_tqdm, to_array, to_tensor
 
 
 def _otm_matching(
@@ -258,7 +258,7 @@ def lcc_targets(
     matching: dict[int, set[int]] | dict[str, set[int]],
     n_true_classes: int | None = None,
     ccspc: int = 1,
-    tqdm_style: Literal["notebook", "console", "none"] | None = None,
+    tqdm_style: TqdmStyle = None,
 ) -> dict[int, Tensor]:
     """
     Provides the correction targets for misclustered samples in `z`. In more
@@ -290,7 +290,7 @@ def lcc_targets(
             `n_true_classes` defaults to `y_true.max() + 1`.
         ccspc (int, optional): Maximum number of correctly clustered samples to
             collect per cluster.
-        tqdm_style (Literal["notebook", "console", "none"] | None, optional):
+        tqdm_style (TqdmStyle, optional):
     """
     matching = {int(k): v for k, v in matching.items()}
     _, p_cc = _mc_cc_predicates(y_true, y_clst, matching, n_true_classes)
@@ -302,9 +302,10 @@ def lcc_targets(
             indices[i_true] += ccids
     n_seen, n_todo = 0, sum(len(v) for v in indices.values())
     result: dict[int, list[Tensor]] = defaultdict(list)
-    for batch in make_tqdm(tqdm_style)(
-        dl, "Finding correction targets", leave=False
-    ):
+    progress = make_tqdm(tqdm_style)(
+        dl, "Finding correction targets ({ccspc=})"
+    )
+    for batch in progress:
         for i_true, idxs in indices.items():
             lst = [idx for idx in idxs if n_seen <= idx < n_seen + len(batch)]
             for idx in lst:
