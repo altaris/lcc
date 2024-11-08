@@ -22,17 +22,18 @@ from torch.utils.data import DataLoader
 from ...utils import TqdmStyle, make_tqdm, to_int_array, to_int_tensor
 from ..clustering import otm_matching_predicates
 from ..utils import Matching, to_int_matching
+from .base import LCCLoss
 
 
-class RandomizedLCCLoss:
+class RandomizedLCCLoss(LCCLoss):
     """
     A LCC loss function that pulls misclustered samples towards a CC sample in
     the same class.
 
     In principle, this implies some sort of exhaustive search since a MC sample
     has to be compared to *every* CC sample in the same class. To save on
-    compute and tome, only a few CC samples are randomly selected in each cluster and
-    used as potential targets.
+    compute and tome, only a few CC samples are randomly selected in each
+    cluster and used as potential targets.
     """
 
     ccspc: int
@@ -108,8 +109,8 @@ class RandomizedLCCLoss:
         ccspc: int = 1,
         tqdm_style: TqdmStyle = None,
     ) -> None:
-        self.n_classes = n_classes
-        self.ccspc = ccspc
+        super().__init__()
+        self.n_classes, self.ccspc = n_classes, ccspc
         self.tqdm_style = tqdm_style
 
     def update(
