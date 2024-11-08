@@ -19,9 +19,9 @@ from numpy.typing import ArrayLike
 from torch import Tensor
 from torch.utils.data import DataLoader
 
-from ..utils import TqdmStyle, make_tqdm, to_int_array, to_int_tensor
-from .clustering import otm_matching_predicates
-from .utils import Matching, to_int_matching
+from ...utils import TqdmStyle, make_tqdm, to_int_array, to_int_tensor
+from ..clustering import otm_matching_predicates
+from ..utils import Matching, to_int_matching
 
 
 class RandomizedLCCLoss:
@@ -120,10 +120,6 @@ class RandomizedLCCLoss:
         matching: Matching,
     ) -> None:
         """
-        ONLY CALL THIS ON A RANK 0. Then `sync` this object.
-
-        TODO: Can actually be parallelized.
-
         This method updates the `targets` attribute of this instance. It is a
         dict containing the following:
         - the keys are *among* true classes (unique values of `y_true`); let's
@@ -136,6 +132,10 @@ class RandomizedLCCLoss:
         Under the hood, this method first choose the samples by their index
         based on the "correctly clustered" predicate of `_mc_cc_predicates`.
         Then, the whole dataset is iterated to collect the actual samples.
+
+        Warning:
+            This method should only be called in one rank, and then this object
+            should be broadcasted to the other ranks.
 
         Args:
             dl (DataLoader): A dataloader over a tensor dataset.
