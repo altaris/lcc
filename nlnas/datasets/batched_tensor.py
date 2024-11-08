@@ -93,18 +93,18 @@ class BatchedTensorDataset(IterableDataset):
             for z, i in zip(data[self.key], data["_idx"]):
                 yield z, i
 
-    def extract_idx(self) -> tuple[IterableDataset, Tensor]:
+    def extract_idx(
+        self, tqdm_style: TqdmStyle = None
+    ) -> tuple[IterableDataset, Tensor]:
         """
         Splits this dataset in two. The first one yeilds the data, the second
         one yields the indices. Then, the index dataset is unrolled into a
         single index tensor (which therefore has shape `(N,)`, where `N` is the
         shape of the dataset).
         """
-        from tqdm import tqdm
-
         a, b = _ProjectionDataset(self, 0), _ProjectionDataset(self, 1)
         dl = DataLoader(b, batch_size=256, num_workers=1)
-        dl = tqdm(dl, "Extracting indices")
+        dl = make_tqdm(tqdm_style)(dl, "Extracting indices")
         # TODO: setting num_workers to > 1 makes the index tensor n_workers
         # times too long... problem with tqdm?
         return a, torch.cat(list(dl), dim=0)
