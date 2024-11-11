@@ -37,7 +37,7 @@ class RandomizedLCCLoss(LCCLoss):
     """
 
     ccspc: int
-    n_classes: int | None
+    n_classes: int
     targets: dict[int, Tensor] = {}
     tqdm_style: TqdmStyle
     matching: Matching
@@ -70,13 +70,6 @@ class RandomizedLCCLoss(LCCLoss):
                 missclustered samples are automatically separated.
             y_true (ArrayLike): A `(N,)` integer array of true labels.
             y_clst (ArrayLike): A `(N,)` integer array of the cluster labels.
-            matching (Matching): As produced by
-                `nlnas.correction.class_otm_matching`.
-            targets (dict[int, Tensor]): As produced by
-                `nlnas.correction.lcc_targets`.
-            n_classes (int | None, optional): Number of true classes. Useful if
-                `y_true` is a slice of the actual true label vector and does not
-                contain all the possible true classes.
         """
         z = z.flatten(1)
         if not self.targets:
@@ -104,10 +97,7 @@ class RandomizedLCCLoss(LCCLoss):
         return torch.concat(losses).mean()
 
     def __init__(
-        self,
-        n_classes: int | None = None,
-        ccspc: int = 1,
-        tqdm_style: TqdmStyle = None,
+        self, n_classes: int, ccspc: int = 1, tqdm_style: TqdmStyle = None
     ) -> None:
         super().__init__()
         self.n_classes, self.ccspc = n_classes, ccspc

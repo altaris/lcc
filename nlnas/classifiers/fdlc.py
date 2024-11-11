@@ -10,10 +10,9 @@ import torch
 import torch.distributed
 from safetensors import torch as st
 from torch import Tensor
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, IterableDataset
 
-from ..correction import class_otm_matching, louvain_communities
-from ..correction.loss import RandomizedLCCLoss
+from ..correction import ExactLCCLoss, class_otm_matching, louvain_communities
 from ..datasets import BatchedTensorDataset
 from ..utils import TqdmStyle, make_tqdm
 from .base import BaseClassifier, LatentClusteringData
@@ -143,7 +142,8 @@ def _fdlc_r0(
     progress = make_tqdm(tqdm_style)(model.lcc_submodules, "Clustering")
     for sm in progress:
         progress.set_postfix(submodule=sm)
-        ds, idx = BatchedTensorDataset(output_dir, prefix=sm).extract_idx()
+        ds: IterableDataset = BatchedTensorDataset(output_dir, prefix=sm)
+        ds, idx = ds.extract_idx(tqdm_style)  # type: ignore  # i know what i'm doing
         dl = DataLoader(ds, batch_size=256)
         _, y_clst = louvain_communities(
             dl,
@@ -153,9 +153,14 @@ def _fdlc_r0(
         )
         _y_true = y_true[idx]  # Match the order of y_clst
         matching = class_otm_matching(_y_true, y_clst)
-        loss = RandomizedLCCLoss(
+        # loss = RandomizedLCCLoss(
+        #     n_classes=model.hparams["n_classes"],
+        #     ccspc=lcc_kwargs.get("ccspc", 1),
+        #     tqdm_style=tqdm_style,
+        # )
+        loss = ExactLCCLoss(
             n_classes=model.hparams["n_classes"],
-            ccspc=lcc_kwargs.get("ccspc", 1),
+            k=lcc_kwargs.get("k", 5),
             tqdm_style=tqdm_style,
         )
         loss.update(dl, _y_true, y_clst, matching)

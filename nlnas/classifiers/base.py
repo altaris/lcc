@@ -12,7 +12,7 @@ from torch import Tensor, nn
 from torch.utils.hooks import RemovableHandle
 from torchmetrics.functional.classification import multiclass_accuracy
 
-from nlnas.correction import RandomizedLCCLoss
+from nlnas.correction import LCCLoss
 
 from ..utils import (
     to_array,
@@ -33,7 +33,7 @@ class LatentClusteringData:
     given latent space.
     """
 
-    loss: RandomizedLCCLoss
+    loss: LCCLoss
     """
     The actual LCC loss object (which is callable) that compute the LCC loss for
     LCC correction.

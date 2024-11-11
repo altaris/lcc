@@ -84,7 +84,6 @@ def louvain_communities(
             yield x.flatten(1).to(device)
 
     z = next(_batches())
-    z = z.flatten(1)
     n_features = z.shape[-1]
 
     index = faiss.IndexHNSWFlat(n_features, k)
