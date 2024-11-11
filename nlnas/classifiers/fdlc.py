@@ -102,7 +102,6 @@ def _fde_no_pca(
     arguments.
     """
     rank = model.trainer.global_rank
-    print("RANK", rank)
     output_dir, tqdm = Path(output_dir), make_tqdm(tqdm_style)
     output_dir.mkdir(parents=True, exist_ok=True)
     with torch.no_grad():
