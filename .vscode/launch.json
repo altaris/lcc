@@ -5,10 +5,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug current file (1 GPU)",
+            "name": "Debug (1 GPU)",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}",
+            "program": "debug.py",
             "console": "integratedTerminal",
             "justMyCode": false,
             "env": {
@@ -16,10 +16,10 @@
             }
         },
         {
-            "name": "Debug current file (CPU)",
+            "name": "Debug (CPU)",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}",
+            "program": "debug.py",
             "console": "integratedTerminal",
             "justMyCode": false,
             "env": {
@@ -27,10 +27,10 @@
             }
         },
         {
-            "name": "Debug current file (all GPUs)",
+            "name": "Debug (all GPUs)",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}",
+            "program": "debug.py",
             "console": "integratedTerminal",
             "justMyCode": false,
         },
