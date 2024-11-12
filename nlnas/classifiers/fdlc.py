@@ -259,12 +259,20 @@ def full_dataset_latent_clustering(
         output_dir=output_dir,
         tqdm_style=tqdm_style,
     )
-    model.trainer.strategy.barrier()  # wait for every rank to finish eval.
+    model.trainer.strategy.barrier()  # Wait for every rank to finish eval.
     lcc_data: dict[str, LatentClusteringData] = {}
     if model.trainer.global_rank == 0:
-        # Do actual clst. on rank 0 only; other ranks wait at the broadcasts
+        # Do actual clst. on rank 0 only; other ranks wait at the broadcast
         # below
         lcc_data = _fdlc_r0(model, output_dir, tqdm_style)
-    # TODO: is lcc_data too big to be broadcasted like that?
-    lcc_data = model.trainer.strategy.broadcast(lcc_data, src=0)
+    if model.trainer.world_size > 1:  # Boardcast to other ranks
+        for v in lcc_data.values():
+            v.loss.on_before_broadcast()
+        lcc_data = model.trainer.strategy.broadcast(lcc_data, src=0)
+        for v in lcc_data.values():
+            v.loss.on_after_broadcast()
+        model.trainer.strategy.barrier()
+        if model.trainer.global_rank == 0:
+            for v in lcc_data.values():
+                v.loss.on_after_broadcast_cleanup_r0()
     return lcc_data

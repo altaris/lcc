@@ -1,12 +1,14 @@
 """Exact LCC loss based on KNN correctly clustered samples."""
 
 from math import sqrt
+from typing import Any
 
 import faiss
 import faiss.contrib.torch_utils
 import numpy as np
 import torch
 from numpy.typing import ArrayLike
+from safetensors import torch as st
 from torch import Tensor
 from torch.utils.data import DataLoader
 
@@ -81,6 +83,29 @@ class ExactLCCLoss(LCCLoss):
         super().__init__()
         self.k, self.n_classes = k, n_classes
         self.tqdm_style = tqdm_style
+
+    def on_after_broadcast(self, **kwargs: Any) -> None:
+        path = self._get_temporary_dir()
+        cc = {int(k): v for k, v in st.load_file(path / "cc.st").items()}
+        for i_clst in cc:
+            p = path / f"{i_clst}.knn"
+            if not p.is_file():
+                raise RuntimeError(
+                    f"Missing KNN index file for cluster {i_clst}: {p}"
+                )
+            idx = faiss.read_index(str(p))
+            self.data[i_clst] = (idx, cc[i_clst])
+        return super().on_after_broadcast(**kwargs)
+
+    def on_before_broadcast(self, **kwargs: Any) -> None:
+        path = self._get_temporary_dir()
+        st.save_file(
+            {str(k): v[1] for k, v in self.data.items()}, path / "cc.st"
+        )
+        for k, v in self.data.items():
+            faiss.write_index(v[0], str(path / f"{k}.knn"))
+        self.data = {}
+        return super().on_before_broadcast(**kwargs)
 
     def update(
         self,

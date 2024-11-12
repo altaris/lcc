@@ -12,10 +12,12 @@ is dedicated to finding and/or choosing these targets.
 
 from collections import defaultdict
 from math import sqrt
+from typing import Any
 
 import numpy as np
 import torch
 from numpy.typing import ArrayLike
+from safetensors import torch as st
 from torch import Tensor
 from torch.utils.data import DataLoader
 
@@ -102,6 +104,17 @@ class RandomizedLCCLoss(LCCLoss):
         super().__init__()
         self.n_classes, self.ccspc = n_classes, ccspc
         self.tqdm_style = tqdm_style
+
+    def on_after_broadcast(self, **kwargs: Any) -> None:
+        path = self._get_temporary_dir() / "targets.st"
+        self.targets = {int(k): v for k, v in st.load_file(path).items()}
+        return super().on_after_broadcast(**kwargs)
+
+    def on_before_broadcast(self, **kwargs: Any) -> None:
+        path = self._get_temporary_dir() / "targets.st"
+        st.save_file({str(k): v for k, v in self.targets.items()}, path)
+        self.targets = {}
+        return super().on_before_broadcast(**kwargs)
 
     def update(
         self,
