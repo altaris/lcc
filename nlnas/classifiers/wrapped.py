@@ -62,6 +62,21 @@ class WrappedClassifier(BaseClassifier):
         output = self.model(x.to(self.device))
         return output if self.logit_key is None else output[self.logit_key]  # type: ignore
 
+    @property
+    def lcc_submodules(self) -> list[str]:
+        """
+        Returns the list of submodules considered for LCC, whith correct prefix
+        if needed.
+        """
+        return (
+            []
+            if not self.hparams["lcc_submodules"]
+            else [
+                (sm if sm.startswith("model.") else "model." + sm)
+                for sm in self.hparams["lcc_submodules"]
+            ]
+        )
+
     def on_train_start(self) -> None:
         self.model.train()
         super().on_train_start()

@@ -280,18 +280,8 @@ class BaseClassifier(pl.LightningModule):
         """
         Returns the list of submodules considered for LCC, whith correct prefix
         if needed.
-
-        TODO:
-            Move to :class:`nlnas.classifier.WrappedClassifier` instead.
         """
-        return (
-            []
-            if not self.hparams["lcc_submodules"]
-            else [
-                (sm if sm.startswith("model.") else "model." + sm)
-                for sm in self.hparams["lcc_submodules"]
-            ]
-        )
+        return self.hparams.get("lcc_submodules") or []
 
     def on_train_batch_end(self, *args: Any, **kwargs: Any) -> None:
         """Just logs all optimizer's learning rate"""
