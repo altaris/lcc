@@ -98,8 +98,6 @@ class BaseClassifier(pl.LightningModule):
                 * **pca_dim (int):** Samples are reduced to this dimension
                   before constructing the KNN graph. This must be at most the
                   batch size.
-                * **ccspc (int):** Number of correctly clustered samples per
-                  cluster to use as correction targets. Defaults to $1$.
             ce_weight (float, optional): Weight of the cross-entropy loss in the
                 clustering-CE loss. Ignored if LCC is not applied. Defaults to
                 $1$.
