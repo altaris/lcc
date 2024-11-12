@@ -72,8 +72,7 @@ MODELS = [
 LCC_WEIGHTS = [0, 1, 1e-2, 1e-4]
 LCC_INTERVALS = [1, 5]
 LCC_WARMUPS = [1, 5]
-LCC_KS = [2, 5, 10]
-LCC_CCSPCS = [500, 1000]
+LCC_KS = [2, 5, 10, 50]
 
 SEED = 0
 
@@ -100,9 +99,12 @@ def setup_logging(logging_level: str = "debug") -> None:
             + "[<level>{level: <8}</level>] "
             + (
                 "(<blue>{extra[model_name]} {extra[dataset_name]} "
-                "sm={extra[lcc_submodules]} w={extra[lcc_weight]} "
-                "k={extra[lcc_k]} ccspc={extra[lcc_ccspc]} "
-                "itv={extra[lcc_interval]} wmp={extra[lcc_warmup]}</blue>) "
+                "sm={extra[lcc_submodules]} "
+                "w={extra[lcc_weight]} "
+                "k={extra[lcc_k]} "
+                # "ccspc={extra[lcc_ccspc]} "
+                "itv={extra[lcc_interval]} "
+                "wmp={extra[lcc_warmup]}</blue>) "
             )
             + "<level>{message}</level>"
         ),
@@ -183,7 +185,7 @@ def train(
             cmd += ["--lcc-interval", lcc_kwargs["interval"]]
             cmd += ["--lcc-warmup", lcc_kwargs["warmup"]]
             cmd += ["--lcc-k", lcc_kwargs["k"]]
-            cmd += ["--lcc-ccspc", lcc_kwargs["ccspc"]]
+            # cmd += ["--lcc-ccspc", lcc_kwargs["ccspc"]]
         cmd = list(map(str, cmd))
         logging.debug("Spawning subprocess: {}", " ".join(cmd))
         process = subprocess.Popen(cmd)
@@ -219,14 +221,18 @@ if __name__ == "__main__":
 
     for dataset_config, model_config in product(DATASETS, MODELS):
         everything = product(
-            LCC_WEIGHTS, LCC_INTERVALS, LCC_WARMUPS, LCC_KS, LCC_CCSPCS
+            LCC_WEIGHTS,
+            LCC_INTERVALS,
+            LCC_WARMUPS,
+            LCC_KS,
+            # LCC_CCSPCS,
         )
         for (
             lcc_weight,
             lcc_interval,
             lcc_warmup,
             lcc_k,
-            lcc_ccspc,
+            # lcc_ccspc,
         ) in everything:
             lcc_submodules = model_config["lcc_submodules"]
             do_lcc = (
@@ -245,7 +251,7 @@ if __name__ == "__main__":
                 lcc_interval=lcc_interval if do_lcc else "/",
                 lcc_warmup=lcc_warmup if do_lcc else "/",
                 lcc_k=lcc_k if do_lcc else "/",
-                lcc_ccspc=lcc_ccspc if do_lcc else "/",
+                # lcc_ccspc=lcc_ccspc if do_lcc else "/",
             ):
                 train(
                     model_name=model_config["name"],
@@ -257,7 +263,7 @@ if __name__ == "__main__":
                             "interval": lcc_interval,
                             "warmup": lcc_warmup,
                             "k": lcc_k,
-                            "ccspc": lcc_ccspc,
+                            # "ccspc": lcc_ccspc,
                         }
                         if do_lcc
                         else None
