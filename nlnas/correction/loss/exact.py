@@ -45,6 +45,7 @@ class ExactLCCLoss(LCCLoss):
         _, _, p_mc, _ = otm_matching_predicates(
             y_true, y_clst, self.matching, c_a=self.n_classes
         )  # p_mc: (n_classes, len(z))
+        z = z.flatten(1)
         terms = []
         for i_true in np.unique(to_int_array(y_true)):
             if not p_mc[i_true].any():
