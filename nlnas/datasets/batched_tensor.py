@@ -29,6 +29,11 @@ class _ProjectionDataset(IterableDataset):
         for x in self.dataset:
             yield x[self.i]
 
+    def __len__(self) -> int | None:
+        if hasattr(self.dataset, "__len__"):
+            return len(self.dataset)
+        return None
+
 
 class BatchedTensorDataset(IterableDataset):
     """
@@ -38,6 +43,9 @@ class BatchedTensorDataset(IterableDataset):
 
     key: str
     paths: list[Path]
+
+    _len: int | None = None
+    """Cached length appriximation, see __len__."""
 
     def __init__(
         self,
@@ -92,6 +100,19 @@ class BatchedTensorDataset(IterableDataset):
             data = st.load_file(path)
             for z, i in zip(data[self.key], data["_idx"]):
                 yield z, i
+
+    def __len__(self) -> int:
+        """
+        Returns an **approximation** of the length of this dataset. Loads the
+        first batch and multiplies its length by the number of batch files.
+        """
+        if self._len is None:
+            if not self.paths:
+                self._len = 0
+            else:
+                b = st.load_file(self.paths[0])["_idx"]
+                self._len = len(b) * len(self.paths)
+        return self._len
 
     def extract_idx(
         self, tqdm_style: TqdmStyle = None
