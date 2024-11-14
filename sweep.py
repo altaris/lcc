@@ -69,12 +69,11 @@ MODELS = [
     },
 ]
 
-LCC_WEIGHTS = [0, 1, 1e-2, 1e-4]
+LCC_WEIGHTS = [0, 1e-2, 1e-4]
 LCC_INTERVALS = [1, 5]
 LCC_WARMUPS = [1, 5]
-LCC_KS = [2, 5, 10, 50]
-
-SEED = 0
+LCC_KS = [2, 5, 10, 50, 100]
+SEEDS = [0, 1, 2]
 
 STUPID_CUDA_SPAM = r"CUDA call.*failed with initialization error"
 
@@ -125,6 +124,7 @@ def train(
     image_key: str,
     label_key: str,
     head_name: str | None,
+    seed: int,
 ) -> None:
     """
     Train a model if it hasn't been trained yet. The hash of the configuration
@@ -142,6 +142,7 @@ def train(
         "image_key": image_key,
         "label_key": label_key,
         "head_name": head_name,
+        "seed": seed,
     }
     cfg_hash = _hash_dict(cfg)
 
@@ -177,7 +178,7 @@ def train(
         cmd += ["--label-key", label_key]
         cmd += ["--head-name", head_name]
         cmd += ["--batch-size", 256]
-        cmd += ["--seed", SEED]
+        cmd += ["--seed", seed]
         if lcc_submodules:
             cmd += ["--lcc-submodules", ",".join(lcc_submodules)]
         if lcc_kwargs:
@@ -225,14 +226,14 @@ if __name__ == "__main__":
             LCC_INTERVALS,
             LCC_WARMUPS,
             LCC_KS,
-            # LCC_CCSPCS,
+            SEEDS,
         )
         for (
             lcc_weight,
             lcc_interval,
             lcc_warmup,
             lcc_k,
-            # lcc_ccspc,
+            seed,
         ) in everything:
             lcc_submodules = model_config["lcc_submodules"]
             do_lcc = (
@@ -274,4 +275,5 @@ if __name__ == "__main__":
                     image_key=dataset_config["image_key"],
                     label_key=dataset_config["label_key"],
                     head_name=model_config["head_name"],
+                    seed=seed,
                 )
