@@ -23,7 +23,7 @@
     license = { file = "LICENSE" }
     name = "nlnas"
     readme = "README.md"
-    requires-python = "==3.10"
+    requires-python = "==3.10.*"
     version = "0.0.0"
     [project.urls]
         "Bug Tracker" = "https://github.com/altaris/nlnas/issues"
