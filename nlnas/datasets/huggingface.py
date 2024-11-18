@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Callable, Literal
 
 from datasets import Dataset, load_dataset
+import numpy as np
 from numpy.typing import ArrayLike
 from torch import Tensor
 
@@ -131,11 +132,15 @@ class HuggingFaceDataset(WrappedDataset):
                 )
                 if image_processor is not None:
                     ds.set_transform(image_processor)
-                if apply_filter and classes:
+                ds = ds.add_column("_idx", range(len(ds)))
+                if (
+                    apply_filter
+                    and isinstance(classes, np.ndarray)
+                    and len(classes) > 0
+                ):
                     ds = ds.filter(
                         lambda lbl: lbl in classes, input_columns=label_key
                     )
-                ds = ds.add_column("_idx", range(len(ds)))
                 return ds
 
             return wrapped
