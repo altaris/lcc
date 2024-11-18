@@ -200,8 +200,7 @@ def analyse_training(
         for epoch, path in enumerate(progress):
             progress.set_postfix({"epoch": epoch})
             evaluations = tb.load_json(path / "eval" / "eval.json")
-            y_true = evaluations["y_true"]
-            y_pred = evaluations["y_pred"]
+            y_true, y_pred = evaluations["y_true"], evaluations["y_pred"]
             ce_all, acc_all = _ce(y_true, y_pred), _acc(y_true, y_pred)
             for layer in evaluations["z"]:
                 progress.set_postfix({"epoch": epoch, "layer": layer})

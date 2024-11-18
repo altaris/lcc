@@ -1,6 +1,7 @@
 """Plotting stuff"""
 
 from pathlib import Path
+from typing import Mapping
 
 import bokeh.layouts as bkl
 import bokeh.plotting as bk
@@ -34,9 +35,9 @@ def louvain_clustering_plots(
     Saves the PNGs and returns the bokeh figures in this order.
 
     Args:
-        z (np.ndarray): An array of latent embeddings, which has shape `(N, 2)`
-        y_true (np.ndarray): A `(N,)` tensor of true labels
-        y_louvain (np.ndarray): A `(N,)` tensor of Louvain labels
+        z (ArrayLike): An array of latent embeddings, which has shape `(N, 2)`
+        y_true (ArrayLike): A `(N,)` tensor of true labels
+        y_louvain (ArrayLike): A `(N,)` tensor of Louvain labels
         matching (Matching): See
             `nlnas.correction.clustering.class_otm_matching`
         k (int): Number of neighbots that have been consitered when
@@ -60,7 +61,7 @@ def louvain_clustering_plots(
 
 
 def plot_latent_samples(
-    e: dict[str, np.ndarray], y_true: ArrayLike, output_dir: Path
+    e: Mapping[str, ArrayLike], y_true: ArrayLike, output_dir: Path
 ) -> dict[str, bk.figure]:
     """
     (Used as a step in `analyse_ckpt`) Plots UMAP embeddings of latent samples.
@@ -68,8 +69,8 @@ def plot_latent_samples(
     return the bokeh figures.
 
     Args:
-        e (dict[str, np.ndarray]): A dict of tensors of shape `(N, 2)`
-        y_true (Tensor): A true label tensor of shape `(N,)`
+        e (dict[str, ArrayLike]): A dict of tensors of shape `(N, 2)`
+        y_true (ArrayLike): A true label tensor of shape `(N,)`
         output_dir (Path): The directory to save the PNGs
 
     Returns:

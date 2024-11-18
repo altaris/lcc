@@ -81,6 +81,9 @@ def louvain_communities(
         else:
             everything = dl
         for x in everything:
+            # ↓ Makes things easier for notebook stuff trust me :)
+            if isinstance(x, list) and len(x) == 1:
+                x = x[0]
             yield x.flatten(1).to(device)
 
     z = next(_batches())

@@ -15,15 +15,16 @@ from ..utils import to_array
 
 
 def _batch_dh(
-    b1: np.ndarray,
-    b2: np.ndarray,
+    b1: ArrayLike,
+    b2: ArrayLike,
     resolution: int = 500,
     interval: tuple[float, float] = (0.0, 2.5),
+    epsilon: float = 1e-6,
 ) -> np.ndarray:
-    """
-    Computes the distance histogram between two batches
-    """
+    """Computes the distance histogram between two batches."""
+    b1, b2 = to_array(b1), to_array(b2)
     c = cdist(b1, b2, metric="euclidean") / np.sqrt(b1.shape[-1])
+    c = c[c > epsilon]
     h, _ = np.histogram(c, bins=resolution, range=interval, density=False)
     return h
 
@@ -95,12 +96,12 @@ def distance_distribution_plot(
 ) -> bk.figure:
     """
     data can either be a distance matrix or a histogram-edge array pair as
-    returned by np.histogram. In the first scenarion the `resolution` argument
+    returned by np.histogram. In the first scenario the `resolution` argument
     is ignored.
 
     Args:
-        hist (np.ndarray):
-        edges (np.ndarray):
+        hist (ArrayLike):
+        edges (ArrayLike):
         n_dims (int, optional):
         height (int, optional): The final plot will have width `2 * height`.
         x_range (tuple[int, int] | None, optional):
