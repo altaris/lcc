@@ -169,12 +169,12 @@ def make_trainer(
         config["callbacks"] = [
             # EMACallback(),
             pl.callbacks.EarlyStopping(
-                monitor="val/ce", patience=20, mode="min"
+                monitor="val/acc", patience=25, mode="max"
             ),
             pl.callbacks.ModelCheckpoint(
                 save_top_k=(-1 if save_all_checkpoints else 1),
-                monitor="val/ce",
-                mode="min",
+                monitor="val/acc",
+                mode="max",
                 every_n_epochs=1,
             ),
             pl.callbacks.TQDMProgressBar(),
