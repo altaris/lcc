@@ -170,13 +170,15 @@ class BaseClassifier(pl.LightningModule):
         return loss  # type: ignore
 
     def configure_optimizers(self) -> Any:
-        optimizer = torch.optim.Adam(self.parameters())
+        optimizer = torch.optim.SGD(
+            self.parameters(), lr=1e-3, momentum=0.9, weight_decay=5e-4
+        )
+        scheduler = torch.optim.lr_scheduler.StepLR(
+            optimizer, step_size=10, gamma=0.1
+        )
         return {
             "optimizer": optimizer,
-            # "lr_scheduler": {
-            #     "scheduler": scheduler,
-            #     "monitor": "train/loss",
-            # },
+            "lr_scheduler": {"scheduler": scheduler},
         }
 
     def forward_intermediate(
