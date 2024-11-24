@@ -170,11 +170,12 @@ class BaseClassifier(pl.LightningModule):
         return loss  # type: ignore
 
     def configure_optimizers(self) -> Any:
-        optimizer = torch.optim.SGD(
-            self.parameters(), lr=1e-3, momentum=0.9, weight_decay=5e-4
-        )
-        scheduler = torch.optim.lr_scheduler.StepLR(
-            optimizer, step_size=10, gamma=0.1
+        optimizer = torch.optim.Adam(self.parameters(), lr=1e-1)
+        # scheduler = torch.optim.lr_scheduler.StepLR(
+        #     optimizer, step_size=10, gamma=0.1
+        # )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=100
         )
         return {
             "optimizer": optimizer,
