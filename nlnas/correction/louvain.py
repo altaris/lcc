@@ -57,7 +57,8 @@ def louvain_communities(
 
     Args:
 
-        dl (DataLoader): A dataloader that yields tensors.
+        dl (DataLoader): A dataloader that yields tensors or 1 element lists of
+            tensors, e.g. `DataLoader(TensorDataset(z), ...)`.
         k (int, optional): The number of neighbors to consider for the Louvain
             clustering algorithm. Note that a point is not considered as one if
             its nearest neighbors.
@@ -81,8 +82,12 @@ def louvain_communities(
         else:
             everything = dl
         for x in everything:
-            # ↓ Makes things easier for notebook stuff trust me :)
             if isinstance(x, list) and len(x) == 1:
+                # Makes things easier for notebook stuff trust me =) It allows
+                # to run stuff like
+                #   ds = TensorDataset(z)
+                #   dl = DataLoader(ds, ...)
+                #   louvain_communities(dl, ...)
                 x = x[0]
             yield x.flatten(1).to(device)
 
