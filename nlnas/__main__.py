@@ -105,9 +105,9 @@ def main(logging_level: str) -> None:
 @click.option(  # --max-epochs
     "-e",
     "--max-epochs",
-    default=100,
+    default=50,
     help=(
-        "Maximum number of fine-tuning epochs. Defaults to 100. Keep "
+        "Maximum number of fine-tuning epochs. Defaults to 50. Keep "
         "in mind that early stopping is used."
     ),
     type=int,

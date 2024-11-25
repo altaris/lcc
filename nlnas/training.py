@@ -134,7 +134,7 @@ def checkpoint_ves(path: str | Path) -> tuple[int, int, int]:
 def make_trainer(
     output_dir: Path | str,
     model_name: str | None = None,
-    max_epochs: int = 100,
+    max_epochs: int = 50,
     save_all_checkpoints: bool = False,
     stage: Literal["train", "test"] = "train",
 ) -> pl.Trainer:
@@ -204,7 +204,7 @@ def train(
     ce_weight: float = 1,
     lcc_submodules: list[str] | None = None,
     lcc_kwargs: dict | None = None,
-    max_epochs: int = 100,
+    max_epochs: int = 50,
     batch_size: int = 2048,
     train_split: str = "train",
     val_split: str = "val",
@@ -233,7 +233,7 @@ def train(
             is the only way to enable/disable LCC. Defaults to `None`.
         lcc_kwargs (dict | None, optional): Optional parameters for LCC. See
             `nlnas.classifiers.BaseClassifier.__init__`.
-        max_epochs (int, optional): Defaults to $100$.
+        max_epochs (int, optional): Defaults to $50$.
         batch_size (int, optional): Defaults to $2048$.
         train_split (str, optional):
         val_split (str, optional):

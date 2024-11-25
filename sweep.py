@@ -178,7 +178,7 @@ def train(
         cmd += ["--label-key", label_key]
         cmd += ["--head-name", head_name]
         cmd += ["--batch-size", 256]
-        cmd += ["--max-epochs", 100]
+        cmd += ["--max-epochs", 50]
         cmd += ["--seed", seed]
         if lcc_submodules:
             cmd += ["--lcc-submodules", ",".join(lcc_submodules)]
