@@ -5,8 +5,8 @@ See `nlnas.datasets.HuggingFace` class documentation.
 from pathlib import Path
 from typing import Any, Callable, Literal
 
-from datasets import Dataset, load_dataset
 import numpy as np
+from datasets import Dataset, load_dataset
 from numpy.typing import ArrayLike
 from torch import Tensor
 
@@ -161,6 +161,12 @@ class HuggingFaceDataset(WrappedDataset):
         )
         self.label_key = label_key
 
+    def __len__(self) -> int:
+        """
+        Returns the size of the train split. See `HuggingFaceDataset.size`.
+        """
+        return self.size("train")
+
     def _get_dataset(self, split: Literal["train", "val", "test"]) -> Dataset:
         if split not in self._datasets:
             if split == "train":
@@ -188,6 +194,18 @@ class HuggingFaceDataset(WrappedDataset):
         """
         ds = self._get_dataset(split)
         return len(ds.unique(self.label_key))
+
+    def size(self, split: Literal["train", "val", "test"] = "train") -> int:
+        """
+        Returns the number of samples in a given split. If the split hasn't been
+        loaded, this will load it.
+
+        Args:
+            split (Literal["train", "val", "test"], optional): Not the true name
+                of the split (as specified on the dataset's HuggingFace page),
+                just either `train`, `val`, or `test`. Defaults to `train`.
+        """
+        return len(self._get_dataset(split))
 
     def y_true(
         self, split: Literal["train", "val", "test"] = "train"
