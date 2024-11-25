@@ -168,9 +168,9 @@ def make_trainer(
         config["gradient_clip_val"] = DEFAULT_MAX_GRAD_NORM
         config["callbacks"] = [
             # EMACallback(),
-            pl.callbacks.EarlyStopping(
-                monitor="val/acc", patience=25, mode="max"
-            ),
+            # pl.callbacks.EarlyStopping(
+            #     monitor="val/acc", patience=25, mode="max"
+            # ),
             pl.callbacks.ModelCheckpoint(
                 save_top_k=(-1 if save_all_checkpoints else 1),
                 monitor="val/acc",
