@@ -49,11 +49,10 @@ def distance_distribution(
     This method uses joblib to compute the batch pair distance histograms.
 
     Returns:
-        A normalized hisogram. The first array has shape `(resolution,)` and
-        represents the bin densities, and the second has shape
-        `(resolution + 1,)` and contains the bin edges. Furthermore,
-        `edges[0] == interval[0]` and `edges[-1] == edges[resolution] ==
-        interval[1]`.
+        A normalized histogram. The first array has shape `(resolution,)` and
+        represents the bin densities, and the second has shape `(resolution +
+        1,)` and contains the bin edges. Furthermore, `edges[0] == interval[0]`
+        and `edges[-1] == edges[resolution] == interval[1]`.
     """
     a = to_array(a)
     f = lambda t: _batch_dh(
@@ -76,13 +75,13 @@ def distance_distribution(
     else:
         executor = Parallel(n_jobs=n_jobs, verbose=1 if verbose else 0)
         results = executor(jobs)
-    hist = np.stack(results).sum(axis=0)
-    hist = hist.astype(float) / hist.sum()
+    histogram = np.stack(results).sum(axis=0)
+    # histogram = histogram.astype(float) / histogram.sum()
     # dividing by the sum gives a density since all bins have equal width
     edges = np.linspace(
         start=interval[0], stop=interval[1], num=resolution + 1, endpoint=True
     )
-    return hist, edges
+    return histogram, edges
 
 
 def distance_distribution_plot(
@@ -93,6 +92,7 @@ def distance_distribution_plot(
     x_range: tuple[int, int] | None = None,
     y_range: tuple[int, int] | None = None,
     include_chi: bool = True,
+    figure: bk.figure | None = None,
 ) -> bk.figure:
     """
     data can either be a distance matrix or a histogram-edge array pair as
@@ -108,18 +108,20 @@ def distance_distribution_plot(
         y_range (tuple[int, int] | None, optional):
         include_chi (bool, optional): Whether to include the chi distribution
             in the plot. If set to `True`, `n_dims` must be provided.
+        figure (bk.figure | None, optional): If `None`, a new figure is created.
 
     Returns:
         A bokeh figure.
     """
     hist, edges = to_array(hist), to_array(edges)
-    figure = bk.figure(
-        height=height,
-        width=2 * height,
-        y_range=y_range or (0, 1.1 * hist.max()),
-        x_range=x_range or (0, 2.5),
-        toolbar_location=None,
-    )
+    if figure is None:
+        figure = bk.figure(
+            height=height,
+            width=2 * height,
+            y_range=y_range or (0, 1.1 * hist.max()),
+            x_range=x_range or (0, 2.5),
+            toolbar_location=None,
+        )
     figure.line(edges[:-1], hist, color="black", width=2)
     if include_chi:
         if n_dims is None:
