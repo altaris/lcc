@@ -32,7 +32,7 @@ if __name__ == "__main__":
         try:
             with fn.open("r", encoding="utf-8") as fp:
                 data = json.load(fp)
-            v = int(data["training"]["best_checkpoint"]["version"])
+            v = data["training"]["best_checkpoint"]["version"]
             results_versions.add(v)
         except Exception as e:
             logging.error("Error reading {}: {}", fn, e)
@@ -55,7 +55,11 @@ if __name__ == "__main__":
         logging.info("No folders to delete")
         exit(0)
 
-    logging.info("Found {} folders to delete", len(log_folders))
+    logging.info(
+        "Found {} folders to delete: {}",
+        len(log_folders),
+        [str(dn) for dn in log_folders],
+    )
     answer = input("Delete? [y/n] ")
     if answer.lower() != "y":
         logging.info("Aborted")
