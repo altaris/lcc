@@ -171,9 +171,6 @@ class BaseClassifier(pl.LightningModule):
 
     def configure_optimizers(self) -> Any:
         optimizer = torch.optim.SGD(self.parameters(), lr=1e-1, momentum=0.9)
-        # scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        #     optimizer, T_0=10, T_mult=2
-        # )
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, T_max=50
         )

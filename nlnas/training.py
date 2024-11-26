@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import uuid
 import warnings
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -116,18 +117,18 @@ def best_epoch(
     return int(df[metric].argmax() if mode == "max" else df[metric].argmin())
 
 
-def checkpoint_ves(path: str | Path) -> tuple[int, int, int]:
+def checkpoint_ves(path: str | Path) -> tuple[str, int, int]:
     """
     Given a checkpoint path that looks like e.g.
 
-        out/resnet18/cifar10/model/tb_logs/resnet18/version_2/checkpoints/epoch=32-step=5181.ckpt
+        out/resnet18/cifar10/model/tb_logs/resnet18/060516dd86294076878cd278cfc59237/checkpoints/epoch=32-step=5181.ckpt
 
-    returns the **v**ersion number (2), the number of **e**pochs (32), and the
-    number of **s**teps (5181).
+    returns the **v**ersion name (`060516dd86294076878cd278cfc59237`), the
+    number of **e**pochs (32), and the number of **s**teps (5181).
     """
-    r = r".*version_(\d+)/checkpoints/epoch=(\d+)-step=(\d+).*\.ckpt"
+    r = r".*/(\w+)/checkpoints/epoch=(\d+)-step=(\d+).*\.ckpt"
     if m := re.match(r, str(path)):
-        return int(m.group(1)), int(m.group(2)), int(m.group(3))
+        return str(m.group(1)), int(m.group(2)), int(m.group(3))
     raise ValueError(f"Path '{path}' is not a valid checkpoint path")
 
 
@@ -137,6 +138,7 @@ def make_trainer(
     max_epochs: int = 50,
     save_all_checkpoints: bool = False,
     stage: Literal["train", "test"] = "train",
+    version: int | str | None = None,
 ) -> pl.Trainer:
     """
     Makes a [PyTorch Lightning
@@ -184,10 +186,12 @@ def make_trainer(
                 str(output_dir / "tb_logs"),
                 name=model_name,
                 default_hp_metric=False,
+                version=version,
             ),
             pl.loggers.CSVLogger(
                 str(output_dir / "csv_logs"),
                 name=model_name,
+                version=version,
             ),
         ]
     else:
@@ -311,6 +315,7 @@ def train(
         model_name=_model_name,
         max_epochs=max_epochs,
         stage="train",
+        version=str(uuid.uuid4().hex),
     )
     start = datetime.now()
     with warnings.catch_warnings():
