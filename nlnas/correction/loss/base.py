@@ -53,10 +53,10 @@ class LCCLoss(ABC):
         if self._tmp_dir is not None:
             return Path(self._tmp_dir.name)
         if self.strategy is None:
-            self._tmp_dir = TemporaryDirectory()
+            self._tmp_dir = TemporaryDirectory(prefix="nlnas-")
             return Path(self._tmp_dir.name)
         if self.strategy.global_rank == 0:
-            self._tmp_dir = TemporaryDirectory()
+            self._tmp_dir = TemporaryDirectory(prefix="nlnas-")
         else:
             self._tmp_dir = None
         self._tmp_dir = self.strategy.broadcast(self._tmp_dir, src=0)

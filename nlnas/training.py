@@ -334,7 +334,7 @@ def train(
     # single-device trainer to run the model on the test dataset. So every rank
     # is testing the model independently which is stupid.
 
-    with TemporaryDirectory() as tmp:
+    with TemporaryDirectory(prefix="nlnas-") as tmp:
         trainer = make_trainer(tmp, stage="test")
         test_results = trainer.test(model, dataset)
 
