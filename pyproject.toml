@@ -4,10 +4,11 @@
     dependencies = [
         "click>=8.1.7",
         "datasets[vision]>=3.0.0",
+        "faiss-cpu>=1.9.0",
         "loguru>=0.7.2",
         "more-itertools>=10.5.0",
         "networkx>=3.3",
-        "numpy==1.23",
+        "numpy>=1.25",
         "pillow>=10.4.0",
         "pytorch-lightning>=2.4.0",
         "regex>=2024.9.11",
@@ -18,7 +19,7 @@
         "torch>=2.4.1",
         "transformers>=4.44.2",
         "turbo-broccoli>=4.12.2",
-    ]
+]
     description = "Latent cluster corrections"
     license = { file = "LICENSE" }
     name = "nlnas"
@@ -32,12 +33,7 @@
         Homepage      = "https://github.com/altaris/nlnas"
         Repository    = "https://github.com/altaris/nlnas.git"
     [project.optional-dependencies]
-        cuda12 = [
-            "cugraph-cu12",
-            "cuml-cu12",
-            "faiss-gpu>=1.7.2",
-            "nx-cugraph-cu12",
-        ]
+        cuda12 = ["cugraph-cu12", "cuml-cu12", "nx-cugraph-cu12"]
         dev = ["huggingface-hub[cli]>=0.25.1", "pdoc>=14.7.0"]
         jupyter = [
             "ipykernel>=6.29.5",
