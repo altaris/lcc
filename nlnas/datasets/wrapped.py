@@ -13,6 +13,8 @@ DEFAULT_DATALOADER_KWARGS: dict[str, Any] = {
     "num_workers": 16,
     "persistent_workers": True,
     "pin_memory": False,
+    "shuffle": False,
+    "drop_last": False,
 }
 """
 Default parameters for [pytorch

@@ -4,10 +4,10 @@ from math import sqrt
 from typing import Any
 
 import faiss
-import faiss.contrib.torch_utils
 import numpy as np
 import torch
 from numpy.typing import ArrayLike
+from pytorch_lightning.strategies import Strategy
 from safetensors import torch as st
 from torch import Tensor
 from torch.utils.data import DataLoader
@@ -25,19 +25,15 @@ from .base import LCCLoss
 
 
 class ExactLCCLoss(LCCLoss):
-    """
-    LCC loss that corrects missclustered samples using their CC KNNs. This
-    differs from `nlnas.correction.loss.RandomizedLCCLoss`, where targets are
-    chosen randomly.
-    """
+    """LCC loss that corrects missclustered samples using their CC KNNs"""
 
     k: int
     n_classes: int
     tqdm_style: TqdmStyle
     matching: dict[int, set[int]]
 
+    # ↓ i_clst -> (knn idx, tensor of all CC samples in that clst)
     data: dict[int, tuple[faiss.IndexHNSWFlat, Tensor]] = {}
-    # i_clst -> (knn index, tensor of all CC samples in this clst)
 
     def __call__(
         self, z: Tensor, y_true: ArrayLike, y_clst: ArrayLike
@@ -80,33 +76,43 @@ class ExactLCCLoss(LCCLoss):
         n_classes: int,
         k: int = 5,
         tqdm_style: TqdmStyle = None,
+        strategy: Strategy | None = None,
     ) -> None:
-        super().__init__()
+        super().__init__(strategy=strategy)
         self.k, self.n_classes = k, n_classes
         self.tqdm_style = tqdm_style
 
-    def on_after_broadcast(self, **kwargs: Any) -> None:
-        path = self._get_temporary_dir()
-        cc = {int(k): v for k, v in st.load_file(path / "cc.st").items()}
-        for i_clst in cc:
-            p = path / f"{i_clst}.knn"
-            if not p.is_file():
-                raise RuntimeError(
-                    f"Missing KNN index file for cluster {i_clst}: {p}"
-                )
-            idx = faiss.read_index(str(p))
-            self.data[i_clst] = (idx, cc[i_clst])
-        return super().on_after_broadcast(**kwargs)
+    def sync(self, **kwargs: Any) -> None:
+        """
+        Remember that every rank has its own subset of cluster to manage. Before
+        sync every rank's `self.data` only contains data pertaining to this
+        rank's clusters.
 
-    def on_before_broadcast(self, **kwargs: Any) -> None:
-        path = self._get_temporary_dir()
+        This method works in two steps. First, every rank writes its data to
+        some temporary directory. Then, every rank loads data from that
+        directory.
+
+        EZPZ
+        """
+        if self.strategy is None:
+            return
+        path = self._get_tmp_dir()
+        gr = self.strategy.global_rank
         st.save_file(
-            {str(k): v[1] for k, v in self.data.items()}, path / "cc.st"
+            {str(i_clst): cc for i_clst, (_, cc) in self.data.items()},
+            path / f"cc.{gr}",
         )
-        for k, v in self.data.items():
-            faiss.write_index(v[0], str(path / f"{k}.knn"))
-        self.data = {}
-        return super().on_before_broadcast(**kwargs)
+        for i_clst, (idx, _) in self.data.items():
+            faiss.write_index(idx, str(path / f"knn.{i_clst}.{gr}"))
+        self.strategy.barrier()
+        for r in range(self.strategy.world_size):
+            if r == self.strategy.global_rank:
+                continue  # data from this rank is already in self.data
+            ccs = st.load_file(path / f"cc.{r}")
+            for i_clst, cc in ccs.items():  # type: ignore
+                knn = faiss.read_index(str(path / f"knn.{i_clst}.{r}"))
+                self.data[int(i_clst)] = (knn, cc)
+        return super().sync(**kwargs)
 
     def update(
         self,
@@ -115,34 +121,55 @@ class ExactLCCLoss(LCCLoss):
         y_clst: ArrayLike,
         matching: Matching,
     ) -> None:
+        """
+        Reminder:
+            `dl` has to iterate over the whole dataset, even if this method is
+            called in a distributed environment. The labels vectors must also
+            cover the whole dataset.
+        """
         self.matching = to_int_matching(matching)
-        y_clst, n_clst = to_int_array(y_clst), len(np.unique(y_clst))
+        y_clst = to_int_array(y_clst)
         n_features = next(iter(dl)).flatten(1).shape[-1]
         p1, p2, _, _ = otm_matching_predicates(
             y_true, y_clst, self.matching, c_a=self.n_classes
         )
         p_cc = (p1 & p2).sum(axis=0).astype(bool)  # (n_samples,)
+
+        # Cluster labels that this rank has to manage
+        if self.strategy is not None and self.strategy.world_size > 1:
+            ws, gr = self.strategy.world_size, self.strategy.global_rank
+            clsts = [
+                i_clst for i_clst in np.unique(y_clst) if i_clst % ws == gr
+            ]
+        else:
+            clsts = np.unique(y_clst).tolist()
+        # ↓ i_clst -> (knn idx, list of batches CC samples in this clst)
         data: dict[int, tuple[faiss.IndexHNSWFlat, list[Tensor]]] = {
             i_clst: (faiss.IndexHNSWFlat(n_features, self.k), [])
-            for i_clst in range(n_clst)
+            for i_clst in clsts
         }
+
         tqdm, n_seen = make_tqdm(self.tqdm_style), 0
-        for batch in tqdm(dl, f"Building {n_clst} KNN indices"):
-            z = batch.flatten(1)  # (b, n_feat.)
-            _y_clst = y_clst[n_seen : n_seen + len(batch)]
-            _p_cc = p_cc[n_seen : n_seen + len(batch)]  # (b,)
+        for z, *_ in tqdm(dl, f"Building {len(data)} KNN indices"):
+            z = z.flatten(1)  # (bs, n_feat.)
+            _y_clst = y_clst[n_seen : n_seen + len(z)]  # (bs,)
+            _p_cc = p_cc[n_seen : n_seen + len(z)]  # (bs,)
             for i_clst in np.unique(_y_clst):
+                if i_clst not in data:
+                    continue  # Cluster not managed by this rank
+                # ↓ Mask for smpls in this batch that are CC and in i_clsts
                 _p_cc_i_clst = _p_cc & (_y_clst == i_clst)
                 if not _p_cc_i_clst.any():
-                    # No CC sample in cluster i_clst in this batch
-                    continue
-                data[i_clst][0].add(
-                    to_array(z[_p_cc_i_clst]).astype(np.float32)
-                )
-                data[i_clst][1].append(z[_p_cc_i_clst])
-            n_seen += len(batch)
+                    continue  # No CC sample in cluster i_clst in this batch
+                _z = z[_p_cc_i_clst]
+                data[i_clst][0].add(to_array(_z).astype(np.float32))
+                data[i_clst][1].append(_z)
+            n_seen += len(z)
+
+        # ↓ i_clst -> (knn idx, tensor of all CC samples in this clst)
+        #   IF i_clst has at least one CC sample
         self.data = {
-            i_clst: (idx, torch.cat(smpls))
-            for i_clst, (idx, smpls) in data.items()
-            if smpls
+            i_clst: (idx, torch.cat(lst))
+            for i_clst, (idx, lst) in data.items()
+            if lst
         }

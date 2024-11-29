@@ -2,16 +2,15 @@
 
 import warnings
 from collections import defaultdict
-from typing import Any, Iterator
+from typing import Any
 
-import faiss
-import faiss.contrib.torch_utils
 import networkx as nx
 import numpy as np
-from torch import Tensor
-from torch.utils.data import DataLoader
+from pytorch_lightning.strategies import Strategy
 
-from ..utils import TqdmStyle, check_cuda, make_tqdm, to_array
+from ..datasets.batched_tensor import BatchedTensorDataset
+from ..utils import TqdmStyle, check_cuda
+from .knn import knn_graph
 
 
 def _louvain_or_leiden(graph: nx.Graph, device: Any = None) -> list[set[int]]:
@@ -46,80 +45,28 @@ def _louvain_or_leiden(graph: nx.Graph, device: Any = None) -> list[set[int]]:
 
 
 def louvain_communities(
-    dl: DataLoader,
+    ds: BatchedTensorDataset,
     k: int,
-    device: Any = "cpu",
+    strategy: Strategy | None = None,
+    n_features: int | None = None,
     tqdm_style: TqdmStyle = None,
+    device: Any = "cpu",
 ) -> tuple[list[set[int]], np.ndarray]:
     """
-    Returns louvain communities of a set of points, iterated through a torch
-    dataloader.
-
     Args:
-
-        dl (DataLoader): A dataloader that yields tensors or 1 element lists of
-            tensors, e.g. `DataLoader(TensorDataset(z), ...)`.
-        k (int, optional): The number of neighbors to consider for the Louvain
-            clustering algorithm. Note that a point is not considered as one if
-            its nearest neighbors.
-        device (Any, optional): If left to `None`, uses CUDA if it is available,
-            otherwise falls back to CPU. Setting `cuda` while CUDA isn't
-            available will **silently** fall back to CPU.
+        ds (BatchedTensorDataset):
+        k (int):
+        strategy (Strategy | None, optional):
+        n_features (int | None, optional):
         tqdm_style (TqdmStyle, optional):
-
-    Returns:
-        1. (`list[set[int]]`) The actual louvain communities, which is a
-           partition of the set $\\\\{ 0, 1, ..., N-1 \\\\}$.
-        2. (`np.ndarray`) The `(N,)` label vector for the communities. Let's
-           call it `y_louvain`. If there are `c` communities, then `y_louvain`
-           has integer values in $\\\\{ 0, 1, ..., c-1 \\\\}$, and if
-           `y_louvain[i] == j`, then `z[i]` belongs to the $j$-th community
+        device (Any, optional):
     """
-
-    def _batches(desc: str | None = None) -> Iterator[Tensor]:  # shorthand
-        if desc:
-            everything = make_tqdm(tqdm_style)(dl, desc)
-        else:
-            everything = dl
-        for x in everything:
-            if isinstance(x, list) and len(x) == 1:
-                # Makes things easier for notebook stuff trust me =) It allows
-                # to run stuff like
-                #   ds = TensorDataset(z)
-                #   dl = DataLoader(ds, ...)
-                #   louvain_communities(dl, ...)
-                x = x[0]
-            yield x.flatten(1).to(device)
-
-    z = next(_batches())
-    n_features = z.shape[-1]
-
-    index = faiss.IndexHNSWFlat(n_features, k)
-    for batch in _batches(f"Building KNN index ({k=})"):
-        u = to_array(batch).astype(np.float32)
-        index.add(u)
-
-    graph, n = nx.DiGraph(), 0
-    for batch in _batches(f"Building KNN graph ({k=})"):
-        u = to_array(batch).astype(np.float32)
-        dst, idx = index.search(u, k + 1)
-        for j, all_i, all_d in zip(range(len(idx)), idx, dst):
-            a = list(zip(all_i, all_d))[1:]  # exclude self as nearest neighbor
-            graph.add_weighted_edges_from(
-                [(n + j, int(i), 1) for i, _ in a]
-                # Had numerical stability issues with
-                # [(n + j, int(i), np.exp(-d / np.sqrt(pca_dim))) for i, d in a]
-            )
-        n += len(batch)
-    graph.remove_edges_from(nx.selfloop_edges(graph))
-    # Reciprocal edges share the same weight, so it's ok to discard one of them
-    # See
-    # https://networkx.org/documentation/stable/reference/classes/generated/networkx.DiGraph.to_undirected.html
-    graph = nx.to_undirected(graph)
-
+    graph = knn_graph(
+        ds, k, strategy=strategy, n_features=n_features, tqdm_style=tqdm_style
+    )
     communities = _louvain_or_leiden(graph, device)
-    y_louvain = [0] * n
-    for i, c in enumerate(communities):
-        for n in c:
-            y_louvain[n] = i
+    y_louvain = [0] * graph.number_of_nodes()
+    for i_clst, clst in enumerate(communities):
+        for smpl in clst:
+            y_louvain[smpl] = i_clst
     return communities, np.array(y_louvain)

@@ -22,13 +22,13 @@ LABEL_KEY="fine_label"
 # HEAD_NAME="classifier"
 # LCC_SUBMODULES="classifier"
 
-# MODEL="microsoft/resnet-18"
-# HEAD_NAME="classifier.1"
-# LCC_SUBMODULES="classifier"
+MODEL="microsoft/resnet-18"
+HEAD_NAME="classifier.1"
+LCC_SUBMODULES="resnet.encoder.stages.3"
 
-MODEL="timm/resnet18.a3_in1k"
-HEAD_NAME="fc"
-LCC_SUBMODULES="fc"
+# MODEL="timm/resnet18.a3_in1k"
+# HEAD_NAME="fc"
+# LCC_SUBMODULES="fc"
 
 # MODEL="timm/mobilenetv3_small_050.lamb_in1k"
 # HEAD_NAME="classifier"
@@ -39,10 +39,13 @@ LCC_SUBMODULES="fc"
 # LCC_SUBMODULES="conv_head"
 
 CE_WEIGHT=1
-LCC_INTERVAL=5
-LCC_K=2
-LCC_WARMUP=1
+LCC_INTERVAL=1
+LCC_K=50
+LCC_WARMUP=0
 LCC_WEIGHT=1e-2
+
+BATCH_SIZE=256
+MAX_EPOCHS=10
 
 OUTPUT_DIR="out.test"
 export CUDA_VISIBLE_DEVICES=0,1
@@ -71,6 +74,9 @@ echo "LCC_SUBMODULES: $LCC_SUBMODULES"
 echo "LCC_WARMUP:     $LCC_WARMUP"
 echo "LCC_WEIGHT:     $LCC_WEIGHT"
 echo "----------------------------------------------------------------------"
+echo "BATCH_SIZE:     $BATCH_SIZE"
+echo "MAX_EPOCHS:     $MAX_EPOCHS"
+echo "----------------------------------------------------------------------"
 echo "DATASET:        $DATASET"
 echo "TRAIN_SPLIT:    $TRAIN_SPLIT"
 echo "VAL_SPLIT:      $VAL_SPLIT"
@@ -80,20 +86,23 @@ echo "LABEL_KEY:      $LABEL_KEY"
 echo "======================================================================"
 echo
 
-uv run python -m nlnas train \
+uv run python -m nlnas \
+    --logging-level "DEBUG" \
+    train \
     "$MODEL" \
     "$DATASET" \
     "$OUTPUT_DIR" \
+    --batch-size "$BATCH_SIZE" \
     --ce-weight "$CE_WEIGHT" \
-    --lcc-submodules "$LCC_SUBMODULES" \
-    --lcc-weight "$LCC_WEIGHT" \
-    --lcc-interval "$LCC_INTERVAL" \
-    --batch-size 256 \
-    --lcc-warmup "$LCC_WARMUP" \
-    --lcc-k "$LCC_K" \
-    --train-split "$TRAIN_SPLIT" \
-    --val-split "$VAL_SPLIT" \
-    --test-split "$TEST_SPLIT" \
+    --head-name "$HEAD_NAME" \
     --image-key "$IMAGE_KEY" \
     --label-key "$LABEL_KEY" \
-    --head-name "$HEAD_NAME"
+    --lcc-interval "$LCC_INTERVAL" \
+    --lcc-k "$LCC_K" \
+    --lcc-submodules "$LCC_SUBMODULES" \
+    --lcc-warmup "$LCC_WARMUP" \
+    --lcc-weight "$LCC_WEIGHT" \
+    --max-epochs "$MAX_EPOCHS" \
+    --test-split "$TEST_SPLIT" \
+    --train-split "$TRAIN_SPLIT" \
+    --val-split "$VAL_SPLIT"

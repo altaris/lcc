@@ -1,10 +1,12 @@
 """See the `nlnas.datasets.BatchedTensorDataset` class documentation."""
 
+from copy import deepcopy
 from pathlib import Path
 from typing import Iterator
 
 import torch
 from numpy.typing import ArrayLike
+from pytorch_lightning.strategies import ParallelStrategy, Strategy
 from safetensors import torch as st
 from torch import Tensor
 from torch.utils.data import DataLoader, IterableDataset
@@ -114,6 +116,24 @@ class BatchedTensorDataset(IterableDataset):
                 self._len = len(b) * len(self.paths)
         return self._len
 
+    def distribute(self, strategy: Strategy | None) -> "BatchedTensorDataset":
+        """
+        Creates a subset of this dataset so that every rank has a different
+        subset. Does not modify the current dataset.
+
+        If the strategy is not a `ParallelStrategy` or if the world size is less
+        than 2, this method returns `self` (NOT a copy of `self`).
+        """
+        if (
+            not isinstance(strategy, ParallelStrategy)
+            or strategy.world_size < 2
+        ):
+            return self
+        ws, gr = strategy.world_size, strategy.global_rank
+        ds = deepcopy(self)
+        ds.paths, ds._len = ds.paths[gr::ws], None
+        return ds
+
     def extract_idx(
         self, tqdm_style: TqdmStyle = None
     ) -> tuple[IterableDataset, Tensor]:
@@ -124,7 +144,7 @@ class BatchedTensorDataset(IterableDataset):
         shape of the dataset).
         """
         a, b = _ProjectionDataset(self, 0), _ProjectionDataset(self, 1)
-        dl = DataLoader(b, batch_size=256, num_workers=1)
+        dl = DataLoader(b, batch_size=1024)
         dl = make_tqdm(tqdm_style)(dl, "Extracting indices")
         # TODO: setting num_workers to > 1 makes the index tensor n_workers
         # times too long... problem with tqdm?

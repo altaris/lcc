@@ -10,7 +10,7 @@ import torch
 import torch.distributed
 from safetensors import torch as st
 from torch import Tensor
-from torch.utils.data import DataLoader, IterableDataset
+from torch.utils.data import DataLoader
 
 from ..correction import ExactLCCLoss, class_otm_matching, louvain_communities
 from ..datasets import BatchedTensorDataset
@@ -48,12 +48,12 @@ def _fde_pca(
             if d
         }
 
-    rank = model.trainer.global_rank
+    ws, gr = model.trainer.world_size, model.trainer.global_rank
     output_dir, tqdm = Path(output_dir), make_tqdm(tqdm_style)
     output_dir.mkdir(parents=True, exist_ok=True)
     with torch.no_grad():
         model.eval()
-        for batch in tqdm(dl, f"[Rank {rank}] Fitting PCA(s)"):
+        for batch in tqdm(dl, f"[Rank {gr}/{ws}] Fitting PCA(s)"):
             data: dict[str, Tensor] = {}
             model.forward_intermediate(
                 inputs=batch[model.hparams["image_key"]],
@@ -64,7 +64,7 @@ def _fde_pca(
             for sm, z in data.items():
                 if sm in pcas:
                     pcas[sm].partial_fit(z.flatten(1))
-        for batch in tqdm(dl, f"[Rank {rank}] Evaluating"):
+        for batch in tqdm(dl, f"[Rank {gr}/{ws}] Evaluating"):
             data = {}
             y_pred = model.forward_intermediate(
                 inputs=batch[model.hparams["image_key"]],
@@ -100,12 +100,12 @@ def _fde_no_pca(
     applied. See `full_dataset_evaluation` for the precise meaning of the
     arguments.
     """
-    rank = model.trainer.global_rank
+    ws, gr = model.trainer.world_size, model.trainer.global_rank
     output_dir, tqdm = Path(output_dir), make_tqdm(tqdm_style)
     output_dir.mkdir(parents=True, exist_ok=True)
     with torch.no_grad():
         model.eval()
-        for batch in tqdm(dl, f"[Rank {rank}] Evaluating"):
+        for batch in tqdm(dl, f"[Rank {gr}/{ws}] Evaluating"):
             data: dict[str, Tensor] = {}
             y_pred = model.forward_intermediate(
                 inputs=batch[model.hparams["image_key"]],
@@ -128,42 +128,72 @@ def _fde_no_pca(
         model.train()
 
 
-def _fdlc_r0(
+def _construct_latent_data(
     model: BaseClassifier, output_dir: str | Path, tqdm_style: TqdmStyle = None
 ) -> dict[str, LatentClusteringData]:
     """
     Full dataset latent clustering, to only be executed on rank 0. It is assumed
     that the whole dataset has already been evaluated.
     """
-    y_true, idx = BatchedTensorDataset(output_dir, prefix="y_true").load()
-    y_true = y_true[idx.argsort()]  # y_true is not in order (of the dataset)
-    lcc_data: dict[str, LatentClusteringData] = {}
     lcc_kwargs = model.hparams.get("lcc_kwargs", {})
+    lcc_data: dict[str, LatentClusteringData] = {}
+    tqdm_style = tqdm_style if model.trainer.global_rank == 0 else None
+
+    # Step 0: Get the true label vector in the same order as in the original
+    # dataset (so ordered by absolute index). BatchedTensorDataset.load is
+    # potentially i/o expensive so it's only done on rank 0
+    if model.trainer.global_rank == 0:
+        y_true, idx = BatchedTensorDataset(output_dir, prefix="y_true").load()
+        # ↓ make sure y_true is in the same order as in the batches
+        y_true = y_true[idx.argsort()]
+    else:
+        y_true = torch.empty(0)
+    y_true = model.trainer.strategy.broadcast(y_true, src=0)
+
     progress = make_tqdm(tqdm_style)(model.lcc_submodules, "Clustering")
     for sm in progress:
         progress.set_postfix(submodule=sm)
-        ds: IterableDataset = BatchedTensorDataset(output_dir, prefix=sm)
-        ds, idx = ds.extract_idx(tqdm_style)  # type: ignore  # i know what i'm doing
-        dl = DataLoader(ds, batch_size=256)
+        ds = BatchedTensorDataset(output_dir, prefix=sm)
+
+        # Step 1: Get a true label vector with the same order as in the batches
+        # of ds. extract_idx is potentially i/o expensive so it's only done on
+        # rank 0
+        if model.trainer.global_rank == 0:
+            _, idx = ds.extract_idx(tqdm_style)
+            _y_true = y_true[idx]  # Make sure the order matches that of the ds
+        else:
+            _y_true = torch.empty(0)
+        _y_true = model.trainer.strategy.broadcast(_y_true, src=0)
+
+        # Step 2: Distributed louvain community detection
         _, y_clst = louvain_communities(
-            dl,
+            ds,
             k=lcc_kwargs.get("k", 5),
+            strategy=model.trainer.strategy,
             device=model.device,
             tqdm_style=tqdm_style,
         )
-        _y_true = y_true[idx]  # Match the order of y_clst
-        matching = class_otm_matching(_y_true, y_clst)
-        # loss = RandomizedLCCLoss(
-        #     n_classes=model.hparams["n_classes"],
-        #     ccspc=lcc_kwargs.get("ccspc", 1),
-        #     tqdm_style=tqdm_style,
-        # )
+
+        # Step 3: Computing matching. class_otm_matching might not be
+        # deterministic, so it's computed on rank 0 only
+        if model.trainer.global_rank == 0:
+            matching = class_otm_matching(_y_true, y_clst)
+        else:
+            matching = {}
+        matching = model.trainer.strategy.broadcast(matching, src=0)
+
+        # Step 4: Create the loss object
         loss = ExactLCCLoss(
             n_classes=model.hparams["n_classes"],
             k=lcc_kwargs.get("k", 5),
             tqdm_style=tqdm_style,
+            strategy=model.trainer.strategy,
         )
+        dl = DataLoader(ds, batch_size=256, num_workers=4)
         loss.update(dl, _y_true, y_clst, matching)
+        loss.on_before_sync()
+        loss.sync()
+        loss.on_after_sync()
         lcc_data[sm] = LatentClusteringData(loss=loss, y_clst=y_clst)
     return lcc_data
 
@@ -260,19 +290,5 @@ def full_dataset_latent_clustering(
         tqdm_style=tqdm_style,
     )
     model.trainer.strategy.barrier()  # Wait for every rank to finish eval.
-    lcc_data: dict[str, LatentClusteringData] = {}
-    if model.trainer.global_rank == 0:
-        # Do actual clst. on rank 0 only; other ranks wait at the broadcast
-        # below
-        lcc_data = _fdlc_r0(model, output_dir, tqdm_style)
-    if model.trainer.world_size > 1:  # Boardcast to other ranks
-        for v in lcc_data.values():
-            v.loss.on_before_broadcast()
-        lcc_data = model.trainer.strategy.broadcast(lcc_data, src=0)
-        for v in lcc_data.values():
-            v.loss.on_after_broadcast()
-        model.trainer.strategy.barrier()
-        if model.trainer.global_rank == 0:
-            for v in lcc_data.values():
-                v.loss.on_after_broadcast_cleanup_r0()
+    lcc_data = _construct_latent_data(model, output_dir, tqdm_style)
     return lcc_data
