@@ -18,7 +18,7 @@ import turbo_broccoli as tb
 
 from nlnas.classifiers.base import validate_lcc_kwargs
 
-from .classifiers import BaseClassifier, HuggingFaceClassifier, TimmClassifier
+from .classifiers import get_classifier_cls
 from .datasets import HuggingFaceDataset
 from .logging import r0_debug, r0_info
 from .utils import get_reasonable_n_jobs
@@ -268,11 +268,7 @@ def train(
     _output_dir = output_dir / _dataset_name / _model_name
     _output_dir.mkdir(parents=True, exist_ok=True)
 
-    classifier_cls: type[BaseClassifier]
-    if model_name.startswith("timm/"):
-        classifier_cls = TimmClassifier
-    else:
-        classifier_cls = HuggingFaceClassifier
+    classifier_cls = get_classifier_cls(model_name)
 
     dataset = HuggingFaceDataset(
         dataset_name=dataset_name,
