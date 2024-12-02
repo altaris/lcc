@@ -115,6 +115,8 @@ def knn_graph(
         nei_dst, nei_idx = to_tensor(nei_dst), to_tensor(nei_idx)
         nei_idx = absolute_indices[nei_idx]  # (bs, k+1)
         if strategy is not None and strategy.world_size > 1:
+            nei_dst = strategy.batch_to_device(nei_dst)
+            nei_idx = strategy.batch_to_device(nei_idx)
             nei_dst = strategy.all_gather(nei_dst)  # (ws, bs, k+1)
             nei_idx = strategy.all_gather(nei_idx)  # (ws, bs, k+1)
             nei_dst = nei_dst.permute(1, 0, 2).flatten(1)  # (bs, ws * (k+1))
