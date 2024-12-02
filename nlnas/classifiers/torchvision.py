@@ -2,9 +2,7 @@
 
 from typing import Any, Callable
 
-import torch
-import torchvision.transforms.v2 as transforms
-from torchvision.models import get_model
+from torchvision.models import get_model, get_model_weights
 
 from .wrapped import WrappedClassifier
 
@@ -29,25 +27,25 @@ class TorchvisionClassifier(WrappedClassifier):
 
     @staticmethod
     def get_image_processor(
-        model_name: str, **__: Any
+        model_name: str, weights: str = "DEFAULT", **__: Any
     ) -> Callable[[dict[str, Any]], dict[str, Any]]:
         """
-        Torchvision models do not require an image processor.
+        Creates an image processor based on the transform object of the model's
+        chosen weights. For example,
+
+            TorchvisionClassifier.get_image_processor("alexnet")
+
+        is analogous to
+
+            get_model_weights("alexnet")["DEFAULT"].transforms()
         """
 
-        transform = transforms.Compose(
-            [
-                transforms.Resize(256),
-                transforms.RGB(),
-                transforms.PILToTensor(),
-                transforms.ConvertImageDtype(torch.float),
-            ]
-        )
+        transform = get_model_weights(model_name)[weights].transforms()
 
         def _processor(batch: dict[str, Any]) -> dict[str, Any]:
             return {
                 k: (
-                    transform(v)
+                    [transform(img) for img in v]
                     # TODO: pass image_key from DS ↓
                     if k in ["img", "image", "jpg", "png"]
                     else v
