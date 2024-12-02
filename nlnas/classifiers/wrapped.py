@@ -17,7 +17,6 @@ class WrappedClassifier(BaseClassifier):
     """
 
     model: nn.Module
-    logit_key: str | None
 
     def __init__(
         self,
@@ -51,16 +50,16 @@ class WrappedClassifier(BaseClassifier):
         """
         self.save_hyperparameters(ignore=["model"])
         super().__init__(n_classes, **kwargs)
-        self.model, self.logit_key = model, logit_key
+        self.model = model
         if head_name:
             replace_head(self.model, head_name, n_classes)
 
     def forward(self, inputs: Tensor | Batch, *_: Any, **__: Any) -> Tensor:
-        x: Tensor = (
-            inputs if isinstance(inputs, Tensor) else inputs[self.image_key]
-        )
+        image_key = self.hparams["image_key"]
+        logit_key = self.hparams.get("logit_key")
+        x: Tensor = inputs if isinstance(inputs, Tensor) else inputs[image_key]
         output = self.model(x.to(self.device))
-        return output if self.logit_key is None else output[self.logit_key]  # type: ignore
+        return output if logit_key is None else output[logit_key]  # type: ignore
 
     @property
     def lcc_submodules(self) -> list[str]:
