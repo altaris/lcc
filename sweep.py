@@ -26,6 +26,30 @@ DATASETS = [
         "image_key": "img",
         "label_key": "fine_label",
     },
+    # {  # https://huggingface.co/datasets/timm/oxford-iiit-pet
+    #     "name": "timm/oxford-iiit-pet",
+    #     "train_split": "train[:80%]",
+    #     "val_split": "train[80%:]",
+    #     "test_split": "test",
+    #     "image_key": "image",
+    #     "label_key": "label",
+    # },
+    # {  # https://huggingface.co/datasets/timm/resisc45
+    #     "name": "timm/resisc45",
+    #     "train_split": "train",
+    #     "val_split": "validation",
+    #     "test_split": "test",
+    #     "image_key": "image",
+    #     "label_key": "label",
+    # },
+    # {  # https://huggingface.co/datasets/timm/eurosat-rgb
+    #     "name": "timm/eurosat-rgb",
+    #     "train_split": "train",
+    #     "val_split": "validation",
+    #     "test_split": "test",
+    #     "image_key": "image",
+    #     "label_key": "label",
+    # },
     # {  # https://huggingface.co/datasets/timm/imagenet-1k-wds
     #     "name": "timm/imagenet-1k-wds",
     #     "train_split": "train",
@@ -34,45 +58,47 @@ DATASETS = [
     #     "image_key": "jpg",
     #     "label_key": "cls",
     # },
+    # {  # https://huggingface.co/datasets/ILSVRC/imagenet-1k
+    #     "name": "ILSVRC/imagenet-1k",
+    #     "train_split": "train",
+    #     "val_split": "validation",
+    #     "test_split": "validation",
+    #     "image_key": "image",
+    #     "label_key": "label",
+    # },
 ]
 
 MODELS = [
     {
-        "name": "timm/mobilenetv3_small_050.lamb_in1k",
-        "head_name": "classifier",
+        "name": "microsoft/resnet-18",
+        "head_name": "classifier.1",
         "lcc_submodules": ["classifier"],
+        "logit_key": "logits",
     },
     {
-        "name": "timm/mobilenetv3_small_050.lamb_in1k",
-        "head_name": "classifier",
-        "lcc_submodules": ["conv_head"],
+        "name": "microsoft/resnet-18",
+        "head_name": "classifier.1",
+        "lcc_submodules": ["resnet.encoder.stages.3"],
+        "logit_key": "logits",
     },
     {
-        "name": "timm/mobilenetv3_small_050.lamb_in1k",
-        "head_name": "classifier",
-        "lcc_submodules": ["conv_head", "classifier"],
+        "name": "alexnet",
+        "head_name": "classifier.6",
+        "lcc_submodules": ["classifier"],
+        "logit_key": None,
     },
     {
-        "name": "timm/resnet18.a3_in1k",
-        "head_name": "fc",
-        "lcc_submodules": ["fc"],
-    },
-    {
-        "name": "timm/resnet18.a3_in1k",
-        "head_name": "fc",
-        "lcc_submodules": ["layer4"],
-    },
-    {
-        "name": "timm/resnet18.a3_in1k",
-        "head_name": "fc",
-        "lcc_submodules": ["layer4", "fc"],
+        "name": "alexnet",
+        "head_name": "classifier.6",
+        "lcc_submodules": ["classifier.4"],
+        "logit_key": None,
     },
 ]
 
-LCC_WEIGHTS = [0, 1e-2, 1e-4]
-LCC_INTERVALS = [1, 5]
-LCC_WARMUPS = [1, 5]
-LCC_KS = [2, 5, 10, 50, 100]
+LCC_WEIGHTS = [1e-2, 1e-3]
+LCC_INTERVALS = [1]
+LCC_WARMUPS = [1, 5, 10]
+LCC_KS = [2, 5, 50]
 SEEDS = [0, 1, 2]
 
 STUPID_CUDA_SPAM = r"CUDA call.*failed with initialization error"
@@ -124,6 +150,7 @@ def train(
     image_key: str,
     label_key: str,
     head_name: str | None,
+    logit_key: str | None,
     seed: int,
 ) -> None:
     """
@@ -139,9 +166,9 @@ def train(
         "train_split": train_split,
         "val_split": val_split,
         "test_split": test_split,
-        "image_key": image_key,
-        "label_key": label_key,
-        "head_name": head_name,
+        "image_key": image_key,  # TODO: don't need
+        "label_key": label_key,  # TODO: don't need
+        "head_name": head_name,  # TODO: don't need
         "seed": seed,
     }
     cfg_hash = _hash_dict(cfg)
@@ -176,6 +203,7 @@ def train(
         cmd += ["--test-split", test_split]
         cmd += ["--image-key", image_key]
         cmd += ["--label-key", label_key]
+        cmd += ["--logit-key", logit_key]
         cmd += ["--head-name", head_name]
         cmd += ["--batch-size", 256]
         cmd += ["--max-epochs", 50]
@@ -276,5 +304,6 @@ if __name__ == "__main__":
                     image_key=dataset_config["image_key"],
                     label_key=dataset_config["label_key"],
                     head_name=model_config["head_name"],
+                    logit_key=model_config["logit_key"],
                     seed=seed,
                 )

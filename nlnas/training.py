@@ -215,7 +215,7 @@ def train(
     test_split: str | None = None,
     image_key: str = "image",
     label_key: str = "label",
-    logit_key: str = "logits",
+    logit_key: str | None = "logits",
     head_name: str | None = None,
     seed: int | None = None,
 ) -> dict:
@@ -244,7 +244,7 @@ def train(
         test_split (str | None, optional):
         image_key (str, optional):
         label_key (str, optional):
-        logit_key (str, optional):
+        logit_key (str | None, optional):
         head_name (str | None, optional): Name of the output layer of the model.
             This must be set if the number of classes in the dataset does not
             match the number components of the output layer of the model. See

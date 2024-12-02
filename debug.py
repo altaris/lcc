@@ -28,16 +28,18 @@ LABEL_KEY = "fine_label"
 # MODEL = "timm/mobilenetv3_small_050.lamb_in1k"
 # HEAD_NAME = "classifier"
 # LCC_SUBMODULES = ["conv_head", "classifier"]
+# LOGIT_KEY = "logits"
 
-MODEL = "timm/resnet18.a3_in1k"
-HEAD_NAME = "fc"
-LCC_SUBMODULES = ["fc"]
+MODEL = "alexnet"
+HEAD_NAME = "classifier.6"
+LCC_SUBMODULES = ["classifier.4"]
+LOGIT_KEY = None
 
 LCC_WEIGHT = 1e-4
 LCC_INTERVAL = 1
 LCC_WARMUP = 0
 CE_WEIGHT = 1
-LCC_K = 5
+LCC_K = 50
 
 if __name__ == "__main__":
     # torch.multiprocessing.set_sharing_strategy("file_system")
@@ -63,6 +65,7 @@ if __name__ == "__main__":
             test_split=TEST_SPLIT,
             image_key=IMAGE_KEY,
             label_key=LABEL_KEY,
+            logit_key=LOGIT_KEY,
             head_name=HEAD_NAME,
         )
     except:

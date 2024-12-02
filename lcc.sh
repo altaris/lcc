@@ -17,26 +17,37 @@ LABEL_KEY="fine_label"
 # MODEL="google/mobilenet_v2_1.0_224"
 # HEAD_NAME="classifier"
 # LCC_SUBMODULES="classifier"
+# LOGIT_KEY="logits"
 
 # MODEL="google/vit-base-patch16-224"
 # HEAD_NAME="classifier"
 # LCC_SUBMODULES="classifier"
+# LOGIT_KEY="logits"
 
-MODEL="microsoft/resnet-18"
-HEAD_NAME="classifier.1"
-LCC_SUBMODULES="resnet.encoder.stages.3"
+# MODEL="microsoft/resnet-18"
+# HEAD_NAME="classifier.1"
+# LCC_SUBMODULES="resnet.encoder.stages.3"
+# LOGIT_KEY="logits"
 
 # MODEL="timm/resnet18.a3_in1k"
 # HEAD_NAME="fc"
 # LCC_SUBMODULES="fc"
+# LOGIT_KEY="logits"
 
 # MODEL="timm/mobilenetv3_small_050.lamb_in1k"
 # HEAD_NAME="classifier"
 # LCC_SUBMODULES="conv_head,classifier"
+# LOGIT_KEY="logits"
 
 # MODEL="timm/tinynet_e.in1k"
 # HEAD_NAME="classifier"
 # LCC_SUBMODULES="conv_head"
+# LOGIT_KEY="logits"
+
+MODEL="alexnet"
+HEAD_NAME="classifier.6"
+LCC_SUBMODULES="classifier.4"
+LOGIT_KEY=""
 
 CE_WEIGHT=1
 LCC_INTERVAL=1
@@ -45,7 +56,7 @@ LCC_WARMUP=0
 LCC_WEIGHT=1e-2
 
 BATCH_SIZE=256
-MAX_EPOCHS=10
+MAX_EPOCHS=1
 
 OUTPUT_DIR="out.test"
 export CUDA_VISIBLE_DEVICES=0,1
@@ -66,6 +77,7 @@ echo "Cuda devs:      $CUDA_VISIBLE_DEVICES"
 echo "----------------------------------------------------------------------"
 echo "MODEL:          $MODEL"
 echo "HEAD_NAME:      $HEAD_NAME"
+echo "LOGIT_KEY:      $LOGIT_KEY"
 echo "----------------------------------------------------------------------"
 echo "CE_WEIGHT:      $CE_WEIGHT"
 echo "LCC_INTERVAL:   $LCC_INTERVAL"
@@ -97,12 +109,14 @@ uv run python -m nlnas \
     --head-name "$HEAD_NAME" \
     --image-key "$IMAGE_KEY" \
     --label-key "$LABEL_KEY" \
+    --logit-key "$LOGIT_KEY" \
     --lcc-interval "$LCC_INTERVAL" \
     --lcc-k "$LCC_K" \
     --lcc-submodules "$LCC_SUBMODULES" \
     --lcc-warmup "$LCC_WARMUP" \
     --lcc-weight "$LCC_WEIGHT" \
     --max-epochs "$MAX_EPOCHS" \
+    --seed 0 \
     --test-split "$TEST_SPLIT" \
     --train-split "$TRAIN_SPLIT" \
     --val-split "$VAL_SPLIT"

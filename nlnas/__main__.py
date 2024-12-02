@@ -242,7 +242,7 @@ def train(
             if _do_lcc
             else None
         ),
-        logit_key=logit_key,
+        logit_key=logit_key if logit_key else None,
         max_epochs=max_epochs,
         model_name=model_name,
         output_dir=output_dir,
