@@ -129,7 +129,7 @@ class ExactLCCLoss(LCCLoss):
         """
         self.matching = to_int_matching(matching)
         y_clst = to_int_array(y_clst)
-        n_features = next(iter(dl)).flatten(1).shape[-1]
+        n_features = next(iter(dl))[0].flatten(1).shape[-1]
         p1, p2, _, _ = otm_matching_predicates(
             y_true, y_clst, self.matching, c_a=self.n_classes
         )
