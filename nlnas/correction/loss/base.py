@@ -67,6 +67,8 @@ class LCCLoss(ABC):
         """
         Should be called on all ranks after the loss object has been synced.
         """
+        if self.strategy is not None:
+            self.strategy.barrier()
         if self._tmp_dir is not None and (
             self.strategy is None or self.strategy.global_rank == 0
         ):
