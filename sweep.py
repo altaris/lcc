@@ -203,7 +203,7 @@ def train(
         cmd += ["--test-split", test_split]
         cmd += ["--image-key", image_key]
         cmd += ["--label-key", label_key]
-        cmd += ["--logit-key", logit_key]
+        cmd += ["--logit-key", logit_key if logit_key else ""]
         cmd += ["--head-name", head_name]
         cmd += ["--batch-size", 256]
         cmd += ["--max-epochs", 50]
