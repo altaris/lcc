@@ -7,6 +7,7 @@ from .base import (
 )
 from .huggingface import HuggingFaceClassifier
 from .timm import TimmClassifier
+from .torchvision import TorchvisionClassifier
 from .wrapped import WrappedClassifier
 
 __all__ = [
@@ -14,6 +15,7 @@ __all__ = [
     "HuggingFaceClassifier",
     "LatentClusteringData",
     "TimmClassifier",
+    "TorchvisionClassifier",
     "validate_lcc_kwargs",
     "WrappedClassifier",
 ]
