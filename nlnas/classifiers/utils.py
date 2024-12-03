@@ -70,6 +70,7 @@ def temporary_directory(model: pl.LightningModule) -> Iterator[Path]:
     try:
         yield Path(name)
     finally:
+        model.trainer.strategy.barrier()  # Make sure everyone is done with tmp
         if model.trainer.global_rank == 0:
             handler.cleanup()
 
