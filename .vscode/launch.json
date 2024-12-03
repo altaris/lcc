@@ -13,6 +13,7 @@
             "justMyCode": false,
             "env": {
                 "CUDA_VISIBLE_DEVICES": "0",
+                "CUDA_LAUNCH_BLOCKING": "1",
             }
         },
         {
@@ -24,6 +25,7 @@
             "justMyCode": false,
             "env": {
                 "CUDA_VISIBLE_DEVICES": "",
+                "CUDA_LAUNCH_BLOCKING": "1",
             }
         },
         {
@@ -33,6 +35,9 @@
             "program": "debug.py",
             "console": "integratedTerminal",
             "justMyCode": false,
+            "env": {
+                "CUDA_LAUNCH_BLOCKING": "1",
+            }
         },
     ],
 }
