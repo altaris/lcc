@@ -189,7 +189,7 @@ def _construct_latent_data(
             tqdm_style=tqdm_style,
             strategy=model.trainer.strategy,
         )
-        dl = DataLoader(ds, batch_size=256, num_workers=4)
+        dl = DataLoader(ds, batch_size=256, num_workers=1)
         loss.update(dl, _y_true, y_clst, matching)
         loss.on_before_sync()
         loss.sync()

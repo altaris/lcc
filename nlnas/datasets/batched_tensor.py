@@ -140,7 +140,7 @@ class BatchedTensorDataset(IterableDataset):
         shape of the dataset).
         """
         a, b = _ProjectionDataset(self, 0), _ProjectionDataset(self, 1)
-        dl = DataLoader(b, batch_size=1024)
+        dl = DataLoader(b, batch_size=1024, num_workers=1)
         dl = make_tqdm(tqdm_style)(dl, "Extracting indices")
         # TODO: setting num_workers to > 1 makes the index tensor n_workers
         # times too long... problem with tqdm?
