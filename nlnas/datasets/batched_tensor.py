@@ -109,11 +109,7 @@ class BatchedTensorDataset(IterableDataset):
         first batch and multiplies its length by the number of batch files.
         """
         if self._len is None:
-            if not self.paths:
-                self._len = 0
-            else:
-                b = st.load_file(self.paths[0])["_idx"]
-                self._len = len(b) * len(self.paths)
+            self._len = sum(len(st.load_file(p)["_idx"]) for p in self.paths)
         return self._len
 
     def distribute(self, strategy: Strategy | None) -> "BatchedTensorDataset":
