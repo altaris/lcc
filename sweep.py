@@ -95,10 +95,10 @@ MODELS = [
     },
 ]
 
-LCC_WEIGHTS = [1e-2, 1e-3]
+LCC_WEIGHTS = [1e-2]
 LCC_INTERVALS = [1]
 LCC_WARMUPS = [1, 5, 10]
-LCC_KS = [2, 5, 50]
+LCC_KS = [5, 50]
 SEEDS = [0, 1, 2]
 
 STUPID_CUDA_SPAM = r"CUDA call.*failed with initialization error"
