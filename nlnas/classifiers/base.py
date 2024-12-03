@@ -8,9 +8,9 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.distributed
+import torchmetrics as tm
 from torch import Tensor, nn
 from torch.utils.hooks import RemovableHandle
-from torchmetrics.functional.classification import multiclass_accuracy
 
 from nlnas.correction import LCCLoss
 
@@ -63,6 +63,12 @@ class BaseClassifier(pl.LightningModule):
 
     standard_loss: nn.Module
     """'Standard' loss to use together with LCC."""
+
+    accuracy_top1: nn.Module
+    """Top-1 accuracy metric."""
+
+    accuracy_top5: nn.Module
+    """Top-5 accuracy metric."""
 
     def __init__(
         self,
@@ -120,6 +126,13 @@ class BaseClassifier(pl.LightningModule):
         if lcc_submodules:
             validate_lcc_kwargs(lcc_kwargs)
         self.standard_loss = torch.nn.CrossEntropyLoss()
+        acc_kw: dict[str, Any] = {
+            "task": "multiclass",
+            "num_classes": n_classes,
+            "average": "micro",
+        }
+        self.accuracy_top1 = tm.Accuracy(top_k=1, **acc_kw)  # type: ignore
+        self.accuracy_top5 = tm.Accuracy(top_k=5, **acc_kw)  # type: ignore
 
     def _evaluate(self, batch: Batch, stage: str | None = None) -> Tensor:
         """Self-explanatory"""
@@ -153,17 +166,16 @@ class BaseClassifier(pl.LightningModule):
             loss = loss_ce
         if stage:
             self.log_dict(
-                {f"{stage}/loss": loss, f"{stage}/ce": loss_ce},
+                {
+                    f"{stage}/loss": loss,
+                    f"{stage}/ce": loss_ce,
+                    f"{stage}/acc5": self.accuracy_top5(logits, y),
+                },
                 sync_dist=True,
             )
             self.log(
                 f"{stage}/acc",
-                multiclass_accuracy(
-                    logits,
-                    y,
-                    num_classes=self.hparams["n_classes"],
-                    average="micro",
-                ),
+                self.accuracy_top1(logits, y),
                 prog_bar=True,
                 sync_dist=True,
             )
