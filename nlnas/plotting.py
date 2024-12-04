@@ -10,7 +10,7 @@ import bokeh.plotting as bk
 import numpy as np
 from loguru import logger as logging
 from numpy.typing import ArrayLike
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import RobustScaler
 
 from .correction import otm_matching_predicates
 from .correction.utils import Matching, to_int_matching
@@ -78,7 +78,7 @@ def class_scatter(
     """
     x, y = to_array(x), to_int_array(y)
     if rescale:
-        x = MinMaxScaler().fit_transform(x)
+        x = RobustScaler().fit_transform(x)
     assert isinstance(x, np.ndarray)  # for typechecking
     n_classes = min(len(np.unique(y[y >= 0])), 256)
     if palette is None:
@@ -181,7 +181,7 @@ def class_matching_plot(
         size (int, optional): The size of each scatter plot. Defaults to 400.
     """
     x, y_a, y_b = to_array(x), to_int_array(y_a), to_int_array(y_b)
-    x = MinMaxScaler().fit_transform(x)
+    x = RobustScaler().fit_transform(x)
     assert isinstance(x, np.ndarray)  # for typechecking
     matching = to_int_matching(matching)
     p1, p2, p3, p4 = otm_matching_predicates(y_a, y_b, matching)
