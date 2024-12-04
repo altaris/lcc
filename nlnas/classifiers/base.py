@@ -67,7 +67,7 @@ class BaseClassifier(pl.LightningModule):
     accuracy_top1: nn.Module
     """Top-1 accuracy metric."""
 
-    accuracy_top5: nn.Module
+    accuracy_top5: nn.Module | None = None
     """Top-5 accuracy metric."""
 
     def __init__(
@@ -132,7 +132,8 @@ class BaseClassifier(pl.LightningModule):
             "average": "micro",
         }
         self.accuracy_top1 = tm.Accuracy(top_k=1, **acc_kw)  # type: ignore
-        self.accuracy_top5 = tm.Accuracy(top_k=5, **acc_kw)  # type: ignore
+        if n_classes > 5:
+            self.accuracy_top5 = tm.Accuracy(top_k=5, **acc_kw)  # type: ignore
 
     def _evaluate(self, batch: Batch, stage: str | None = None) -> Tensor:
         """Self-explanatory"""
@@ -165,14 +166,13 @@ class BaseClassifier(pl.LightningModule):
         else:
             loss = loss_ce
         if stage:
-            self.log_dict(
-                {
-                    f"{stage}/loss": loss,
-                    f"{stage}/ce": loss_ce,
-                    f"{stage}/acc5": self.accuracy_top5(logits, y),
-                },
-                sync_dist=True,
-            )
+            d = {
+                f"{stage}/loss": loss,
+                f"{stage}/ce": loss_ce,
+            }
+            if self.accuracy_top5 is not None:
+                d[f"{stage}/acc5"] = self.accuracy_top5(logits, y)
+            self.log_dict(d, sync_dist=True)
             self.log(
                 f"{stage}/acc",
                 self.accuracy_top1(logits, y),
