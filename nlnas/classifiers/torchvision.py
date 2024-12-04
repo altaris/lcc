@@ -3,6 +3,7 @@
 from typing import Any, Callable
 
 from torchvision.models import get_model, get_model_weights
+from torchvision.transforms import v2 as tr
 
 from .wrapped import WrappedClassifier
 
@@ -40,7 +41,9 @@ class TorchvisionClassifier(WrappedClassifier):
             get_model_weights("alexnet")["DEFAULT"].transforms()
         """
 
-        transform = get_model_weights(model_name)[weights].transforms()
+        transform = tr.Compose(
+            [tr.RGB(), get_model_weights(model_name)[weights].transforms()]
+        )
 
         def _processor(batch: dict[str, Any]) -> dict[str, Any]:
             return {
