@@ -19,7 +19,7 @@ import turbo_broccoli as tb
 from nlnas.classifiers.base import validate_lcc_kwargs
 
 from .classifiers import get_classifier_cls
-from .datasets import HuggingFaceDataset
+from .datasets import HuggingFaceDataset, get_dataset
 from .logging import r0_debug, r0_info
 from .utils import get_reasonable_n_jobs
 
@@ -209,7 +209,7 @@ def train(
     lcc_submodules: list[str] | None = None,
     lcc_kwargs: dict | None = None,
     max_epochs: int = 50,
-    batch_size: int = 2048,
+    batch_size: int = 256,
     train_split: str = "train",
     val_split: str = "val",
     test_split: str | None = None,
@@ -270,22 +270,32 @@ def train(
 
     classifier_cls = get_classifier_cls(model_name)
 
-    dataset = HuggingFaceDataset(
-        dataset_name=dataset_name,
-        fit_split=train_split,
-        val_split=val_split,
-        test_split=test_split,
-        label_key=label_key,
-        image_processor=classifier_cls.get_image_processor(model_name),
-        train_dl_kwargs={
-            "batch_size": batch_size,
-            "num_workers": get_reasonable_n_jobs(),
-        },
-        val_dl_kwargs={
-            "batch_size": batch_size,
-            "num_workers": get_reasonable_n_jobs(),
-        },
-    )
+    if dataset_name.startswith("PRESET:"):
+        dataset_name = dataset_name[7:]
+        r0_info("Using preset dataset name: {}", dataset_name)
+        dataset, _ = get_dataset(
+            dataset_name,
+            image_processor=model_name,
+            batch_size=batch_size,
+            num_workers=get_reasonable_n_jobs(),
+        )
+    else:
+        dataset = HuggingFaceDataset(
+            dataset_name=dataset_name,
+            fit_split=train_split,
+            val_split=val_split,
+            test_split=test_split,
+            label_key=label_key,
+            image_processor=classifier_cls.get_image_processor(model_name),
+            train_dl_kwargs={
+                "batch_size": batch_size,
+                "num_workers": get_reasonable_n_jobs(),
+            },
+            val_dl_kwargs={
+                "batch_size": batch_size,
+                "num_workers": get_reasonable_n_jobs(),
+            },
+        )
     n_classes = dataset.n_classes()
 
     model = classifier_cls(

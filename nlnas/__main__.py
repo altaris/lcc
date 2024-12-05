@@ -29,8 +29,23 @@ def main(logging_level: str) -> None:
 
 
 @main.command()
-@click.argument("model_name", type=str)
-@click.argument("dataset_name", type=str)
+@click.argument(
+    "model_name",
+    type=str,
+    # help=(
+    #     "Model name as in the HuggingFace hub or the Torchvision model list."
+    # ),
+)
+@click.argument(
+    "dataset_name",
+    type=str,
+    # help=(
+    #     "Dataset name as in the HuggingFace hub. If starting with 'PRESET:', "
+    #     "uses a preset from nlnas.datasets.DATASET_PRESETS_CONFIGURATIONS. In "
+    #     "this case, most other dataset configuration passed via the CLI is "
+    #     "ignored."
+    # ),
+)
 @click.argument(  # output_dir
     "output_dir",
     type=click.Path(file_okay=False, dir_okay=True, path_type=Path),  # type: ignore
@@ -115,15 +130,18 @@ def main(logging_level: str) -> None:
 @click.option(  # --batch-size
     "-bs",
     "--batch-size",
-    default=1024,
-    help="Batch size. Defaults to 1024.",
+    default=256,
+    help="Batch size. Defaults to 256.",
     type=int,
 )
 @click.option(  # --train-split
     "-ts",
     "--train-split",
     default="train",
-    help="Name of the training data split in the dataset. Defaults to 'train'.",
+    help=(
+        "Name of the training data split in the dataset. Defaults to 'train'. "
+        "Ignored if using a dataset preset."
+    ),
     type=str,
 )
 @click.option(  # --val-split
@@ -131,7 +149,8 @@ def main(logging_level: str) -> None:
     "--val-split",
     default="val",
     help=(
-        "Name of the validation data split in the dataset. Defaults to 'train'."
+        "Name of the validation data split in the dataset. Defaults to "
+        "'train'. Ignored if using a dataset preset."
     ),
     type=str,
 )
@@ -139,21 +158,30 @@ def main(logging_level: str) -> None:
     "-es",
     "--test-split",
     default="",
-    help="Name of the test data split in the dataset.",
+    help=(
+        "Name of the test data split in the dataset. Ignored if using a "
+        "dataset preset."
+    ),
     type=str,
 )
 @click.option(  # --image-key
     "-ik",
     "--image-key",
     default="image",
-    help="Image column name in the dataset. Defaults to 'image'.",
+    help=(
+        "Image column name in the dataset. Defaults to 'image'. Ignored if "
+        "using a dataset preset."
+    ),
     type=str,
 )
 @click.option(  # --label-key
     "-lk",
     "--label-key",
     default="label",
-    help="Label column name in the dataset. Defaults to 'label'.",
+    help=(
+        "Label column name in the dataset. Defaults to 'label'. Ignored if "
+        "using a dataset preset."
+    ),
     type=str,
 )
 @click.option(  # --logit-key
@@ -210,8 +238,8 @@ def train(
     val_split: str,
 ):
     """
-    Performs latent cluster correction on a model fine-tuning using the
-    `finetune` command.
+    Fine-tunes a model, possibly using latent cluster correction (if
+    --lcc-* parameters are specified).
     """
     import torch
 
