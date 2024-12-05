@@ -26,30 +26,30 @@ DATASETS = [
         "image_key": "img",
         "label_key": "fine_label",
     },
-    # {  # https://huggingface.co/datasets/timm/oxford-iiit-pet
-    #     "name": "timm/oxford-iiit-pet",
-    #     "train_split": "train[:80%]",
-    #     "val_split": "train[80%:]",
-    #     "test_split": "test",
-    #     "image_key": "image",
-    #     "label_key": "label",
-    # },
-    # {  # https://huggingface.co/datasets/timm/resisc45
-    #     "name": "timm/resisc45",
-    #     "train_split": "train",
-    #     "val_split": "validation",
-    #     "test_split": "test",
-    #     "image_key": "image",
-    #     "label_key": "label",
-    # },
-    # {  # https://huggingface.co/datasets/timm/eurosat-rgb
-    #     "name": "timm/eurosat-rgb",
-    #     "train_split": "train",
-    #     "val_split": "validation",
-    #     "test_split": "test",
-    #     "image_key": "image",
-    #     "label_key": "label",
-    # },
+    {  # https://huggingface.co/datasets/timm/oxford-iiit-pet
+        "name": "timm/oxford-iiit-pet",
+        "train_split": "train[:80%]",
+        "val_split": "train[80%:]",
+        "test_split": "test",
+        "image_key": "image",
+        "label_key": "label",
+    },
+    {  # https://huggingface.co/datasets/timm/resisc45
+        "name": "timm/resisc45",
+        "train_split": "train",
+        "val_split": "validation",
+        "test_split": "test",
+        "image_key": "image",
+        "label_key": "label",
+    },
+    {  # https://huggingface.co/datasets/timm/eurosat-rgb
+        "name": "timm/eurosat-rgb",
+        "train_split": "train",
+        "val_split": "validation",
+        "test_split": "test",
+        "image_key": "image",
+        "label_key": "label",
+    },
     # {  # https://huggingface.co/datasets/timm/imagenet-1k-wds
     #     "name": "timm/imagenet-1k-wds",
     #     "train_split": "train",
@@ -97,7 +97,7 @@ MODELS = [
 
 LCC_WEIGHTS = [1e-2]
 LCC_INTERVALS = [1]
-LCC_WARMUPS = [1, 5, 10]
+LCC_WARMUPS = [1, 10]
 LCC_KS = [5, 50]
 SEEDS = [0, 1, 2]
 
