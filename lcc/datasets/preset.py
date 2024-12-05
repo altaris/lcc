@@ -104,7 +104,12 @@ def get_dataset(
 
     Example:
 
-        ds, _ = get_dataset("cifar10", "microsoft/resnet-18", batch_size=64, num_workers=4)
+        >>> ds, _ = get_dataset(
+        ...     "cifar10",
+        ...     "microsoft/resnet-18",
+        ...     batch_size=64,
+        ...     num_workers=4,
+        ... )
 
     Args:
         dataset_name (str): See `DATASET_PRESETS_CONFIGURATIONS`
