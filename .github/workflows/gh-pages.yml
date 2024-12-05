@@ -3,7 +3,7 @@ name: Build and publish GitHub pages
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   pdoc:
@@ -18,17 +18,23 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v3
         with:
-          python-version: 3.11
+          python-version: "3.10"
+
+      - name: Install uv
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install uv
+
+      - name: Install dependencies
+        run: |
+          uv sync --extra plotting
 
       - name: Install pdoc
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install pdoc
-          python -m pip install -r requirements.txt
-          python -m pip install -r requirements.dev.txt
+          uv pip install pdoc
 
       - name: Run pdoc
-        run: pdoc -d google --math -o docs lcc
+        run: uv run pdoc -d google --math -o docs lcc
 
       - name: Publish
         uses: peaceiris/actions-gh-pages@v3
