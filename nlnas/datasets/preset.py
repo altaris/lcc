@@ -5,7 +5,6 @@ in one line :)
 
 from typing import Any, Callable
 
-from ..classifiers import get_classifier_cls
 from .huggingface import HuggingFaceDataset
 
 DATASET_PRESETS_CONFIGURATIONS: dict[str, dict[str, Any]] = {
@@ -125,6 +124,8 @@ def get_dataset(
     """
     config = DATASET_PRESETS_CONFIGURATIONS[dataset_name]
     if isinstance(image_processor, str):
+        from ..classifiers import get_classifier_cls
+
         cls = get_classifier_cls(image_processor)
         config["image_processor"] = cls.get_image_processor(image_processor)
     else:
