@@ -27,22 +27,22 @@ class TimmClassifier(WrappedClassifier):
     ) -> None:
         """
         See also:
-            `nlnas.classifiers.WrappedClassifier.__init__` and
-            `nlnas.classifiers.BaseClassifier.__init__`.
+            `lcc.classifiers.WrappedClassifier.__init__` and
+            `lcc.classifiers.BaseClassifier.__init__`.
 
         Args:
             model_name (str): Model name as in the [HuggingFace model
                 hub](https://huggingface.co/models?pipeline_tag=image-classification).
                 Must start with `timm/`.
-            n_classes (int): See `nlnas.classifiers.WrappedClassifier.__init__`.
+            n_classes (int): See `lcc.classifiers.WrappedClassifier.__init__`.
             head_name (str | None, optional): See
-                `nlnas.classifiers.WrappedClassifier.__init__`.
+                `lcc.classifiers.WrappedClassifier.__init__`.
             pretrained (bool, optional): Defaults to `True`.
         """
         if not model_name.startswith("timm/"):
             raise ValueError(
                 "The model isn't a timm model (its name does not start with "
-                "`timm/`). Use `nlnas.classifiers.HuggingFaceClassifier` "
+                "`timm/`). Use `lcc.classifiers.HuggingFaceClassifier` "
                 "instead."
             )
         model = timm.create_model(model_name, pretrained=pretrained)

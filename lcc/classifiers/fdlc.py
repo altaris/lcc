@@ -276,7 +276,7 @@ def full_dataset_latent_clustering(
 
     Returns:
         A dictionary that maps a submodule name to its latent clustering data,
-        see `nlnas.classifiers.LatentClusteringData`.
+        see `lcc.classifiers.LatentClusteringData`.
     """
     if not isinstance(model.trainer.train_dataloader, DataLoader):
         raise RuntimeError(

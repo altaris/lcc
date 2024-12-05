@@ -40,20 +40,20 @@ samples), the following are supported:
   subgraph in the confusion graph. Note that `top_connected_2` is equivalent to
   `top_pair_1`.
 - `max_connected`: Consider the largest connected component of the confusion
-  graph (see `nlnas.correction.choice.max_connected_confusion_choice` and
-  `nlnas.correction.choice.confusion_graph`).
+  graph (see `lcc.correction.choice.max_connected_confusion_choice` and
+  `lcc.correction.choice.confusion_graph`).
 """
 
 LCC_CLASS_SELECTIONS: list[str] = list(LCCClassSelection.__args__)  # type: ignore
 """
 Supported non-trivial class selection policies for LCC. See
-`nlnas.correction.LCCClassSelection`.
+`lcc.correction.LCCClassSelection`.
 """
 
 
 class GraphTotallyDisconnected(ValueError):
     """
-    Raised in `nlnas.correction.heaviest_connected_subgraph` when a graph is
+    Raised in `lcc.correction.heaviest_connected_subgraph` when a graph is
     totally disconnected (has no edges).
     """
 
@@ -98,7 +98,7 @@ def choose_classes(
 ) -> list[int] | None:
     """
     Given true and predicted labels, select classes whose samples should undergo
-    LCC based on some policy. See `nlnas.correction.LCCClassSelection`.
+    LCC based on some policy. See `lcc.correction.LCCClassSelection`.
 
     For convenience, this method returns `None` if all classes should be
     considered.
@@ -170,7 +170,7 @@ def heaviest_connected_subgraph(
 
     Args:
         graph (nx.Graph): Most likely the confusion graph returned by
-            `nlnas.choice.confusion_graph` eh?
+            `lcc.choice.confusion_graph` eh?
         max_size (int | None, optional): If left to `None`, returns the
             heaviest connected component.
         strict (bool, optional): If `True`, the returned graph is guaranteed to
@@ -251,7 +251,7 @@ def max_connected_confusion_choice(
             classes in the largest connected component of the confusion graph.
         threshold (int, optional): Ignore pairs of classes that are confused by
             less than that number of samples. See also
-            `nlnas.choice.confusion_graph`.
+            `lcc.choice.confusion_graph`.
 
     Returns:
         An `int` list of `n` classes **or less**, and the total number of

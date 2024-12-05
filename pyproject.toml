@@ -19,19 +19,19 @@
         "torch>=2.4.1",
         "transformers>=4.44.2",
         "turbo-broccoli>=4.12.2",
-]
+    ]
     description = "Latent cluster corrections"
     license = { file = "LICENSE" }
-    name = "nlnas"
+    name = "lcc"
     readme = "README.md"
     requires-python = "==3.10.*"
     version = "0.0.0"
     [project.urls]
-        "Bug Tracker" = "https://github.com/altaris/nlnas/issues"
-        Changelog     = "https://github.com/altaris/nlnas/blob/master/CHANGELOG.md"
-        Documentation = "https://github.com/altaris/nlnas"
-        Homepage      = "https://github.com/altaris/nlnas"
-        Repository    = "https://github.com/altaris/nlnas.git"
+        "Bug Tracker" = "https://github.com/altaris/lcc/issues"
+        Changelog     = "https://github.com/altaris/lcc/blob/master/CHANGELOG.md"
+        Documentation = "https://github.com/altaris/lcc"
+        Homepage      = "https://github.com/altaris/lcc"
+        Repository    = "https://github.com/altaris/lcc.git"
     [project.optional-dependencies]
         cuda12 = ["cugraph-cu12", "cuml-cu12", "nx-cugraph-cu12"]
         dev = ["huggingface-hub[cli]>=0.25.1", "pdoc>=14.7.0"]
@@ -59,7 +59,7 @@
     warn_unreachable       = true
     warn_unused_ignores    = true
 [tool.pyright]
-    include = ["nlnas"]
+    include = ["lcc"]
 [tool.ruff]
     exclude = [
         ".bzr",

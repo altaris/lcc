@@ -1,6 +1,6 @@
 """
-Kills every `/nlnas/.venv/bin/python3` process listed by `nvidia-smi`, and then
-every `/nlnas/.venv/bin/python3 -m nlnas` process listed by `ps`.
+Kills every `/lcc/.venv/bin/python3` process listed by `nvidia-smi`, and then
+every `/lcc/.venv/bin/python3 -m lcc` process listed by `ps`.
 """
 
 import re
@@ -27,9 +27,7 @@ if __name__ == "__main__":
 
     raw = subprocess.check_output(["nvidia-smi"])
     pids = []
-    r = re.compile(
-        r"\|\s+\d\s+N/A\s+N/A\s+(\d+)\s+C.*/nlnas/\.venv/bin/python3"
-    )
+    r = re.compile(r"\|\s+\d\s+N/A\s+N/A\s+(\d+)\s+C.*/lcc/\.venv/bin/python3")
     for line in raw.decode("utf-8").split("\n"):
         if m := re.search(r, line):
             pids.append(m.group(1))
@@ -42,7 +40,7 @@ if __name__ == "__main__":
 
     raw = subprocess.check_output(["ps", "-u", "cedric", "-eo", "pid,comm"])
     pids = []
-    r = re.compile(r"(\d+) .*/nlnas/\.venv/bin/python3.*m nlnas.*")
+    r = re.compile(r"(\d+) .*/lcc/\.venv/bin/python3.*m lcc.*")
     for line in raw.decode("utf-8").split("\n"):
         if m := re.search(r, line):
             pids.append(m.group(1))

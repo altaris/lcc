@@ -28,7 +28,7 @@ jobs:
           python -m pip install -r requirements.dev.txt
 
       - name: Run pdoc
-        run: pdoc -d google --math -o docs nlnas
+        run: pdoc -d google --math -o docs lcc
 
       - name: Publish
         uses: peaceiris/actions-gh-pages@v3

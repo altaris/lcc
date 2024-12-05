@@ -23,13 +23,13 @@ uv sync --all-extras
 - Fine-tuning with LCC: modify and run `lcc.sh`, or use the CLI directly:
 
   ```sh
-  uv run python -m nlnas train --help
+  uv run python -m lcc train --help
   ```
 
   For example:
 
   ```sh
-  uv run python -m nlnas train \
+  uv run python -m lcc train \
     microsoft/resnet-18 \
     PRESET:cifar100 \
     output_dir \

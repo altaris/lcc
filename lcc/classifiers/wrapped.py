@@ -4,7 +4,7 @@ from typing import Any
 
 from torch import Tensor, nn
 
-from nlnas.logging import r0_debug
+from lcc.logging import r0_debug
 
 from .base import BaseClassifier, Batch
 
@@ -13,7 +13,7 @@ class WrappedClassifier(BaseClassifier):
     """
     An image classifier model
     ([`torch.nn.Module`](https://pytorch.org/docs/stable/generated/torch.nn.Module.html))
-    wrapped inside a `nlnas.classifiers.BaseClassifier`.
+    wrapped inside a `lcc.classifiers.BaseClassifier`.
     """
 
     model: nn.Module
@@ -28,7 +28,7 @@ class WrappedClassifier(BaseClassifier):
     ) -> None:
         """
         See also:
-            `nlnas.classifiers.BaseClassifier.__init__`.
+            `lcc.classifiers.BaseClassifier.__init__`.
 
         Args:
             model (nn.Module):
@@ -43,7 +43,7 @@ class WrappedClassifier(BaseClassifier):
                 on a new dataset with the same or a different number of
                 classes. The name of a submodule can be retried by inspecting
                 the output of `nn.Module.named_modules` or
-                `nlnas.utils.pretty_print_submodules`.
+                `lcc.utils.pretty_print_submodules`.
             logit_key (str | None, optional): If the wrapped model outputs a
                 dict-like object instead of a tensor, this key is used to access
                 the actual logits.
@@ -94,7 +94,7 @@ def replace_head(
         module (nn.Module):
         head_name (str): e.g. `model.classifier.1`. The
             name of a submodule can be retried by inspecting the output of
-            `nn.Module.named_modules` or `nlnas.utils.pretty_print_submodules`.
+            `nn.Module.named_modules` or `lcc.utils.pretty_print_submodules`.
         n_classes (int): The desired number of output neurons.
 
     Raises:

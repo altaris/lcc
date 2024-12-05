@@ -4,7 +4,7 @@
 
 import setuptools
 
-name = "nlnas"
+name = "lcc"
 version = "0.0.0"
 
 with open("README.md", "r", encoding="utf-8") as f:
@@ -34,9 +34,9 @@ setuptools.setup(
     packages=packages,
     platforms="any",
     project_urls={
-        "Issues": "https://github.com/altaris/nlnas/issues",
+        "Issues": "https://github.com/altaris/lcc/issues",
     },
     python_requires=">=3.8",
-    url="https://github.com/altaris/nlnas",
+    url="https://github.com/altaris/lcc",
     version=version,
 )

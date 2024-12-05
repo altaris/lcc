@@ -30,7 +30,7 @@ def louvain_clustering_plots(
     """
     (Used as a step in `analyse_ckpt`) Makes two plots
     1. Side-by-side scatter plots of the ground truth and Louvain communities
-    2. A class matching plot, see `nlnas.plotting.class_matching_plot`
+    2. A class matching plot, see `lcc.plotting.class_matching_plot`
 
     Saves the PNGs and returns the bokeh figures in this order.
 
@@ -39,7 +39,7 @@ def louvain_clustering_plots(
         y_true (ArrayLike): A `(N,)` tensor of true labels
         y_louvain (ArrayLike): A `(N,)` tensor of Louvain labels
         matching (Matching): See
-            `nlnas.correction.clustering.class_otm_matching`
+            `lcc.correction.clustering.class_otm_matching`
         k (int): Number of neighbots that have been consitered when
             creating `y_louvain`. This is used in the title of the plot.
     """

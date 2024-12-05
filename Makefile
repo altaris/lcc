@@ -1,4 +1,4 @@
-SRC_PATH 	= nlnas
+SRC_PATH 	= lcc
 VENV_PATH	= venv
 DOCS_PATH 	= docs/html
 

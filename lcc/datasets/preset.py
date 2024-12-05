@@ -111,8 +111,8 @@ def get_dataset(
         image_processor (str | Callable | None): The image processor to use. If
             a str is provided, it is assumed to be a model name, and the image
             processor will be constructed accordingly using
-            `nlnas.classifiers.get_classifier_cls` and
-            `nlnas.classifiers.BaseClassifier.get_image_processor`.
+            `lcc.classifiers.get_classifier_cls` and
+            `lcc.classifiers.BaseClassifier.get_image_processor`.
         batch_size (int | None): If provided, will be added to the dataloader
             parameters for all dataset splits (train, val, test, and predict).
         num_workers (int | None): If provided, will be added to the dataloader

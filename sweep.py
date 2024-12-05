@@ -196,7 +196,7 @@ def train(
     try:
         logging.info("Starting training")
         logging.debug("Lock file: {}", lock_file)
-        cmd = ["uv", "run", "python", "-m", "nlnas"]
+        cmd = ["uv", "run", "python", "-m", "lcc"]
         cmd += ["train", model_name, dataset_name, OUTPUT_DIR]
         cmd += ["--train-split", train_split]
         cmd += ["--val-split", val_split]

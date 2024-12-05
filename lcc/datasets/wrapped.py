@@ -1,4 +1,4 @@
-"""See `nlnas.datasets.WrappedDataset` class documentation."""
+"""See `lcc.datasets.WrappedDataset` class documentation."""
 
 from typing import Any, Callable, Literal, TypeAlias
 
@@ -6,7 +6,7 @@ import pytorch_lightning as pl
 from datasets import Dataset as HuggingFaceDataset
 from torch.utils.data import DataLoader, Dataset
 
-from nlnas.logging import r0_debug
+from lcc.logging import r0_debug
 
 DEFAULT_DATALOADER_KWARGS: dict[str, Any] = {
     "batch_size": 1024,
@@ -77,19 +77,19 @@ class WrappedDataset(pl.LightningDataModule):
             train_dl_kwargs (dict[str, Any] | None, optional): If
                 `train` is a dataset or callable that return a dataset, this
                 dictionary will be passed to the dataloader constructor.
-                Defaults to `nlnas.datasets.DEFAULT_DATALOADER_KWARGS`.
+                Defaults to `lcc.datasets.DEFAULT_DATALOADER_KWARGS`.
             val_dl_kwargs (dict[str, Any] | None, optional):
                 Analogous to `train_dl_kwargs`, but defaults to (a copy of)
                 `train_dl_kwargs` instead of
-                `nlnas.datasets.DEFAULT_DATALOADER_KWARGS`.
+                `lcc.datasets.DEFAULT_DATALOADER_KWARGS`.
             test_dl_kwargs (dict[str, Any] | None, optional):
                 Analogous to `train_dl_kwargs`, but defaults to (a copy of)
                 `train_dl_kwargs` instead of
-                `nlnas.datasets.DEFAULT_DATALOADER_KWARGS`.
+                `lcc.datasets.DEFAULT_DATALOADER_KWARGS`.
             predict_dl_kwargs (dict[str, Any] | None, optional):
                 Analogous to `train_dl_kwargs`, but defaults to (a copy of)
                 `train_dl_kwargs` instead of
-                `nlnas.datasets.DEFAULT_DATALOADER_KWARGS`.
+                `lcc.datasets.DEFAULT_DATALOADER_KWARGS`.
         """
         super().__init__()
         self.train, self.val = train, val if val is not None else train

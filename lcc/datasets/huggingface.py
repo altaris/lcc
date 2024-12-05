@@ -1,5 +1,5 @@
 """
-See `nlnas.datasets.HuggingFace` class documentation.
+See `lcc.datasets.HuggingFace` class documentation.
 """
 
 from pathlib import Path
@@ -25,7 +25,7 @@ See also:
 class HuggingFaceDataset(WrappedDataset):
     """
     A Hugging Face image classification dataset wrapped inside a
-    `nlnas.datasets.WrappedDataset`, which is itself a
+    `lcc.datasets.WrappedDataset`, which is itself a
     [`LightningDataModule`](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.core.LightningDataModule.html).
 
     Hugging Face image datasets are dict datasets where the image is a PIL image

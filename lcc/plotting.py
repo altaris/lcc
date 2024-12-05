@@ -66,7 +66,7 @@ def class_scatter(
             https://docs.bokeh.org/en/latest/docs/reference/palettes.html#bokeh-palettes
             ),
             a list of HTML colors (at least as many as the number of classes),
-            or a name in `nlnas.plotting.BK_PALETTE_FUNCTIONS`.
+            or a name in `lcc.plotting.BK_PALETTE_FUNCTIONS`.
         size (float, optional): Dot size. The outlier's dot size will be half
             that.
         rescale (bool, optional): Whether to rescale the `x` values to $[0, 1]$.
@@ -177,7 +177,7 @@ def class_matching_plot(
         matching (Matching): Matching between
             the labels of `y_a` and the labels of `y_b`. If some keys are
             strings, they must be convertible to ints. Probably generated from
-            `nlnas.correction.class_otm_matching`.
+            `lcc.correction.class_otm_matching`.
         size (int, optional): The size of each scatter plot. Defaults to 400.
     """
     x, y_a, y_b = to_array(x), to_int_array(y_a), to_int_array(y_b)

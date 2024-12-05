@@ -22,22 +22,22 @@ class HuggingFaceClassifier(WrappedClassifier):
     ) -> None:
         """
         See also:
-            `nlnas.classifiers.WrappedClassifier.__init__` and
-            `nlnas.classifiers.BaseClassifier.__init__`.
+            `lcc.classifiers.WrappedClassifier.__init__` and
+            `lcc.classifiers.BaseClassifier.__init__`.
 
         Args:
             model_name (str): Model name as in the [HuggingFace model
                 hub](https://huggingface.co/models?pipeline_tag=image-classification).
                 If the model name starts with `timm/`, use
-                `nlnas.classifiers.TimmClassifier` instead.
-            n_classes (int): See `nlnas.classifiers.WrappedClassifier.__init__`.
+                `lcc.classifiers.TimmClassifier` instead.
+            n_classes (int): See `lcc.classifiers.WrappedClassifier.__init__`.
             head_name (str | None, optional): See
-                `nlnas.classifiers.WrappedClassifier.__init__`.
+                `lcc.classifiers.WrappedClassifier.__init__`.
         """
         if model_name.startswith("timm/"):
             raise ValueError(
                 "If the model name starts with `timm/`, use "
-                "`nlnas.classifiers.TimmClassifier` instead."
+                "`lcc.classifiers.TimmClassifier` instead."
             )
         model = AutoModelForImageClassification.from_pretrained(model_name)
         super().__init__(model, n_classes, head_name, **kwargs)

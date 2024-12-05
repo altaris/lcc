@@ -61,7 +61,7 @@ def temporary_directory(model: pl.LightningModule) -> Iterator[Path]:
     syncronization on top of this.
     """
     if model.trainer.global_rank == 0:
-        handler = TemporaryDirectory(prefix="nlnas-")
+        handler = TemporaryDirectory(prefix="lcc-")
         name = handler.name
     else:
         name = None

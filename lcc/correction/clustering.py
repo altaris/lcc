@@ -175,7 +175,7 @@ def otm_matching_predicates(
             understood to be the set of all classes of `y_b` that matched with
             the $i$-th class of `y_a`. If some keys are strings, they must be
             convertible to ints. This has probably been produced by
-            `nlnas.correction.class_otm_matching`.
+            `lcc.correction.class_otm_matching`.
         c_a (int | None, optional): Number of $a$-classes. Useful if `y_a`
             does not contain all the possible classes of the dataset at hand.
             If `None`, then `y_a` is assumed to contain all classes, and so `c_a

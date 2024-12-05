@@ -16,7 +16,7 @@ import regex as re
 import torch
 import turbo_broccoli as tb
 
-from nlnas.classifiers.base import validate_lcc_kwargs
+from lcc.classifiers.base import validate_lcc_kwargs
 
 from .classifiers import get_classifier_cls
 from .datasets import HuggingFaceDataset, get_dataset
@@ -31,8 +31,8 @@ DEFAULT_MAX_GRAD_NORM = 1.0
 
 class NoCheckpointFound(Exception):
     """
-    Raised by `nlnas.training.all_checkpoint_paths` and
-    `nlnas.training.best_checkpoint_path` if no checkpoints are found.
+    Raised by `lcc.training.all_checkpoint_paths` and
+    `lcc.training.best_checkpoint_path` if no checkpoints are found.
     """
 
 
@@ -236,7 +236,7 @@ def train(
             where to perform LCC. If empty or `None`, LCC is not performed. This
             is the only way to enable/disable LCC. Defaults to `None`.
         lcc_kwargs (dict | None, optional): Optional parameters for LCC. See
-            `nlnas.classifiers.BaseClassifier.__init__`.
+            `lcc.classifiers.BaseClassifier.__init__`.
         max_epochs (int, optional): Defaults to $50$.
         batch_size (int, optional): Defaults to $2048$.
         train_split (str, optional):
@@ -248,7 +248,7 @@ def train(
         head_name (str | None, optional): Name of the output layer of the model.
             This must be set if the number of classes in the dataset does not
             match the number components of the output layer of the model. See
-            also `nlnas.classifiers.BaseClassifier.__init__`.
+            also `lcc.classifiers.BaseClassifier.__init__`.
         seed (int | None, optional): Global seed for both CPU and GPU. If not
             `None`, this is set globally, so one might consider this as a side
             effect.
@@ -340,7 +340,7 @@ def train(
     # single-device trainer to run the model on the test dataset. So every rank
     # is testing the model independently which is stupid.
 
-    with TemporaryDirectory(prefix="nlnas-") as tmp:
+    with TemporaryDirectory(prefix="lcc-") as tmp:
         trainer = make_trainer(tmp, stage="test")
         test_results = trainer.test(model, dataset)
 

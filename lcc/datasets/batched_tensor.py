@@ -1,4 +1,4 @@
-"""See the `nlnas.datasets.BatchedTensorDataset` class documentation."""
+"""See the `lcc.datasets.BatchedTensorDataset` class documentation."""
 
 from copy import deepcopy
 from pathlib import Path
@@ -40,7 +40,7 @@ class _ProjectionDataset(IterableDataset):
 class BatchedTensorDataset(IterableDataset):
     """
     Dataset that load tensor batches produced by
-    `nlnas.datasets.save_tensor_batched`.
+    `lcc.datasets.save_tensor_batched`.
     """
 
     key: str
@@ -57,7 +57,7 @@ class BatchedTensorDataset(IterableDataset):
         key: str = "",
     ):
         """
-        See `nlnas.datasets.save_tensor_batched` for the precise meaning of the
+        See `lcc.datasets.save_tensor_batched` for the precise meaning of the
         argument. But in a few words, this dataset will load batches from
         [Safetensors](https://huggingface.co/docs/safetensors/index) files named
         after the following scheme:

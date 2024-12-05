@@ -98,7 +98,7 @@ echo "LABEL_KEY:      $LABEL_KEY"
 echo "======================================================================"
 echo
 
-uv run python -m nlnas \
+uv run python -m lcc \
     --logging-level "DEBUG" \
     train \
     "$MODEL" \

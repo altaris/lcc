@@ -1,8 +1,8 @@
 import torch
 from loguru import logger as logging
 
-from nlnas.logging import setup_logging
-from nlnas.training import train
+from lcc.logging import setup_logging
+from lcc.training import train
 
 DATASET = "cifar100"
 TRAIN_SPLIT = "train[:20%]"

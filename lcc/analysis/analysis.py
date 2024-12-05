@@ -63,7 +63,7 @@ def analyse_ckpt(
     during training.
 
     Args:
-        model (`nlnas.classifier.BaseClassifier` | str | Path): A model or a path
+        model (`lcc.classifier.BaseClassifier` | str | Path): A model or a path
             to a model checkpoint
         submodule_names (list[str]): List or comma-separated list of
             submodule names. For example, the interesting submodules of

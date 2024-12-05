@@ -12,7 +12,7 @@ import torchmetrics as tm
 from torch import Tensor, nn
 from torch.utils.hooks import RemovableHandle
 
-from nlnas.correction import LCCLoss
+from lcc.correction import LCCLoss
 
 from ..utils import (
     to_array,
@@ -90,7 +90,7 @@ class BaseClassifier(pl.LightningModule):
                 Expected entries (all optional) are:
                 * **weight (float):** Defaults to $10^{-4}$
                 * **class_selection
-                    (`nlnas.correction.LCCClassSelection` | None):** Defaults to
+                    (`lcc.correction.LCCClassSelection` | None):** Defaults to
                     `None`, which means all classes are considered for
                     correction
                 * **interval (int):** Apply LCC every `interval` epochs.

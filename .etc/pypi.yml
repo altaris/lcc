@@ -5,7 +5,7 @@
 # Move this file to .github/workflows and set a PyPI token in your GitHub
 # repository under the PYPI_API_TOKEN name.
 
-name: Publish nlnas to PyPI
+name: Publish lcc to PyPI
 
 on:
   push:

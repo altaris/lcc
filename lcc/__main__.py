@@ -22,7 +22,7 @@ from loguru import logger as logging
 )
 @logging.catch
 def main(logging_level: str) -> None:
-    """nlnas CLI"""
+    """lcc CLI"""
     from .logging import setup_logging
 
     setup_logging(logging_level)
@@ -41,7 +41,7 @@ def main(logging_level: str) -> None:
     type=str,
     # help=(
     #     "Dataset name as in the HuggingFace hub. If starting with 'PRESET:', "
-    #     "uses a preset from nlnas.datasets.DATASET_PRESETS_CONFIGURATIONS. In "
+    #     "uses a preset from lcc.datasets.DATASET_PRESETS_CONFIGURATIONS. In "
     #     "this case, most other dataset configuration passed via the CLI is "
     #     "ignored."
     # ),
