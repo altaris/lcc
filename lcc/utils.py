@@ -2,7 +2,7 @@
 
 import os
 from functools import partial
-from typing import Any, Literal, TypeAlias
+from typing import Any, Callable, Literal, TypeAlias
 
 import numpy as np
 import torch
@@ -50,7 +50,7 @@ def get_reasonable_n_jobs() -> int:
     return int(n * 2 / 3)
 
 
-def make_tqdm(style: TqdmStyle = "console") -> tqdm:
+def make_tqdm(style: TqdmStyle = "console") -> Callable[..., tqdm]:
     """
     Returns the appropriate tqdm factory function based on the style.
 
@@ -61,21 +61,19 @@ def make_tqdm(style: TqdmStyle = "console") -> tqdm:
     if style is None or style == "none":
         from tqdm import tqdm as _tqdm
 
-        _tqdm = partial(_tqdm, disable=True, leave=False)
-    elif style == "console":
+        return partial(_tqdm, disable=True, leave=False)
+    if style == "console":
         from tqdm import tqdm as _tqdm
 
-        _tqdm = partial(_tqdm, leave=False)
-    elif style == "notebook":
+        return partial(_tqdm, leave=False)
+    if style == "notebook":
         from tqdm.notebook import tqdm as _tqdm
 
-        _tqdm = partial(_tqdm, leave=False)
-    else:
-        raise ValueError(
-            f"Unknown TQDM style '{style}'. Available styles are 'notebook', "
-            "'console', or None"
-        )
-    return _tqdm
+        return partial(_tqdm, leave=False)
+    raise ValueError(
+        f"Unknown TQDM style '{style}'. Available styles are 'notebook', "
+        "'console', or None"
+    )
 
 
 def pretty_print_submodules(
