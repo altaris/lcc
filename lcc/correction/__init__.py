@@ -14,7 +14,7 @@ from .clustering import (
     class_otm_matching,
     otm_matching_predicates,
 )
-from .loss import ExactLCCLoss, LCCLoss
+from .loss import ExactLCCLoss, LCCLoss, RandomizedLCCLoss
 from .louvain import louvain_communities
 from .utils import Matching
 
@@ -32,5 +32,6 @@ __all__ = [
     "Matching",
     "max_connected_confusion_choice",
     "otm_matching_predicates",
+    "RandomizedLCCLoss",
     "top_confusion_pairs",
 ]

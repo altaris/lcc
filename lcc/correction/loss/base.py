@@ -5,16 +5,18 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 
+import numpy as np
 from numpy.typing import ArrayLike
 from pytorch_lightning.strategies import ParallelStrategy, Strategy
 from torch import Tensor
 from torch.utils.data import DataLoader
 
+from ...utils import to_int_array
 from ..utils import Matching
 
 
 class LCCLoss(ABC):
-    """Abstract class that encapssulates a loss function for LCC."""
+    """Abstract class that encapsulates a loss function for LCC."""
 
     strategy: ParallelStrategy | None
 
@@ -37,6 +39,24 @@ class LCCLoss(ABC):
         self.strategy = (
             strategy if isinstance(strategy, ParallelStrategy) else None
         )
+
+    def _distribute_labels(self, y: ArrayLike) -> set[int]:
+        """
+        Given an array of labels, distributes unique labels across ranks.
+
+        Example:
+            Let's say the world size is 2.
+
+            >>> y = np.array([0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5])
+            >>> self._distribute_labels(y)
+            {0, 2, 4}  # on rank 0
+            {1, 3, 5}  # on rank 1
+        """
+        y = to_int_array(y)
+        if self.strategy is not None and self.strategy.world_size > 1:
+            ws, gr = self.strategy.world_size, self.strategy.global_rank
+            return {i for i in np.unique(y) if i % ws == gr}
+        return set(np.unique(y))
 
     def _get_tmp_dir(self) -> Path:
         """

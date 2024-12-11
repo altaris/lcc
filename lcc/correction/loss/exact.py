@@ -136,13 +136,7 @@ class ExactLCCLoss(LCCLoss):
         p_cc = (p1 & p2).sum(axis=0).astype(bool)  # (n_samples,)
 
         # Cluster labels that this rank has to manage
-        if self.strategy is not None and self.strategy.world_size > 1:
-            ws, gr = self.strategy.world_size, self.strategy.global_rank
-            clsts = [
-                i_clst for i_clst in np.unique(y_clst) if i_clst % ws == gr
-            ]
-        else:
-            clsts = np.unique(y_clst).tolist()
+        clsts = self._distribute_labels(y_clst)
         # ↓ i_clst -> (knn idx, list of batches CC samples in this clst)
         data: dict[int, tuple[faiss.IndexHNSWFlat, list[Tensor]]] = {
             i_clst: (faiss.IndexHNSWFlat(n_features, self.k), [])
