@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 from typing import Any
 
 import numpy as np
+from lightning_fabric import Fabric
 from numpy.typing import ArrayLike
 from pytorch_lightning.strategies import ParallelStrategy, Strategy
 from torch import Tensor
@@ -18,7 +19,7 @@ from ..utils import Matching
 class LCCLoss(ABC):
     """Abstract class that encapsulates a loss function for LCC."""
 
-    strategy: ParallelStrategy | None
+    strategy: ParallelStrategy | Fabric | None
 
     _tmp_dir: TemporaryDirectory | None = None
     """
@@ -33,11 +34,13 @@ class LCCLoss(ABC):
     ) -> Tensor:
         pass
 
-    def __init__(self, strategy: Strategy | None = None) -> None:
+    def __init__(self, strategy: Strategy | Fabric | None = None) -> None:
         # TODO: Log a warning if strategy is a Strategy but not a
         # ParallelStrategy
         self.strategy = (
-            strategy if isinstance(strategy, ParallelStrategy) else None
+            strategy
+            if isinstance(strategy, (ParallelStrategy, Fabric))
+            else None
         )
 
     def _distribute_labels(self, y: ArrayLike) -> set[int]:

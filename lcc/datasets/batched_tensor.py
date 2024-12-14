@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Iterator
 
 import torch
+from lightning_fabric import Fabric
 from numpy.typing import ArrayLike
 from pytorch_lightning.strategies import ParallelStrategy, Strategy
 from safetensors import torch as st
@@ -112,16 +113,19 @@ class BatchedTensorDataset(IterableDataset):
             self._len = sum(len(st.load_file(p)["_idx"]) for p in self.paths)
         return self._len
 
-    def distribute(self, strategy: Strategy | None) -> "BatchedTensorDataset":
+    def distribute(
+        self, strategy: Strategy | Fabric | None
+    ) -> "BatchedTensorDataset":
         """
-        Creates a subset of this dataset so that every rank has a different
-        subset. Does not modify the current dataset.
+        Creates a *copy* of a subset of this dataset so that every rank has a
+        different subset. Does not modify the current dataset.
 
-        If the strategy is not a `ParallelStrategy` or if the world size is less
-        than 2, this method returns `self` (NOT a copy of `self`).
+        If the strategy is not a `ParallelStrategy` or a Lightning `Fabric`, or
+        if the world size is less than 2, this method returns `self` (NOT a copy
+        of `self`).
         """
         if (
-            not isinstance(strategy, ParallelStrategy)
+            not isinstance(strategy, (ParallelStrategy, Fabric))
             or strategy.world_size < 2
         ):
             return self

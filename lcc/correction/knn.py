@@ -4,6 +4,7 @@ import faiss
 import networkx as nx
 import numpy as np
 import torch
+from lightning_fabric import Fabric
 from pytorch_lightning.strategies import ParallelStrategy, Strategy
 from torch import Tensor
 from torch.utils.data import DataLoader
@@ -47,7 +48,7 @@ def _weird_index(a: Tensor, b: Tensor) -> Tensor:
 def knn_graph(
     ds: BatchedTensorDataset,
     k: int,
-    strategy: Strategy | None = None,
+    strategy: Strategy | Fabric | None = None,
     n_features: int | None = None,
     tqdm_style: TqdmStyle = None,
 ) -> nx.Graph:
@@ -84,12 +85,13 @@ def knn_graph(
     Args:
         dl (DataLoader): Unsharded dataloader
         k (int):
-        strategy (Strategy, optional):
+        strategy (Strategy | Fabric | None, optional): Defaults to `None`,
+            meaning that the algorithm will not be parallelized.
         n_features (int | None, optional): The latent dimension of the samples.
             If left to `None`, it is inferred from the first batch of `dl`
         tqdm_style (TqdmStyle, optional):
     """
-    if not isinstance(strategy, ParallelStrategy):
+    if not isinstance(strategy, (ParallelStrategy, Fabric)):
         r0_warning(
             "Passed a strategy object to knn_graph, but strategy is not "
             "parallel. Falling back to non-distributed implementation."
@@ -115,10 +117,13 @@ def knn_graph(
         nei_dst, nei_idx = to_tensor(nei_dst), to_tensor(nei_idx)
         nei_idx = absolute_indices[nei_idx]  # (bs, k+1)
         if strategy is not None and strategy.world_size > 1:
-            nei_dst = strategy.batch_to_device(nei_dst)
-            nei_idx = strategy.batch_to_device(nei_idx)
+            if isinstance(strategy, ParallelStrategy):
+                nei_dst = strategy.batch_to_device(nei_dst)
+                nei_idx = strategy.batch_to_device(nei_idx)
             nei_dst = strategy.all_gather(nei_dst)  # (ws, bs, k+1)
             nei_idx = strategy.all_gather(nei_idx)  # (ws, bs, k+1)
+            assert isinstance(nei_dst, Tensor)  # for typechecking
+            assert isinstance(nei_idx, Tensor)  # for typechecking
             nei_dst = nei_dst.permute(1, 0, 2).flatten(1)  # (bs, ws * (k+1))
             nei_idx = nei_idx.permute(1, 0, 2).flatten(1)  # (bs, ws * (k+1))
         argsort = nei_dst.argsort(dim=1, descending=False)  # (bs, ws * (k+1))

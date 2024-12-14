@@ -6,6 +6,7 @@ from typing import Any
 import faiss
 import numpy as np
 import torch
+from lightning_fabric import Fabric
 from numpy.typing import ArrayLike
 from pytorch_lightning.strategies import Strategy
 from safetensors import torch as st
@@ -76,7 +77,7 @@ class ExactLCCLoss(LCCLoss):
         n_classes: int,
         k: int = 5,
         tqdm_style: TqdmStyle = None,
-        strategy: Strategy | None = None,
+        strategy: Strategy | Fabric | None = None,
     ) -> None:
         super().__init__(strategy=strategy)
         self.k, self.n_classes = k, n_classes

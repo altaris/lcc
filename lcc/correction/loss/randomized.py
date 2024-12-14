@@ -9,6 +9,7 @@ from typing import Any
 
 import numpy as np
 import torch
+from lightning_fabric import Fabric
 from loguru import logger as logging
 from numpy.typing import ArrayLike
 from pytorch_lightning.strategies import Strategy
@@ -98,7 +99,7 @@ class RandomizedLCCLoss(LCCLoss):
         n_classes: int,
         ccspc: int = 1,
         tqdm_style: TqdmStyle = None,
-        strategy: Strategy | None = None,
+        strategy: Strategy | Fabric | None = None,
     ) -> None:
         super().__init__(strategy=strategy)
         self.n_classes, self.ccspc = n_classes, ccspc

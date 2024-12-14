@@ -6,6 +6,7 @@ from typing import Any
 
 import networkx as nx
 import numpy as np
+from lightning_fabric import Fabric
 from pytorch_lightning.strategies import Strategy
 
 from ..datasets.batched_tensor import BatchedTensorDataset
@@ -47,7 +48,7 @@ def _louvain_or_leiden(graph: nx.Graph, device: Any = None) -> list[set[int]]:
 def louvain_communities(
     ds: BatchedTensorDataset,
     k: int,
-    strategy: Strategy | None = None,
+    strategy: Strategy | Fabric | None = None,
     n_features: int | None = None,
     tqdm_style: TqdmStyle = None,
     device: Any = "cpu",
@@ -56,7 +57,8 @@ def louvain_communities(
     Args:
         ds (BatchedTensorDataset):
         k (int):
-        strategy (Strategy | None, optional):
+        strategy (Strategy | Fabric | None, optional): Defaults to `None`,
+            meaning that the algorithm will not be parallelized.
         n_features (int | None, optional):
         tqdm_style (TqdmStyle, optional):
         device (Any, optional):
