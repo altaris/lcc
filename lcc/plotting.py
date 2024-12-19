@@ -152,14 +152,15 @@ def export_png(obj: Any, filename: str | Path) -> Path:
 
 def class_matching_plot(
     x: ArrayLike,
-    y_a: ArrayLike,
-    y_b: ArrayLike,
+    y_true: ArrayLike,
+    y_clst: ArrayLike,
     matching: Matching,
     size: int = 400,
 ) -> bkm.GridBox:
     """
-    Given a dataset `x` and two labellings `y_a` and `y_b`, this method makes a
-    scatter plot detailling the situation. Labels in `y_a` are considered to be
+    Given a dataset `x` and two labellings `y_true` and `y_clst`, this method
+    makes a scatter plot detailling the situation. Labels in `y_true` are
+    considered to be
     ground truth.
 
     Example:
@@ -170,53 +171,66 @@ def class_matching_plot(
 
     Args:
         x: (ArrayLike): A `(N, 2)` array
-        y_a (ArrayLike): A `(N,)` integer array with
+        y_true (ArrayLike): A `(N,)` integer array with
             values in $\\\\{ 0, 1, ..., c_a - 1 \\\\}$ for some $c_a > 0$.
-        y_b (ArrayLike): A `(N,)` integer array with
+        y_clst (ArrayLike): A `(N,)` integer array with
             values in $\\\\{ 0, 1, ..., c_b - 1 \\\\}$ for some $c_b > 0$.
         matching (Matching): Matching between
-            the labels of `y_a` and the labels of `y_b`. If some keys are
+            the labels of `y_true` and the labels of `y_clst`. If some keys are
             strings, they must be convertible to ints. Probably generated from
             `lcc.correction.class_otm_matching`.
         size (int, optional): The size of each scatter plot. Defaults to 400.
     """
-    x, y_a, y_b = to_array(x), to_int_array(y_a), to_int_array(y_b)
+    x, y_true, y_clst = to_array(x), to_int_array(y_true), to_int_array(y_clst)
     x = RobustScaler().fit_transform(x)
     assert isinstance(x, np.ndarray)  # for typechecking
     matching = to_int_matching(matching)
-    p1, p2, p3, p4 = otm_matching_predicates(y_a, y_b, matching)
+    p1, p2, p3, p4 = otm_matching_predicates(y_true, y_clst, matching)
     n_true, n_matched = p1.sum(axis=1), p2.sum(axis=1)
     n_inter = (p1 & p2).sum(axis=1)
     n_miss, n_exc = p3.sum(axis=1), p4.sum(axis=1)
 
+    palt_true = bkp.viridis(len(np.unique(y_true)))
+    palt_clst = bkp.viridis(len(np.unique(y_clst)))
     figures = []
-    kw = {
-        "width": size,
-        "height": size,
-        "x_range": (-0.04, 1.04),
-        "y_range": (-0.04, 1.04),
-    }
+    kw = {"width": size, "height": size}
     for a, bs in matching.items():
         n_true, n_matched = p1[a].sum(), p2[a].sum()
         n_inter = (p1[a] & p2[a]).sum()
         n_miss, n_exc = p3[a].sum(), p4[a].sum()
         fig_a = bk.figure(title=f"Ground truth, class {a}; n = {n_true}", **kw)
-        class_scatter(fig_a, x[p1[a]], y_a[p1[a]], rescale=False)
+        class_scatter(
+            fig_a,
+            x[p1[a]],
+            y_true[p1[a]],
+            rescale=False,
+            palette=[palt_true[a]],
+        )
         if n_matched == 0:
             figures.append([fig_a, None, None, None])
             continue
         fig_b = bk.figure(
             title=(
-                f"{len(bs)} matched classes: "
+                f"{len(bs)} matched classes"
                 + ", ".join(map(str, bs))
                 + f"; n = {n_matched}"
             ),
             **kw,
         )
-        class_scatter(fig_b, x[p2[a]], y_b[p2[a]], rescale=False)
+        class_scatter(
+            fig_b,
+            x[p2[a]],
+            y_clst[p2[a]],
+            rescale=False,
+            palette=[palt_clst[b] for b in np.unique(y_clst[p2[a]])],
+        )
         fig_match = bk.figure(title=f"Intersection; n = {n_inter}", **kw)
         class_scatter(
-            fig_match, x[p1[a] & p2[a]], y_b[p1[a] & p2[a]], rescale=False
+            fig_match,
+            x[p1[a] & p2[a]],
+            y_clst[p1[a] & p2[a]],
+            rescale=False,
+            palette=[palt_clst[b] for b in np.unique(y_clst[p1[a] & p2[a]])],
         )
         y_diff = p3[a] + 2 * p4[a]
         fig_diff = bk.figure(
