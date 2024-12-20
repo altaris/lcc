@@ -17,7 +17,7 @@ from tqdm import tqdm
 from ..classifiers import BaseClassifier
 from ..correction import (
     class_otm_matching,
-    louvain_communities,
+    louvain_clustering,
     otm_matching_predicates,
 )
 from ..datasets import HuggingFaceDataset
@@ -119,7 +119,7 @@ def analyse_ckpt(
             output_dir / "clustering" / sm / "cluster.json"
         )
         for _ in h:
-            communities, y_louvain = louvain_communities(z, k=k)
+            communities, y_louvain = louvain_clustering(z, k=k)
             matching = class_otm_matching(outputs["y_true"].numpy(), y_louvain)
             h.result = {
                 "k": k,

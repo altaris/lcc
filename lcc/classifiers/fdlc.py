@@ -12,7 +12,14 @@ from safetensors import torch as st
 from torch import Tensor
 from torch.utils.data import DataLoader
 
-from ..correction import ExactLCCLoss, class_otm_matching, louvain_communities
+from ..correction import (
+    ExactLCCLoss,
+    LCCLoss,
+    RandomizedLCCLoss,
+    class_otm_matching,
+    # louvain_clustering,
+    peer_pressure_clustering,
+)
 from ..datasets import BatchedTensorDataset
 from ..utils import TqdmStyle, make_tqdm
 from .base import BaseClassifier, LatentClusteringData
@@ -166,11 +173,17 @@ def _construct_latent_data(
         _y_true = model.trainer.strategy.broadcast(_y_true, src=0)
 
         # Step 2: Distributed louvain community detection
-        _, y_clst = louvain_communities(
+        # y_clst = louvain_clustering(
+        #     ds,
+        #     k=lcc_kwargs.get("k", 5),
+        #     strategy=model.trainer.strategy,
+        #     device=model.device,
+        #     tqdm_style=tqdm_style,
+        # )
+        y_clst = peer_pressure_clustering(
             ds,
             k=lcc_kwargs.get("k", 5),
             strategy=model.trainer.strategy,
-            device=model.device,
             tqdm_style=tqdm_style,
         )
 
@@ -183,12 +196,21 @@ def _construct_latent_data(
         matching = model.trainer.strategy.broadcast(matching, src=0)
 
         # Step 4: Create the loss object
-        loss = ExactLCCLoss(
-            n_classes=model.hparams["n_classes"],
-            k=lcc_kwargs.get("k", 5),
-            tqdm_style=tqdm_style,
-            strategy=model.trainer.strategy,
-        )
+        loss: LCCLoss
+        if lcc_kwargs.get("loss", "exact") == "exact":
+            loss = ExactLCCLoss(
+                n_classes=model.hparams["n_classes"],
+                k=lcc_kwargs.get("k", 5),
+                tqdm_style=tqdm_style,
+                strategy=model.trainer.strategy,
+            )
+        else:
+            loss = RandomizedLCCLoss(
+                n_classes=model.hparams["n_classes"],
+                ccspc=lcc_kwargs.get("ccspc", 5),
+                tqdm_style=tqdm_style,
+                strategy=model.trainer.strategy,
+            )
         dl = DataLoader(ds, batch_size=256, num_workers=1)
         loss.update(dl, _y_true, y_clst, matching)
         loss.on_before_sync()

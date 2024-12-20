@@ -15,7 +15,8 @@ from .clustering import (
     otm_matching_predicates,
 )
 from .loss import ExactLCCLoss, LCCLoss, RandomizedLCCLoss
-from .louvain import louvain_communities
+from .louvain import louvain_clustering
+from .peer_pressure import peer_pressure_clustering
 from .utils import Matching
 
 __all__ = [
@@ -28,10 +29,11 @@ __all__ = [
     "LCC_CLASS_SELECTIONS",
     "LCCClassSelection",
     "LCCLoss",
-    "louvain_communities",
+    "louvain_clustering",
     "Matching",
     "max_connected_confusion_choice",
     "otm_matching_predicates",
+    "peer_pressure_clustering",
     "RandomizedLCCLoss",
     "top_confusion_pairs",
 ]

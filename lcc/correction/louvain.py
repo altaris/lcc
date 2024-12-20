@@ -45,14 +45,14 @@ def _louvain_or_leiden(graph: nx.Graph, device: Any = None) -> list[set[int]]:
     return nx.community.louvain_communities(graph)  # type: ignore
 
 
-def louvain_communities(
+def louvain_clustering(
     ds: BatchedTensorDataset,
     k: int,
     strategy: Strategy | Fabric | None = None,
     n_features: int | None = None,
     tqdm_style: TqdmStyle = None,
     device: Any = "cpu",
-) -> tuple[list[set[int]], np.ndarray]:
+) -> np.ndarray:
     """
     Args:
         ds (BatchedTensorDataset):
@@ -67,8 +67,8 @@ def louvain_communities(
         ds, k, strategy=strategy, n_features=n_features, tqdm_style=tqdm_style
     )
     communities = _louvain_or_leiden(graph, device)
-    y_louvain = [0] * graph.number_of_nodes()
+    y_clst = [0] * graph.number_of_nodes()
     for i_clst, clst in enumerate(communities):
         for smpl in clst:
-            y_louvain[smpl] = i_clst
-    return communities, np.array(y_louvain)
+            y_clst[smpl] = i_clst
+    return np.array(y_clst)
