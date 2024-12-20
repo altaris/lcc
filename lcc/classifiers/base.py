@@ -104,6 +104,12 @@ class BaseClassifier(pl.LightningModule):
                 * **pca_dim (int):** Samples are reduced to this dimension
                   before constructing the KNN graph. This must be at most the
                   batch size.
+                * **loss (`"exact"` or `"randomized"`)**: Way the LCC loss is
+                  computed from the clustering data. See `lcc.correction.loss`.
+                * **ccspc (int)**: If the loss type is `"randomized"`, then this
+                  parameter specified the number of CC samples per cluster to
+                  keep as potential correction targets. See also
+                  `lcc.correction.loss.RandomizedLCCLoss`.
             ce_weight (float, optional): Weight of the cross-entropy loss in the
                 clustering-CE loss. Ignored if LCC is not applied. Defaults to
                 $1$.

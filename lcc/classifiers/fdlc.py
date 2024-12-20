@@ -207,7 +207,7 @@ def _construct_latent_data(
         else:
             loss = RandomizedLCCLoss(
                 n_classes=model.hparams["n_classes"],
-                ccspc=lcc_kwargs.get("ccspc", 5),
+                ccspc=lcc_kwargs.get("ccspc", 100),
                 tqdm_style=tqdm_style,
                 strategy=model.trainer.strategy,
             )

@@ -95,7 +95,13 @@ def validate_lcc_kwargs(lcc_kwargs: dict[str, Any] | None) -> None:
         None
     ]:
         raise ValueError(
-            f"Invalid class selection policy '{x}'. Available: policies are: "
-            + ", ".join(map(lambda a: f"`{a}`", LCC_CLASS_SELECTIONS))
+            f"Invalid class selection policy '{x}'. Available policies are: "
+            + ", ".join(map(lambda a: f"'{a}'", LCC_CLASS_SELECTIONS))
             + ", or `None`"
+        )
+    LCC_LOSS_TYPES = ["exact", "randomized"]
+    if (x := lcc_kwargs.get("loss", "exact")) not in LCC_LOSS_TYPES:
+        raise ValueError(
+            f"Invalid LCC loss type '{x}'. Available types are: "
+            + ", ".join(map(lambda a: f"'{a}'", LCC_LOSS_TYPES))
         )

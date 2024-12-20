@@ -97,8 +97,9 @@ MODELS = [
 
 LCC_WEIGHTS = [1e-2]
 LCC_INTERVALS = [1]
-LCC_WARMUPS = [1, 10]
-LCC_KS = [5, 50]
+LCC_WARMUPS = [1]
+LCC_KS = [5, 50, 100]
+LCC_LOSS = ["exact"]
 SEEDS = [0, 1, 2]
 
 STUPID_CUDA_SPAM = r"CUDA call.*failed with initialization error"
@@ -123,13 +124,15 @@ def setup_logging(logging_level: str = "debug") -> None:
             "<green>{time:YYYY-MM-DD HH:mm:ss}</green> "
             + "[<level>{level: <8}</level>] "
             + (
-                "(<blue>{extra[model_name]} {extra[dataset_name]} "
+                "(<blue>"
+                "{extra[model_name]} {extra[dataset_name]} "
                 "sm={extra[lcc_submodules]} "
                 "w={extra[lcc_weight]} "
                 "k={extra[lcc_k]} "
-                # "ccspc={extra[lcc_ccspc]} "
                 "itv={extra[lcc_interval]} "
-                "wmp={extra[lcc_warmup]}</blue>) "
+                "loss={extra[lcc_loss]} "
+                "wmp={extra[lcc_warmup]}"
+                "</blue>) "
             )
             + "<level>{message}</level>"
         ),
@@ -215,7 +218,7 @@ def train(
             cmd += ["--lcc-interval", lcc_kwargs["interval"]]
             cmd += ["--lcc-warmup", lcc_kwargs["warmup"]]
             cmd += ["--lcc-k", lcc_kwargs["k"]]
-            # cmd += ["--lcc-ccspc", lcc_kwargs["ccspc"]]
+            cmd += ["--lcc-loss", lcc_kwargs["loss"]]
         cmd = list(map(str, cmd))
         logging.debug("Spawning subprocess: {}", " ".join(cmd))
         process = subprocess.Popen(cmd)
@@ -255,6 +258,7 @@ if __name__ == "__main__":
             LCC_INTERVALS,
             LCC_WARMUPS,
             LCC_KS,
+            LCC_LOSS,
             SEEDS,
         )
         for (
@@ -262,6 +266,7 @@ if __name__ == "__main__":
             lcc_interval,
             lcc_warmup,
             lcc_k,
+            lcc_loss,
             seed,
         ) in everything:
             lcc_submodules = model_config["lcc_submodules"]
@@ -281,7 +286,7 @@ if __name__ == "__main__":
                 lcc_interval=lcc_interval if do_lcc else "/",
                 lcc_warmup=lcc_warmup if do_lcc else "/",
                 lcc_k=lcc_k if do_lcc else "/",
-                # lcc_ccspc=lcc_ccspc if do_lcc else "/",
+                lcc_loss=lcc_loss if do_lcc else "/",
             ):
                 train(
                     model_name=model_config["name"],
@@ -293,7 +298,7 @@ if __name__ == "__main__":
                             "interval": lcc_interval,
                             "warmup": lcc_warmup,
                             "k": lcc_k,
-                            # "ccspc": lcc_ccspc,
+                            "loss": lcc_loss,
                         }
                         if do_lcc
                         else None

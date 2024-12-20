@@ -51,12 +51,13 @@ LOGIT_KEY=""
 
 CE_WEIGHT=1
 LCC_INTERVAL=1
-LCC_K=50
+LCC_K=100
 LCC_WARMUP=0
 LCC_WEIGHT=1e-2
+LCC_LOSS=exact
 
 BATCH_SIZE=256
-MAX_EPOCHS=1
+MAX_EPOCHS=50
 
 OUTPUT_DIR="out.test"
 export CUDA_VISIBLE_DEVICES=0,1
@@ -85,6 +86,7 @@ echo "LCC_K:          $LCC_K"
 echo "LCC_SUBMODULES: $LCC_SUBMODULES"
 echo "LCC_WARMUP:     $LCC_WARMUP"
 echo "LCC_WEIGHT:     $LCC_WEIGHT"
+echo "LCC_LOSS:       $LCC_LOSS"
 echo "----------------------------------------------------------------------"
 echo "BATCH_SIZE:     $BATCH_SIZE"
 echo "MAX_EPOCHS:     $MAX_EPOCHS"
@@ -115,6 +117,7 @@ uv run python -m lcc \
     --lcc-submodules "$LCC_SUBMODULES" \
     --lcc-warmup "$LCC_WARMUP" \
     --lcc-weight "$LCC_WEIGHT" \
+    --lcc-loss "$LCC_LOSS" \
     --max-epochs "$MAX_EPOCHS" \
     --seed 0 \
     --test-split "$TEST_SPLIT" \

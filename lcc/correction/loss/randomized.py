@@ -97,7 +97,7 @@ class RandomizedLCCLoss(LCCLoss):
     def __init__(
         self,
         n_classes: int,
-        ccspc: int = 1,
+        ccspc: int = 100,
         tqdm_style: TqdmStyle = None,
         strategy: Strategy | Fabric | None = None,
     ) -> None:
@@ -136,8 +136,9 @@ class RandomizedLCCLoss(LCCLoss):
           say that `i_true` is a key that owns `k` clusters;
         - the associated value a `(n, d)` tensor, where `d` is the latent
           dimension, whose rows are among correctly clustered samples in true
-          class `i_true`.  If `ccspc` is $1$, then `n` is the number of clusters
-          matched with `i_true`, say `k`. Otherwise, `n <= k * ccspc`.
+          class `i_true`.  For example, if `ccspc` is $1$, then `n` is the
+          number of clusters matched with `i_true`, say `k`. Otherwise, `n <= k
+          * ccspc`.
 
         Under the hood, this method first choose the samples by their index
         based on the "correctly clustered" predicate of `_mc_cc_predicates`.
