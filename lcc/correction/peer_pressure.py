@@ -1,4 +1,10 @@
-"""Peer pressure graph clustering"""
+"""
+Peer pressure graph clustering
+
+TODO:
+    CSC format seems to be faster than CSR. (about 30s gain on ImageNet logits
+    with `k = 100`)
+"""
 
 import networkx as nx
 import numpy as np

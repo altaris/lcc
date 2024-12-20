@@ -17,7 +17,7 @@ from ..correction import (
     LCCLoss,
     RandomizedLCCLoss,
     class_otm_matching,
-    # louvain_clustering,
+    louvain_clustering,
     peer_pressure_clustering,
 )
 from ..datasets import BatchedTensorDataset
@@ -172,20 +172,22 @@ def _construct_latent_data(
             _y_true = torch.empty(0)
         _y_true = model.trainer.strategy.broadcast(_y_true, src=0)
 
-        # Step 2: Distributed louvain community detection
-        # y_clst = louvain_clustering(
-        #     ds,
-        #     k=lcc_kwargs.get("k", 5),
-        #     strategy=model.trainer.strategy,
-        #     device=model.device,
-        #     tqdm_style=tqdm_style,
-        # )
-        y_clst = peer_pressure_clustering(
-            ds,
-            k=lcc_kwargs.get("k", 5),
-            strategy=model.trainer.strategy,
-            tqdm_style=tqdm_style,
-        )
+        # Step 2: Latent clustering
+        if lcc_kwargs.get("clustering_method", "louvain") == "louvain":
+            y_clst = louvain_clustering(
+                ds,
+                k=lcc_kwargs.get("k", 5),
+                strategy=model.trainer.strategy,
+                device=model.device,
+                tqdm_style=tqdm_style,
+            )
+        else:
+            y_clst = peer_pressure_clustering(
+                ds,
+                k=lcc_kwargs.get("k", 5),
+                strategy=model.trainer.strategy,
+                tqdm_style=tqdm_style,
+            )
 
         # Step 3: Computing matching. class_otm_matching might not be
         # deterministic, so it's computed on rank 0 only

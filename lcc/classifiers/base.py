@@ -110,6 +110,9 @@ class BaseClassifier(pl.LightningModule):
                   parameter specified the number of CC samples per cluster to
                   keep as potential correction targets. See also
                   `lcc.correction.loss.RandomizedLCCLoss`.
+                * **clustering_method (`"louvain"` or `"peer_pressure"`)**:
+                  Clustering algorithm for the dataset of latent
+                  representations.
             ce_weight (float, optional): Weight of the cross-entropy loss in the
                 clustering-CE loss. Ignored if LCC is not applied. Defaults to
                 $1$.

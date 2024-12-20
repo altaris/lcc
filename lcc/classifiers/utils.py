@@ -105,3 +105,11 @@ def validate_lcc_kwargs(lcc_kwargs: dict[str, Any] | None) -> None:
             f"Invalid LCC loss type '{x}'. Available types are: "
             + ", ".join(map(lambda a: f"'{a}'", LCC_LOSS_TYPES))
         )
+    LCC_CLUSTERING_METHODS = ["louvain", "peer_pressure"]
+    if (
+        x := lcc_kwargs.get("clustering_method", "louvain")
+    ) not in LCC_CLUSTERING_METHODS:
+        raise ValueError(
+            f"Invalid latent clustering method '{x}'. Available methods are: "
+            + ", ".join(map(lambda a: f"'{a}'", LCC_CLUSTERING_METHODS))
+        )

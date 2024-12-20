@@ -55,6 +55,7 @@ LCC_K=100
 LCC_WARMUP=0
 LCC_WEIGHT=1e-2
 LCC_LOSS=exact
+LCC_CLST_METH=peer_pressure
 
 BATCH_SIZE=256
 MAX_EPOCHS=50
@@ -87,6 +88,7 @@ echo "LCC_SUBMODULES: $LCC_SUBMODULES"
 echo "LCC_WARMUP:     $LCC_WARMUP"
 echo "LCC_WEIGHT:     $LCC_WEIGHT"
 echo "LCC_LOSS:       $LCC_LOSS"
+echo "LCC_CLST_METH:  $LCC_CLST_METH"
 echo "----------------------------------------------------------------------"
 echo "BATCH_SIZE:     $BATCH_SIZE"
 echo "MAX_EPOCHS:     $MAX_EPOCHS"
@@ -118,6 +120,7 @@ uv run python -m lcc \
     --lcc-warmup "$LCC_WARMUP" \
     --lcc-weight "$LCC_WEIGHT" \
     --lcc-loss "$LCC_LOSS" \
+    --lcc-clst-method "$LCC_CLST_METH" \
     --max-epochs "$MAX_EPOCHS" \
     --seed 0 \
     --test-split "$TEST_SPLIT" \

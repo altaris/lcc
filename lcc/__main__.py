@@ -102,6 +102,15 @@ def main(logging_level: str) -> None:
     ),
     type=int,
 )
+@click.option(  # --lcc-clst-method
+    "--lcc-clst-method",
+    default="louvain",
+    help=(
+        "Latent clustering method. Either 'louvain' (the default) or "
+        "'peer_pressure'. "
+    ),
+    type=str,
+)
 @click.option(  # --ce-weight
     "-cw",
     "--ce-weight",
@@ -231,6 +240,7 @@ def train(
     image_key: str,
     label_key: str,
     lcc_ccspc: int,
+    lcc_clst_method: str,
     lcc_interval: int,
     lcc_k: int,
     lcc_loss: str,
@@ -271,6 +281,7 @@ def train(
         lcc_kwargs=(
             {
                 "ccspc": lcc_ccspc,
+                "clustering_method": lcc_clst_method,
                 "interval": lcc_interval,
                 "k": lcc_k,
                 "loss": lcc_loss,

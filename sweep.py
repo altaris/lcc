@@ -15,7 +15,7 @@ import torch
 import turbo_broccoli as tb
 from loguru import logger as logging
 
-OUTPUT_DIR = Path("out") / "sweep"
+OUTPUT_DIR = Path("out") / "sweep.ppc"
 
 DATASETS = [
     {  # https://huggingface.co/datasets/uoft-cs/cifar100
@@ -26,30 +26,30 @@ DATASETS = [
         "image_key": "img",
         "label_key": "fine_label",
     },
-    {  # https://huggingface.co/datasets/timm/oxford-iiit-pet
-        "name": "timm/oxford-iiit-pet",
-        "train_split": "train[:80%]",
-        "val_split": "train[80%:]",
-        "test_split": "test",
-        "image_key": "image",
-        "label_key": "label",
-    },
-    {  # https://huggingface.co/datasets/timm/resisc45
-        "name": "timm/resisc45",
-        "train_split": "train",
-        "val_split": "validation",
-        "test_split": "test",
-        "image_key": "image",
-        "label_key": "label",
-    },
-    {  # https://huggingface.co/datasets/timm/eurosat-rgb
-        "name": "timm/eurosat-rgb",
-        "train_split": "train",
-        "val_split": "validation",
-        "test_split": "test",
-        "image_key": "image",
-        "label_key": "label",
-    },
+    # {  # https://huggingface.co/datasets/timm/oxford-iiit-pet
+    #     "name": "timm/oxford-iiit-pet",
+    #     "train_split": "train[:80%]",
+    #     "val_split": "train[80%:]",
+    #     "test_split": "test",
+    #     "image_key": "image",
+    #     "label_key": "label",
+    # },
+    # {  # https://huggingface.co/datasets/timm/resisc45
+    #     "name": "timm/resisc45",
+    #     "train_split": "train",
+    #     "val_split": "validation",
+    #     "test_split": "test",
+    #     "image_key": "image",
+    #     "label_key": "label",
+    # },
+    # {  # https://huggingface.co/datasets/timm/eurosat-rgb
+    #     "name": "timm/eurosat-rgb",
+    #     "train_split": "train",
+    #     "val_split": "validation",
+    #     "test_split": "test",
+    #     "image_key": "image",
+    #     "label_key": "label",
+    # },
     # {  # https://huggingface.co/datasets/timm/imagenet-1k-wds
     #     "name": "timm/imagenet-1k-wds",
     #     "train_split": "train",
@@ -100,6 +100,7 @@ LCC_INTERVALS = [1]
 LCC_WARMUPS = [1]
 LCC_KS = [5, 50, 100]
 LCC_LOSS = ["exact"]
+LCC_CLUSTERING_METHODS = ["louvain", "peer_pressure"]
 SEEDS = [0, 1, 2]
 
 STUPID_CUDA_SPAM = r"CUDA call.*failed with initialization error"
@@ -130,8 +131,9 @@ def setup_logging(logging_level: str = "debug") -> None:
                 "w={extra[lcc_weight]} "
                 "k={extra[lcc_k]} "
                 "itv={extra[lcc_interval]} "
+                "wmp={extra[lcc_warmup]} "
                 "loss={extra[lcc_loss]} "
-                "wmp={extra[lcc_warmup]}"
+                "clst={extra[lcc_clustering_method]}"
                 "</blue>) "
             )
             + "<level>{message}</level>"
@@ -219,6 +221,7 @@ def train(
             cmd += ["--lcc-warmup", lcc_kwargs["warmup"]]
             cmd += ["--lcc-k", lcc_kwargs["k"]]
             cmd += ["--lcc-loss", lcc_kwargs["loss"]]
+            cmd += ["--lcc-clst-method", lcc_kwargs["clustering_method"]]
         cmd = list(map(str, cmd))
         logging.debug("Spawning subprocess: {}", " ".join(cmd))
         process = subprocess.Popen(cmd)
@@ -259,6 +262,7 @@ if __name__ == "__main__":
             LCC_WARMUPS,
             LCC_KS,
             LCC_LOSS,
+            LCC_CLUSTERING_METHODS,
             SEEDS,
         )
         for (
@@ -267,6 +271,7 @@ if __name__ == "__main__":
             lcc_warmup,
             lcc_k,
             lcc_loss,
+            lcc_clustering_method,
             seed,
         ) in everything:
             lcc_submodules = model_config["lcc_submodules"]
@@ -287,6 +292,7 @@ if __name__ == "__main__":
                 lcc_warmup=lcc_warmup if do_lcc else "/",
                 lcc_k=lcc_k if do_lcc else "/",
                 lcc_loss=lcc_loss if do_lcc else "/",
+                lcc_clustering_method=lcc_clustering_method if do_lcc else "/",
             ):
                 train(
                     model_name=model_config["name"],
@@ -294,11 +300,12 @@ if __name__ == "__main__":
                     lcc_submodules=lcc_submodules,
                     lcc_kwargs=(
                         {
-                            "weight": lcc_weight,
+                            "clustering_method": lcc_clustering_method,
                             "interval": lcc_interval,
-                            "warmup": lcc_warmup,
                             "k": lcc_k,
                             "loss": lcc_loss,
+                            "warmup": lcc_warmup,
+                            "weight": lcc_weight,
                         }
                         if do_lcc
                         else None
