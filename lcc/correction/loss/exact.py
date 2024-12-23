@@ -34,7 +34,7 @@ class ExactLCCLoss(LCCLoss):
     matching: dict[int, set[int]]
 
     # ↓ i_clst -> (knn idx, tensor of all CC samples in that clst)
-    data: dict[int, tuple[faiss.IndexHNSWFlat, Tensor]] = {}
+    data: dict[int, tuple[faiss.IndexFlatL2, Tensor]] = {}
 
     def __call__(
         self, z: Tensor, y_true: ArrayLike, y_clst: ArrayLike
@@ -104,14 +104,17 @@ class ExactLCCLoss(LCCLoss):
             path / f"cc.{gr}",
         )
         for i_clst, (idx, _) in self.data.items():
+            idx = faiss.index_gpu_to_cpu(idx)
             faiss.write_index(idx, str(path / f"knn.{i_clst}.{gr}"))
         self.strategy.barrier()
         for r in range(self.strategy.world_size):
-            if r == self.strategy.global_rank:
+            if r == gr:
                 continue  # data from this rank is already in self.data
             ccs = st.load_file(path / f"cc.{r}")
+            gpu = faiss.StandardGpuResources()
             for i_clst, cc in ccs.items():  # type: ignore
                 knn = faiss.read_index(str(path / f"knn.{i_clst}.{r}"))
+                knn = faiss.index_cpu_to_gpu(gpu, gr, knn)
                 self.data[int(i_clst)] = (knn, cc)
         return super().sync(**kwargs)
 
@@ -139,10 +142,15 @@ class ExactLCCLoss(LCCLoss):
         # Cluster labels that this rank has to manage
         clsts = self._distribute_labels(y_clst)
         # ↓ i_clst -> (knn idx, list of batches CC samples in this clst)
-        data: dict[int, tuple[faiss.IndexHNSWFlat, list[Tensor]]] = {
-            i_clst: (faiss.IndexHNSWFlat(n_features, self.k), [])
-            for i_clst in clsts
+        data: dict[int, tuple[faiss.IndexFlatL2, list[Tensor]]] = {
+            i_clst: (faiss.IndexFlatL2(n_features), []) for i_clst in clsts
         }
+        if self.strategy is not None:
+            gpu = faiss.StandardGpuResources()
+            gr = self.strategy.global_rank
+            for i_clst, (knn, cc) in data.items():
+                knn = faiss.index_cpu_to_gpu(gpu, gr, knn)
+                data[i_clst] = (knn, cc)
 
         tqdm, n_seen = make_tqdm(self.tqdm_style), 0
         for z, *_ in tqdm(dl, f"Building {len(data)} KNN indices"):

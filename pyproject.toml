@@ -4,7 +4,7 @@
     dependencies = [
         "click>=8.1.7",
         "datasets[vision]>=3.0.0",
-        "faiss-cpu>=1.9.0",
+        "faiss-gpu-cu12==1.9.0.post1",
         "loguru>=0.7.2",
         "more-itertools>=10.5.0",
         "networkx>=3.3",
@@ -19,7 +19,7 @@
         "torch>=2.4.1",
         "transformers>=4.44.2",
         "turbo-broccoli>=4.12.2",
-    ]
+]
     description = "Latent cluster corrections"
     license = { file = "LICENSE" }
     name = "lcc"

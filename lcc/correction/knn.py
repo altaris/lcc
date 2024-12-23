@@ -69,7 +69,7 @@ def knn_graph(
     TODO:
         There's a little optimization possible here.
 
-        Every `faiss.IndexHNSWFlat` are constructed fo find $$k + 1$$ neighbors
+        Every `faiss.IndexFlatL2` are constructed fo find $$k + 1$$ neighbors
         because we do not consider a sample to be its own neighbor, whereas
         `faiss` does. So in the first loop, we construct a $$(k + 1)$$-NN index,
         and in the second loop, we query it and gather the results from every
@@ -103,7 +103,10 @@ def knn_graph(
     dl = DataLoader(ds.distribute(strategy), batch_size=256)
     n_features = n_features or next(iter(ds))[0].shape[-1]
     tqdm = make_tqdm(tqdm_style)
-    index = faiss.IndexHNSWFlat(n_features, k + 1)
+    index = faiss.IndexFlatL2(n_features)
+    if torch.cuda.is_available():
+        gpu = faiss.StandardGpuResources()
+        index = faiss.index_cpu_to_gpu(gpu, gr, index)
     _absolute_indices: list[torch.Tensor] = []
     for z, idx, *_ in tqdm(dl, f"[Rank {gr}/{ws}] Building KNN index ({k=})"):
         _absolute_indices.append(idx)
