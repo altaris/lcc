@@ -4,7 +4,6 @@
     dependencies = [
         "click>=8.1.7",
         "datasets[vision]>=3.0.0",
-        "faiss-gpu-cu12==1.9.0.post1",
         "loguru>=0.7.2",
         "more-itertools>=10.5.0",
         "networkx>=3.3",
@@ -33,19 +32,27 @@
         Homepage      = "https://github.com/altaris/lcc"
         Repository    = "https://github.com/altaris/lcc.git"
     [project.optional-dependencies]
-        cuda12 = ["cugraph-cu12", "cuml-cu12", "nx-cugraph-cu12"]
-        dev = ["huggingface-hub[cli]>=0.25.1", "pdoc>=14.7.0"]
-        jupyter = [
+cuda12 = [
+    "cugraph-cu12",
+    "cuml-cu12",
+    "faiss-gpu-cu12==1.9.0.post1",
+    "nx-cugraph-cu12",
+]
+dev = ["huggingface-hub[cli]>=0.25.1", "pdoc>=14.7.0"]
+jupyter = [
             "ipykernel>=6.29.5",
             "ipywidgets>=8.1.5",
             "jupyter-black>=0.4.0",
         ]
-        plotting = [
+plotting = [
             "bokeh>=3.5.2",
             "matplotlib>=3.9.2",
             "seaborn>=0.13.2",
             "selenium==4.8.2",
         ]
+no-cuda = [
+    "faiss-cpu==1.9.0.post1",
+]
 # https://mypy.readthedocs.io/en/stable/config_file.html#config-file-format
 [tool.mypy]
     check_untyped_defs     = true

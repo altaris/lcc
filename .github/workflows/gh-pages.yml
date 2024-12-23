@@ -27,8 +27,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --extra plotting --no-install-package faiss-gpu-cu12
-          uv add --no-sync faiss-cpu
+          uv sync --extra plotting --extra no-cuda
 
       - name: Install pdoc
         run: |
