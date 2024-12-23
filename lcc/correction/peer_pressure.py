@@ -1,16 +1,13 @@
 """
-Peer pressure graph clustering
-
-TODO:
-    CSC format seems to be faster than CSR. (about 30s gain on ImageNet logits
-    with `k = 100`)
+Peer pressure graph clustering with weighted mean cluster conductance as an
+early stopping metric
 """
 
 import networkx as nx
 import numpy as np
 from lightning_fabric import Fabric
 from pytorch_lightning.strategies import Strategy
-from scipy.sparse import csr_array, eye_array
+from scipy.sparse import csc_array, eye_array
 
 from ..datasets.batched_tensor import BatchedTensorDataset
 from ..utils import TqdmStyle, make_tqdm
@@ -19,7 +16,7 @@ from .utils import EarlyStoppingLoop
 
 
 def _ppc(
-    a: csr_array,
+    a: csc_array,
     max_iter: int = 100,
     patience: int = 10,
     score_delta: float = 1e-3,
@@ -32,7 +29,7 @@ def _ppc(
     objective function.
 
     Args:
-        a (csr_array): Sparse square adjacency matrix (as a `csr_array`).
+        a (csc_array): Sparse square adjacency matrix (as a `csc_array`).
         max_iter (int, optional): Maximum number of peer pressure iterations.
         patience (int, optional): Early stopping if mean conductance does not
             improve after this many iterations
@@ -49,7 +46,6 @@ def _ppc(
     """
     n_nodes, n_edges = a.shape[0], a.size / 2
     b = eye_array(n_nodes, format=a.format)
-    # assert isinstance(b, csr_array)  # For typechecking
     loop = EarlyStoppingLoop(max_iter, patience, score_delta)
     loop.propose(b, float("inf"))
     tqdm = make_tqdm(tqdm_style)
@@ -80,14 +76,14 @@ def _ppc(
     return y_clst, score
 
 
-def _ppi(a: csr_array, b: csr_array) -> csr_array:
+def _ppi(a: csc_array, b: csc_array) -> csc_array:
     """
     Single peer pressure iteration, where nodes move to the cluster which is
     most popular with its neighbors.
 
     Args:
-        a (csr_array): A sparse adjacency matrix
-        b (csr_array): A clustering matrix of shape `(n_nodes, n_clusters)`,
+        a (csc_array): A sparse adjacency matrix
+        b (csc_array): A clustering matrix of shape `(n_nodes, n_clusters)`,
             where `b[i, j] = 1` if node `i` is in cluster `j`, and `0`
             otherwise
 
@@ -97,7 +93,7 @@ def _ppi(a: csr_array, b: csr_array) -> csr_array:
     col = (a @ b).argmax(axis=1).reshape(-1)
     row = np.arange(len(col))
     dat = np.ones_like(row)
-    return csr_array((dat, (row, col)), shape=b.shape, dtype=np.int8)
+    return csc_array((dat, (row, col)), shape=b.shape, dtype=np.int8)
 
 
 def peer_pressure_clustering(
@@ -122,6 +118,6 @@ def peer_pressure_clustering(
     graph = knn_graph(
         ds, k, strategy=strategy, n_features=n_features, tqdm_style=tqdm_style
     )
-    a = nx.to_scipy_sparse_array(graph, format="csr")
+    a = nx.to_scipy_sparse_array(graph, format="csc")
     y_clst, _ = _ppc(a, tqdm_style=tqdm_style)
     return y_clst
