@@ -23,9 +23,9 @@ if __name__ == "__main__":
     logging.info("Sweep path: {}", sweep_dir)
 
     results_files = list(sweep_dir.glob("results.*.json"))
-    if not results_files:
-        logging.warning("No results files found")
-        exit(0)
+    # if not results_files:
+    #     logging.warning("No results files found")
+    #     exit(0)
 
     results_versions = set()
     for fn in results_files:
