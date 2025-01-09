@@ -91,7 +91,9 @@ def knn_graph(
             If left to `None`, it is inferred from the first batch of `dl`
         tqdm_style (TqdmStyle, optional):
     """
-    if not isinstance(strategy, (ParallelStrategy, Fabric)):
+    if strategy is not None and not isinstance(
+        strategy, (ParallelStrategy, Fabric)
+    ):
         r0_warning(
             "Passed a strategy object to knn_graph, but strategy is not "
             "parallel. Falling back to non-distributed implementation."
