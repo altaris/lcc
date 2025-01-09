@@ -139,8 +139,9 @@ def _construct_latent_data(
     model: BaseClassifier, output_dir: str | Path, tqdm_style: TqdmStyle = None
 ) -> dict[str, LatentClusteringData]:
     """
-    Full dataset latent clustering, to only be executed on rank 0. It is assumed
-    that the whole dataset has already been evaluated.
+    Full dataset latent clustering. It is assumed
+    that the whole dataset has already been evaluated and that the bach files
+    are in `output_dir`. See also `lcc.datasets.BatchedTensorDataset`.
     """
     lcc_kwargs = model.hparams.get("lcc_kwargs", {})
     lcc_data: dict[str, LatentClusteringData] = {}
@@ -172,7 +173,8 @@ def _construct_latent_data(
             _y_true = torch.empty(0)
         _y_true = model.trainer.strategy.broadcast(_y_true, src=0)
 
-        # Step 2: Latent clustering
+        # Step 2: Latent clustering. Since this might be parallelized, it must
+        # not be guarded by `if model.trainer.global_rank == 0`
         if lcc_kwargs.get("clustering_method", "louvain") == "louvain":
             y_clst = louvain_clustering(
                 ds,
@@ -189,8 +191,7 @@ def _construct_latent_data(
                 tqdm_style=tqdm_style,
             )
 
-        # Step 3: Computing matching. class_otm_matching might not be
-        # deterministic, so it's computed on rank 0 only
+        # Step 3: Computing matching
         if model.trainer.global_rank == 0:
             matching = class_otm_matching(_y_true, y_clst)
         else:
