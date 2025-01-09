@@ -47,7 +47,8 @@ def get_reasonable_n_jobs() -> int:
         return 1
     if n <= 8:
         return n // 2
-    return int(n * 2 / 3)
+    return 4
+    # return int(n * 2 / 3)
 
 
 def make_tqdm(style: TqdmStyle = "console") -> Callable[..., tqdm]:
