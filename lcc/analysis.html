@@ -95,9 +95,9 @@
 
                         <div class="pdoc-code codehilite"><pre><span></span><span id="L-1"><a href="#L-1"><span class="linenos"> 1</span></a><span class="sd">&quot;&quot;&quot;Post fine-tuning and latent clustering correction utilities&quot;&quot;&quot;</span>
 </span><span id="L-2"><a href="#L-2"><span class="linenos"> 2</span></a>
-</span><span id="L-3"><a href="#L-3"><span class="linenos"> 3</span></a><span class="kn">from</span> <span class="nn">.analysis</span> <span class="kn">import</span> <span class="n">analyse_ckpt</span><span class="p">,</span> <span class="n">analyse_training</span>
-</span><span id="L-4"><a href="#L-4"><span class="linenos"> 4</span></a><span class="kn">from</span> <span class="nn">.dd</span> <span class="kn">import</span> <span class="n">distance_distribution</span><span class="p">,</span> <span class="n">distance_distribution_plot</span>
-</span><span id="L-5"><a href="#L-5"><span class="linenos"> 5</span></a><span class="kn">from</span> <span class="nn">.plotting</span> <span class="kn">import</span> <span class="n">louvain_clustering_plots</span><span class="p">,</span> <span class="n">plot_latent_samples</span>
+</span><span id="L-3"><a href="#L-3"><span class="linenos"> 3</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">analyse_ckpt</span><span class="p">,</span> <span class="n">analyse_training</span>
+</span><span id="L-4"><a href="#L-4"><span class="linenos"> 4</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">.dd</span><span class="w"> </span><span class="kn">import</span> <span class="n">distance_distribution</span><span class="p">,</span> <span class="n">distance_distribution_plot</span>
+</span><span id="L-5"><a href="#L-5"><span class="linenos"> 5</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">.plotting</span><span class="w"> </span><span class="kn">import</span> <span class="n">louvain_clustering_plots</span><span class="p">,</span> <span class="n">plot_latent_samples</span>
 </span><span id="L-6"><a href="#L-6"><span class="linenos"> 6</span></a>
 </span><span id="L-7"><a href="#L-7"><span class="linenos"> 7</span></a><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
 </span><span id="L-8"><a href="#L-8"><span class="linenos"> 8</span></a>    <span class="s2">&quot;analyse_ckpt&quot;</span><span class="p">,</span>
@@ -122,7 +122,7 @@
 
     </div>
     <a class="headerlink" href="#analyse_ckpt"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="analyse_ckpt-51"><a href="#analyse_ckpt-51"><span class="linenos"> 51</span></a><span class="k">def</span> <span class="nf">analyse_ckpt</span><span class="p">(</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="analyse_ckpt-51"><a href="#analyse_ckpt-51"><span class="linenos"> 51</span></a><span class="k">def</span><span class="w"> </span><span class="nf">analyse_ckpt</span><span class="p">(</span>
 </span><span id="analyse_ckpt-52"><a href="#analyse_ckpt-52"><span class="linenos"> 52</span></a>    <span class="n">model</span><span class="p">:</span> <span class="n">BaseClassifier</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
 </span><span id="analyse_ckpt-53"><a href="#analyse_ckpt-53"><span class="linenos"> 53</span></a>    <span class="n">submodule_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
 </span><span id="analyse_ckpt-54"><a href="#analyse_ckpt-54"><span class="linenos"> 54</span></a>    <span class="n">dataset</span><span class="p">:</span> <span class="n">HuggingFaceDataset</span><span class="p">,</span>
@@ -258,7 +258,7 @@ Louvain communities</li>
 
     </div>
     <a class="headerlink" href="#analyse_training"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="analyse_training-149"><a href="#analyse_training-149"><span class="linenos">149</span></a><span class="k">def</span> <span class="nf">analyse_training</span><span class="p">(</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="analyse_training-149"><a href="#analyse_training-149"><span class="linenos">149</span></a><span class="k">def</span><span class="w"> </span><span class="nf">analyse_training</span><span class="p">(</span>
 </span><span id="analyse_training-150"><a href="#analyse_training-150"><span class="linenos">150</span></a>    <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
 </span><span id="analyse_training-151"><a href="#analyse_training-151"><span class="linenos">151</span></a>    <span class="n">submodule_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
 </span><span id="analyse_training-152"><a href="#analyse_training-152"><span class="linenos">152</span></a>    <span class="n">dataset</span><span class="p">:</span> <span class="n">HuggingFaceDataset</span><span class="p">,</span>
@@ -399,7 +399,7 @@ calling <code><a href="#analyse_ckpt">analyse_ckpt</a></code> on every checkpoin
 
     </div>
     <a class="headerlink" href="#distance_distribution_plot"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="distance_distribution_plot-88"><a href="#distance_distribution_plot-88"><span class="linenos"> 88</span></a><span class="k">def</span> <span class="nf">distance_distribution_plot</span><span class="p">(</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="distance_distribution_plot-88"><a href="#distance_distribution_plot-88"><span class="linenos"> 88</span></a><span class="k">def</span><span class="w"> </span><span class="nf">distance_distribution_plot</span><span class="p">(</span>
 </span><span id="distance_distribution_plot-89"><a href="#distance_distribution_plot-89"><span class="linenos"> 89</span></a>    <span class="n">hist</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
 </span><span id="distance_distribution_plot-90"><a href="#distance_distribution_plot-90"><span class="linenos"> 90</span></a>    <span class="n">edges</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
 </span><span id="distance_distribution_plot-91"><a href="#distance_distribution_plot-91"><span class="linenos"> 91</span></a>    <span class="n">n_dims</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -487,7 +487,7 @@ in the plot. If set to <code>True</code>, <code>n_dims</code> must be provided.<
 
     </div>
     <a class="headerlink" href="#distance_distribution"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="distance_distribution-33"><a href="#distance_distribution-33"><span class="linenos">33</span></a><span class="k">def</span> <span class="nf">distance_distribution</span><span class="p">(</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="distance_distribution-33"><a href="#distance_distribution-33"><span class="linenos">33</span></a><span class="k">def</span><span class="w"> </span><span class="nf">distance_distribution</span><span class="p">(</span>
 </span><span id="distance_distribution-34"><a href="#distance_distribution-34"><span class="linenos">34</span></a>    <span class="n">a</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
 </span><span id="distance_distribution-35"><a href="#distance_distribution-35"><span class="linenos">35</span></a>    <span class="n">b</span><span class="p">:</span> <span class="n">ArrayLike</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span id="distance_distribution-36"><a href="#distance_distribution-36"><span class="linenos">36</span></a>    <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span>
@@ -575,7 +575,7 @@ coalesced into a single distance distribution.</p>
 
     </div>
     <a class="headerlink" href="#louvain_clustering_plots"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="louvain_clustering_plots-23"><a href="#louvain_clustering_plots-23"><span class="linenos">23</span></a><span class="k">def</span> <span class="nf">louvain_clustering_plots</span><span class="p">(</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="louvain_clustering_plots-23"><a href="#louvain_clustering_plots-23"><span class="linenos">23</span></a><span class="k">def</span><span class="w"> </span><span class="nf">louvain_clustering_plots</span><span class="p">(</span>
 </span><span id="louvain_clustering_plots-24"><a href="#louvain_clustering_plots-24"><span class="linenos">24</span></a>    <span class="n">z</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
 </span><span id="louvain_clustering_plots-25"><a href="#louvain_clustering_plots-25"><span class="linenos">25</span></a>    <span class="n">y_true</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
 </span><span id="louvain_clustering_plots-26"><a href="#louvain_clustering_plots-26"><span class="linenos">26</span></a>    <span class="n">y_louvain</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
@@ -652,7 +652,7 @@ creating <code>y_louvain</code>. This is used in the title of the plot.</li>
 
     </div>
     <a class="headerlink" href="#plot_latent_samples"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="plot_latent_samples-64"><a href="#plot_latent_samples-64"><span class="linenos">64</span></a><span class="k">def</span> <span class="nf">plot_latent_samples</span><span class="p">(</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="plot_latent_samples-64"><a href="#plot_latent_samples-64"><span class="linenos">64</span></a><span class="k">def</span><span class="w"> </span><span class="nf">plot_latent_samples</span><span class="p">(</span>
 </span><span id="plot_latent_samples-65"><a href="#plot_latent_samples-65"><span class="linenos">65</span></a>    <span class="n">e</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ArrayLike</span><span class="p">],</span> <span class="n">y_true</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span>
 </span><span id="plot_latent_samples-66"><a href="#plot_latent_samples-66"><span class="linenos">66</span></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">bk</span><span class="o">.</span><span class="n">figure</span><span class="p">]:</span>
 </span><span id="plot_latent_samples-67"><a href="#plot_latent_samples-67"><span class="linenos">67</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>

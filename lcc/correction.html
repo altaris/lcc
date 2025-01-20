@@ -200,7 +200,7 @@
 
                         <div class="pdoc-code codehilite"><pre><span></span><span id="L-1"><a href="#L-1"><span class="linenos"> 1</span></a><span class="sd">&quot;&quot;&quot;Everything related to LCC.&quot;&quot;&quot;</span>
 </span><span id="L-2"><a href="#L-2"><span class="linenos"> 2</span></a>
-</span><span id="L-3"><a href="#L-3"><span class="linenos"> 3</span></a><span class="kn">from</span> <span class="nn">.choice</span> <span class="kn">import</span> <span class="p">(</span>
+</span><span id="L-3"><a href="#L-3"><span class="linenos"> 3</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">.choice</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
 </span><span id="L-4"><a href="#L-4"><span class="linenos"> 4</span></a>    <span class="n">LCC_CLASS_SELECTIONS</span><span class="p">,</span>
 </span><span id="L-5"><a href="#L-5"><span class="linenos"> 5</span></a>    <span class="n">GraphTotallyDisconnected</span><span class="p">,</span>
 </span><span id="L-6"><a href="#L-6"><span class="linenos"> 6</span></a>    <span class="n">LCCClassSelection</span><span class="p">,</span>
@@ -210,14 +210,14 @@
 </span><span id="L-10"><a href="#L-10"><span class="linenos">10</span></a>    <span class="n">max_connected_confusion_choice</span><span class="p">,</span>
 </span><span id="L-11"><a href="#L-11"><span class="linenos">11</span></a>    <span class="n">top_confusion_pairs</span><span class="p">,</span>
 </span><span id="L-12"><a href="#L-12"><span class="linenos">12</span></a><span class="p">)</span>
-</span><span id="L-13"><a href="#L-13"><span class="linenos">13</span></a><span class="kn">from</span> <span class="nn">.clustering</span> <span class="kn">import</span> <span class="p">(</span>
+</span><span id="L-13"><a href="#L-13"><span class="linenos">13</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">.clustering</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
 </span><span id="L-14"><a href="#L-14"><span class="linenos">14</span></a>    <span class="n">class_otm_matching</span><span class="p">,</span>
 </span><span id="L-15"><a href="#L-15"><span class="linenos">15</span></a>    <span class="n">otm_matching_predicates</span><span class="p">,</span>
 </span><span id="L-16"><a href="#L-16"><span class="linenos">16</span></a><span class="p">)</span>
-</span><span id="L-17"><a href="#L-17"><span class="linenos">17</span></a><span class="kn">from</span> <span class="nn">.loss</span> <span class="kn">import</span> <span class="n">ExactLCCLoss</span><span class="p">,</span> <span class="n">LCCLoss</span><span class="p">,</span> <span class="n">RandomizedLCCLoss</span>
-</span><span id="L-18"><a href="#L-18"><span class="linenos">18</span></a><span class="kn">from</span> <span class="nn">.louvain</span> <span class="kn">import</span> <span class="n">louvain_clustering</span>
-</span><span id="L-19"><a href="#L-19"><span class="linenos">19</span></a><span class="kn">from</span> <span class="nn">.peer_pressure</span> <span class="kn">import</span> <span class="n">peer_pressure_clustering</span>
-</span><span id="L-20"><a href="#L-20"><span class="linenos">20</span></a><span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">Matching</span>
+</span><span id="L-17"><a href="#L-17"><span class="linenos">17</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">.loss</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExactLCCLoss</span><span class="p">,</span> <span class="n">LCCLoss</span><span class="p">,</span> <span class="n">RandomizedLCCLoss</span>
+</span><span id="L-18"><a href="#L-18"><span class="linenos">18</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">.louvain</span><span class="w"> </span><span class="kn">import</span> <span class="n">louvain_clustering</span>
+</span><span id="L-19"><a href="#L-19"><span class="linenos">19</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">.peer_pressure</span><span class="w"> </span><span class="kn">import</span> <span class="n">peer_pressure_clustering</span>
+</span><span id="L-20"><a href="#L-20"><span class="linenos">20</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">Matching</span>
 </span><span id="L-21"><a href="#L-21"><span class="linenos">21</span></a>
 </span><span id="L-22"><a href="#L-22"><span class="linenos">22</span></a><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
 </span><span id="L-23"><a href="#L-23"><span class="linenos">23</span></a>    <span class="s2">&quot;choose_classes&quot;</span><span class="p">,</span>
@@ -252,7 +252,7 @@
 
     </div>
     <a class="headerlink" href="#choose_classes"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="choose_classes-95"><a href="#choose_classes-95"><span class="linenos"> 95</span></a><span class="k">def</span> <span class="nf">choose_classes</span><span class="p">(</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="choose_classes-95"><a href="#choose_classes-95"><span class="linenos"> 95</span></a><span class="k">def</span><span class="w"> </span><span class="nf">choose_classes</span><span class="p">(</span>
 </span><span id="choose_classes-96"><a href="#choose_classes-96"><span class="linenos"> 96</span></a>    <span class="n">y_true</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
 </span><span id="choose_classes-97"><a href="#choose_classes-97"><span class="linenos"> 97</span></a>    <span class="n">y_pred</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
 </span><span id="choose_classes-98"><a href="#choose_classes-98"><span class="linenos"> 98</span></a>    <span class="n">policy</span><span class="p">:</span> <span class="n">LCCClassSelection</span> <span class="o">|</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;all&quot;</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -326,7 +326,7 @@ considered.</p>
 
     </div>
     <a class="headerlink" href="#class_otm_matching"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="class_otm_matching-67"><a href="#class_otm_matching-67"><span class="linenos"> 67</span></a><span class="k">def</span> <span class="nf">class_otm_matching</span><span class="p">(</span><span class="n">y_a</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span> <span class="n">y_b</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Matching</span><span class="p">:</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="class_otm_matching-67"><a href="#class_otm_matching-67"><span class="linenos"> 67</span></a><span class="k">def</span><span class="w"> </span><span class="nf">class_otm_matching</span><span class="p">(</span><span class="n">y_a</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span> <span class="n">y_b</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Matching</span><span class="p">:</span>
 </span><span id="class_otm_matching-68"><a href="#class_otm_matching-68"><span class="linenos"> 68</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span id="class_otm_matching-69"><a href="#class_otm_matching-69"><span class="linenos"> 69</span></a><span class="sd">    Let `y_a` and `y_b` be `(N,)` integer arrays. We think of them as classes on</span>
 </span><span id="class_otm_matching-70"><a href="#class_otm_matching-70"><span class="linenos"> 70</span></a><span class="sd">    some dataset, say `x`, which we call respectively *$a$-classes* and</span>
@@ -471,7 +471,7 @@ intersection between samples labeled by $a$ and matched $b$-classes.</p>
 
     </div>
     <a class="headerlink" href="#confusion_graph"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="confusion_graph-62"><a href="#confusion_graph-62"><span class="linenos">62</span></a><span class="k">def</span> <span class="nf">confusion_graph</span><span class="p">(</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="confusion_graph-62"><a href="#confusion_graph-62"><span class="linenos">62</span></a><span class="k">def</span><span class="w"> </span><span class="nf">confusion_graph</span><span class="p">(</span>
 </span><span id="confusion_graph-63"><a href="#confusion_graph-63"><span class="linenos">63</span></a>    <span class="n">y_pred</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span> <span class="n">y_true</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span> <span class="n">n_classes</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span>
 </span><span id="confusion_graph-64"><a href="#confusion_graph-64"><span class="linenos">64</span></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">:</span>
 </span><span id="confusion_graph-65"><a href="#confusion_graph-65"><span class="linenos">65</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
@@ -544,7 +544,7 @@ confused (in either direction) to be included in the graph.</li>
 
     </div>
     <a class="headerlink" href="#ExactLCCLoss"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="ExactLCCLoss-29"><a href="#ExactLCCLoss-29"><span class="linenos"> 29</span></a><span class="k">class</span> <span class="nc">ExactLCCLoss</span><span class="p">(</span><span class="n">LCCLoss</span><span class="p">):</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="ExactLCCLoss-29"><a href="#ExactLCCLoss-29"><span class="linenos"> 29</span></a><span class="k">class</span><span class="w"> </span><span class="nc">ExactLCCLoss</span><span class="p">(</span><span class="n">LCCLoss</span><span class="p">):</span>
 </span><span id="ExactLCCLoss-30"><a href="#ExactLCCLoss-30"><span class="linenos"> 30</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;LCC loss that corrects missclustered samples using their CC KNNs&quot;&quot;&quot;</span>
 </span><span id="ExactLCCLoss-31"><a href="#ExactLCCLoss-31"><span class="linenos"> 31</span></a>
 </span><span id="ExactLCCLoss-32"><a href="#ExactLCCLoss-32"><span class="linenos"> 32</span></a>    <span class="n">k</span><span class="p">:</span> <span class="nb">int</span>
@@ -555,7 +555,7 @@ confused (in either direction) to be included in the graph.</li>
 </span><span id="ExactLCCLoss-37"><a href="#ExactLCCLoss-37"><span class="linenos"> 37</span></a>    <span class="c1"># ↓ i_clst -&gt; (knn idx, tensor of all CC samples in that clst)</span>
 </span><span id="ExactLCCLoss-38"><a href="#ExactLCCLoss-38"><span class="linenos"> 38</span></a>    <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">faiss</span><span class="o">.</span><span class="n">IndexFlatL2</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
 </span><span id="ExactLCCLoss-39"><a href="#ExactLCCLoss-39"><span class="linenos"> 39</span></a>
-</span><span id="ExactLCCLoss-40"><a href="#ExactLCCLoss-40"><span class="linenos"> 40</span></a>    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
+</span><span id="ExactLCCLoss-40"><a href="#ExactLCCLoss-40"><span class="linenos"> 40</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
 </span><span id="ExactLCCLoss-41"><a href="#ExactLCCLoss-41"><span class="linenos"> 41</span></a>        <span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">y_true</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span> <span class="n">y_clst</span><span class="p">:</span> <span class="n">ArrayLike</span>
 </span><span id="ExactLCCLoss-42"><a href="#ExactLCCLoss-42"><span class="linenos"> 42</span></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 </span><span id="ExactLCCLoss-43"><a href="#ExactLCCLoss-43"><span class="linenos"> 43</span></a>        <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">p_mc</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">otm_matching_predicates</span><span class="p">(</span>
@@ -591,7 +591,7 @@ confused (in either direction) to be included in the graph.</li>
 </span><span id="ExactLCCLoss-73"><a href="#ExactLCCLoss-73"><span class="linenos"> 73</span></a>            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 </span><span id="ExactLCCLoss-74"><a href="#ExactLCCLoss-74"><span class="linenos"> 74</span></a>        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">terms</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
 </span><span id="ExactLCCLoss-75"><a href="#ExactLCCLoss-75"><span class="linenos"> 75</span></a>
-</span><span id="ExactLCCLoss-76"><a href="#ExactLCCLoss-76"><span class="linenos"> 76</span></a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+</span><span id="ExactLCCLoss-76"><a href="#ExactLCCLoss-76"><span class="linenos"> 76</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
 </span><span id="ExactLCCLoss-77"><a href="#ExactLCCLoss-77"><span class="linenos"> 77</span></a>        <span class="bp">self</span><span class="p">,</span>
 </span><span id="ExactLCCLoss-78"><a href="#ExactLCCLoss-78"><span class="linenos"> 78</span></a>        <span class="n">n_classes</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
 </span><span id="ExactLCCLoss-79"><a href="#ExactLCCLoss-79"><span class="linenos"> 79</span></a>        <span class="n">k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
@@ -602,7 +602,7 @@ confused (in either direction) to be included in the graph.</li>
 </span><span id="ExactLCCLoss-84"><a href="#ExactLCCLoss-84"><span class="linenos"> 84</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_classes</span> <span class="o">=</span> <span class="n">k</span><span class="p">,</span> <span class="n">n_classes</span>
 </span><span id="ExactLCCLoss-85"><a href="#ExactLCCLoss-85"><span class="linenos"> 85</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">tqdm_style</span> <span class="o">=</span> <span class="n">tqdm_style</span>
 </span><span id="ExactLCCLoss-86"><a href="#ExactLCCLoss-86"><span class="linenos"> 86</span></a>
-</span><span id="ExactLCCLoss-87"><a href="#ExactLCCLoss-87"><span class="linenos"> 87</span></a>    <span class="k">def</span> <span class="nf">sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="ExactLCCLoss-87"><a href="#ExactLCCLoss-87"><span class="linenos"> 87</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="ExactLCCLoss-88"><a href="#ExactLCCLoss-88"><span class="linenos"> 88</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span id="ExactLCCLoss-89"><a href="#ExactLCCLoss-89"><span class="linenos"> 89</span></a><span class="sd">        Remember that every rank has its own subset of cluster to manage. Before</span>
 </span><span id="ExactLCCLoss-90"><a href="#ExactLCCLoss-90"><span class="linenos"> 90</span></a><span class="sd">        sync every rank&#39;s `self.data` only contains data pertaining to this</span>
@@ -637,7 +637,7 @@ confused (in either direction) to be included in the graph.</li>
 </span><span id="ExactLCCLoss-119"><a href="#ExactLCCLoss-119"><span class="linenos">119</span></a>                <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">i_clst</span><span class="p">)]</span> <span class="o">=</span> <span class="p">(</span><span class="n">knn</span><span class="p">,</span> <span class="n">cc</span><span class="p">)</span>
 </span><span id="ExactLCCLoss-120"><a href="#ExactLCCLoss-120"><span class="linenos">120</span></a>        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">sync</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </span><span id="ExactLCCLoss-121"><a href="#ExactLCCLoss-121"><span class="linenos">121</span></a>
-</span><span id="ExactLCCLoss-122"><a href="#ExactLCCLoss-122"><span class="linenos">122</span></a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span>
+</span><span id="ExactLCCLoss-122"><a href="#ExactLCCLoss-122"><span class="linenos">122</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span>
 </span><span id="ExactLCCLoss-123"><a href="#ExactLCCLoss-123"><span class="linenos">123</span></a>        <span class="bp">self</span><span class="p">,</span>
 </span><span id="ExactLCCLoss-124"><a href="#ExactLCCLoss-124"><span class="linenos">124</span></a>        <span class="n">dl</span><span class="p">:</span> <span class="n">DataLoader</span><span class="p">,</span>
 </span><span id="ExactLCCLoss-125"><a href="#ExactLCCLoss-125"><span class="linenos">125</span></a>        <span class="n">y_true</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
@@ -712,7 +712,7 @@ confused (in either direction) to be included in the graph.</li>
 
     </div>
     <a class="headerlink" href="#ExactLCCLoss.__init__"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="ExactLCCLoss.__init__-76"><a href="#ExactLCCLoss.__init__-76"><span class="linenos">76</span></a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="ExactLCCLoss.__init__-76"><a href="#ExactLCCLoss.__init__-76"><span class="linenos">76</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
 </span><span id="ExactLCCLoss.__init__-77"><a href="#ExactLCCLoss.__init__-77"><span class="linenos">77</span></a>        <span class="bp">self</span><span class="p">,</span>
 </span><span id="ExactLCCLoss.__init__-78"><a href="#ExactLCCLoss.__init__-78"><span class="linenos">78</span></a>        <span class="n">n_classes</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
 </span><span id="ExactLCCLoss.__init__-79"><a href="#ExactLCCLoss.__init__-79"><span class="linenos">79</span></a>        <span class="n">k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
@@ -795,7 +795,7 @@ confused (in either direction) to be included in the graph.</li>
 
     </div>
     <a class="headerlink" href="#ExactLCCLoss.sync"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="ExactLCCLoss.sync-87"><a href="#ExactLCCLoss.sync-87"><span class="linenos"> 87</span></a>    <span class="k">def</span> <span class="nf">sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="ExactLCCLoss.sync-87"><a href="#ExactLCCLoss.sync-87"><span class="linenos"> 87</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="ExactLCCLoss.sync-88"><a href="#ExactLCCLoss.sync-88"><span class="linenos"> 88</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span id="ExactLCCLoss.sync-89"><a href="#ExactLCCLoss.sync-89"><span class="linenos"> 89</span></a><span class="sd">        Remember that every rank has its own subset of cluster to manage. Before</span>
 </span><span id="ExactLCCLoss.sync-90"><a href="#ExactLCCLoss.sync-90"><span class="linenos"> 90</span></a><span class="sd">        sync every rank&#39;s `self.data` only contains data pertaining to this</span>
@@ -856,7 +856,7 @@ directory.</p>
 
     </div>
     <a class="headerlink" href="#ExactLCCLoss.update"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="ExactLCCLoss.update-122"><a href="#ExactLCCLoss.update-122"><span class="linenos">122</span></a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="ExactLCCLoss.update-122"><a href="#ExactLCCLoss.update-122"><span class="linenos">122</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span>
 </span><span id="ExactLCCLoss.update-123"><a href="#ExactLCCLoss.update-123"><span class="linenos">123</span></a>        <span class="bp">self</span><span class="p">,</span>
 </span><span id="ExactLCCLoss.update-124"><a href="#ExactLCCLoss.update-124"><span class="linenos">124</span></a>        <span class="n">dl</span><span class="p">:</span> <span class="n">DataLoader</span><span class="p">,</span>
 </span><span id="ExactLCCLoss.update-125"><a href="#ExactLCCLoss.update-125"><span class="linenos">125</span></a>        <span class="n">y_true</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
@@ -940,7 +940,7 @@ directory.</p>
 
     </div>
     <a class="headerlink" href="#GraphTotallyDisconnected"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="GraphTotallyDisconnected-55"><a href="#GraphTotallyDisconnected-55"><span class="linenos">55</span></a><span class="k">class</span> <span class="nc">GraphTotallyDisconnected</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="GraphTotallyDisconnected-55"><a href="#GraphTotallyDisconnected-55"><span class="linenos">55</span></a><span class="k">class</span><span class="w"> </span><span class="nc">GraphTotallyDisconnected</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
 </span><span id="GraphTotallyDisconnected-56"><a href="#GraphTotallyDisconnected-56"><span class="linenos">56</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span id="GraphTotallyDisconnected-57"><a href="#GraphTotallyDisconnected-57"><span class="linenos">57</span></a><span class="sd">    Raised in `lcc.correction.heaviest_connected_subgraph` when a graph is</span>
 </span><span id="GraphTotallyDisconnected-58"><a href="#GraphTotallyDisconnected-58"><span class="linenos">58</span></a><span class="sd">    totally disconnected (has no edges).</span>
@@ -965,7 +965,7 @@ totally disconnected (has no edges).</p>
 
     </div>
     <a class="headerlink" href="#heaviest_connected_subgraph"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="heaviest_connected_subgraph-140"><a href="#heaviest_connected_subgraph-140"><span class="linenos">140</span></a><span class="k">def</span> <span class="nf">heaviest_connected_subgraph</span><span class="p">(</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="heaviest_connected_subgraph-140"><a href="#heaviest_connected_subgraph-140"><span class="linenos">140</span></a><span class="k">def</span><span class="w"> </span><span class="nf">heaviest_connected_subgraph</span><span class="p">(</span>
 </span><span id="heaviest_connected_subgraph-141"><a href="#heaviest_connected_subgraph-141"><span class="linenos">141</span></a>    <span class="n">graph</span><span class="p">:</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">,</span>
 </span><span id="heaviest_connected_subgraph-142"><a href="#heaviest_connected_subgraph-142"><span class="linenos">142</span></a>    <span class="n">max_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span id="heaviest_connected_subgraph-143"><a href="#heaviest_connected_subgraph-143"><span class="linenos">143</span></a>    <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
@@ -1149,7 +1149,7 @@ have fewer (but never more) nodes.</li>
 
     </div>
     <a class="headerlink" href="#LCCLoss"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="LCCLoss-20"><a href="#LCCLoss-20"><span class="linenos"> 20</span></a><span class="k">class</span> <span class="nc">LCCLoss</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="LCCLoss-20"><a href="#LCCLoss-20"><span class="linenos"> 20</span></a><span class="k">class</span><span class="w"> </span><span class="nc">LCCLoss</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
 </span><span id="LCCLoss-21"><a href="#LCCLoss-21"><span class="linenos"> 21</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract class that encapsulates a loss function for LCC.&quot;&quot;&quot;</span>
 </span><span id="LCCLoss-22"><a href="#LCCLoss-22"><span class="linenos"> 22</span></a>
 </span><span id="LCCLoss-23"><a href="#LCCLoss-23"><span class="linenos"> 23</span></a>    <span class="n">strategy</span><span class="p">:</span> <span class="n">ParallelStrategy</span> <span class="o">|</span> <span class="n">Fabric</span> <span class="o">|</span> <span class="kc">None</span>
@@ -1162,12 +1162,12 @@ have fewer (but never more) nodes.</li>
 </span><span id="LCCLoss-30"><a href="#LCCLoss-30"><span class="linenos"> 30</span></a><span class="sd">    &quot;&quot;&quot;</span>
 </span><span id="LCCLoss-31"><a href="#LCCLoss-31"><span class="linenos"> 31</span></a>
 </span><span id="LCCLoss-32"><a href="#LCCLoss-32"><span class="linenos"> 32</span></a>    <span class="nd">@abstractmethod</span>
-</span><span id="LCCLoss-33"><a href="#LCCLoss-33"><span class="linenos"> 33</span></a>    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
+</span><span id="LCCLoss-33"><a href="#LCCLoss-33"><span class="linenos"> 33</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
 </span><span id="LCCLoss-34"><a href="#LCCLoss-34"><span class="linenos"> 34</span></a>        <span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">y_true</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span> <span class="n">y_clst</span><span class="p">:</span> <span class="n">ArrayLike</span>
 </span><span id="LCCLoss-35"><a href="#LCCLoss-35"><span class="linenos"> 35</span></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 </span><span id="LCCLoss-36"><a href="#LCCLoss-36"><span class="linenos"> 36</span></a>        <span class="k">pass</span>
 </span><span id="LCCLoss-37"><a href="#LCCLoss-37"><span class="linenos"> 37</span></a>
-</span><span id="LCCLoss-38"><a href="#LCCLoss-38"><span class="linenos"> 38</span></a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">:</span> <span class="n">Strategy</span> <span class="o">|</span> <span class="n">Fabric</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="LCCLoss-38"><a href="#LCCLoss-38"><span class="linenos"> 38</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">:</span> <span class="n">Strategy</span> <span class="o">|</span> <span class="n">Fabric</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="LCCLoss-39"><a href="#LCCLoss-39"><span class="linenos"> 39</span></a>        <span class="c1"># TODO: Log a warning if strategy is a Strategy but not a</span>
 </span><span id="LCCLoss-40"><a href="#LCCLoss-40"><span class="linenos"> 40</span></a>        <span class="c1"># ParallelStrategy</span>
 </span><span id="LCCLoss-41"><a href="#LCCLoss-41"><span class="linenos"> 41</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span> <span class="o">=</span> <span class="p">(</span>
@@ -1176,7 +1176,7 @@ have fewer (but never more) nodes.</li>
 </span><span id="LCCLoss-44"><a href="#LCCLoss-44"><span class="linenos"> 44</span></a>            <span class="k">else</span> <span class="kc">None</span>
 </span><span id="LCCLoss-45"><a href="#LCCLoss-45"><span class="linenos"> 45</span></a>        <span class="p">)</span>
 </span><span id="LCCLoss-46"><a href="#LCCLoss-46"><span class="linenos"> 46</span></a>
-</span><span id="LCCLoss-47"><a href="#LCCLoss-47"><span class="linenos"> 47</span></a>    <span class="k">def</span> <span class="nf">_distribute_labels</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+</span><span id="LCCLoss-47"><a href="#LCCLoss-47"><span class="linenos"> 47</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_distribute_labels</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
 </span><span id="LCCLoss-48"><a href="#LCCLoss-48"><span class="linenos"> 48</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span id="LCCLoss-49"><a href="#LCCLoss-49"><span class="linenos"> 49</span></a><span class="sd">        Given an array of labels, distributes unique labels across ranks.</span>
 </span><span id="LCCLoss-50"><a href="#LCCLoss-50"><span class="linenos"> 50</span></a>
@@ -1194,7 +1194,7 @@ have fewer (but never more) nodes.</li>
 </span><span id="LCCLoss-62"><a href="#LCCLoss-62"><span class="linenos"> 62</span></a>            <span class="k">return</span> <span class="p">{</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="n">ws</span> <span class="o">==</span> <span class="n">gr</span><span class="p">}</span>
 </span><span id="LCCLoss-63"><a href="#LCCLoss-63"><span class="linenos"> 63</span></a>        <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">y</span><span class="p">))</span>
 </span><span id="LCCLoss-64"><a href="#LCCLoss-64"><span class="linenos"> 64</span></a>
-</span><span id="LCCLoss-65"><a href="#LCCLoss-65"><span class="linenos"> 65</span></a>    <span class="k">def</span> <span class="nf">_get_tmp_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+</span><span id="LCCLoss-65"><a href="#LCCLoss-65"><span class="linenos"> 65</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_get_tmp_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
 </span><span id="LCCLoss-66"><a href="#LCCLoss-66"><span class="linenos"> 66</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span id="LCCLoss-67"><a href="#LCCLoss-67"><span class="linenos"> 67</span></a><span class="sd">        On rank 0, acquires a temporary directory, broadcast the handler to all</span>
 </span><span id="LCCLoss-68"><a href="#LCCLoss-68"><span class="linenos"> 68</span></a><span class="sd">        ranks, and returns its path.</span>
@@ -1219,7 +1219,7 @@ have fewer (but never more) nodes.</li>
 </span><span id="LCCLoss-87"><a href="#LCCLoss-87"><span class="linenos"> 87</span></a>        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tmp_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 </span><span id="LCCLoss-88"><a href="#LCCLoss-88"><span class="linenos"> 88</span></a>        <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tmp_dir</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
 </span><span id="LCCLoss-89"><a href="#LCCLoss-89"><span class="linenos"> 89</span></a>
-</span><span id="LCCLoss-90"><a href="#LCCLoss-90"><span class="linenos"> 90</span></a>    <span class="k">def</span> <span class="nf">on_after_sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="LCCLoss-90"><a href="#LCCLoss-90"><span class="linenos"> 90</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">on_after_sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="LCCLoss-91"><a href="#LCCLoss-91"><span class="linenos"> 91</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span id="LCCLoss-92"><a href="#LCCLoss-92"><span class="linenos"> 92</span></a><span class="sd">        Should be called on all ranks after the loss object has been synced.</span>
 </span><span id="LCCLoss-93"><a href="#LCCLoss-93"><span class="linenos"> 93</span></a><span class="sd">        &quot;&quot;&quot;</span>
@@ -1230,13 +1230,13 @@ have fewer (but never more) nodes.</li>
 </span><span id="LCCLoss-98"><a href="#LCCLoss-98"><span class="linenos"> 98</span></a>        <span class="p">):</span>
 </span><span id="LCCLoss-99"><a href="#LCCLoss-99"><span class="linenos"> 99</span></a>            <span class="bp">self</span><span class="o">.</span><span class="n">_tmp_dir</span><span class="o">.</span><span class="n">cleanup</span><span class="p">()</span>
 </span><span id="LCCLoss-100"><a href="#LCCLoss-100"><span class="linenos">100</span></a>
-</span><span id="LCCLoss-101"><a href="#LCCLoss-101"><span class="linenos">101</span></a>    <span class="k">def</span> <span class="nf">on_before_sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="LCCLoss-101"><a href="#LCCLoss-101"><span class="linenos">101</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">on_before_sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="LCCLoss-102"><a href="#LCCLoss-102"><span class="linenos">102</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span id="LCCLoss-103"><a href="#LCCLoss-103"><span class="linenos">103</span></a><span class="sd">        Should be called on all ranks before syncing the loss object from rank 0</span>
 </span><span id="LCCLoss-104"><a href="#LCCLoss-104"><span class="linenos">104</span></a><span class="sd">        to other ranks.</span>
 </span><span id="LCCLoss-105"><a href="#LCCLoss-105"><span class="linenos">105</span></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="LCCLoss-106"><a href="#LCCLoss-106"><span class="linenos">106</span></a>
-</span><span id="LCCLoss-107"><a href="#LCCLoss-107"><span class="linenos">107</span></a>    <span class="k">def</span> <span class="nf">sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="LCCLoss-107"><a href="#LCCLoss-107"><span class="linenos">107</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="LCCLoss-108"><a href="#LCCLoss-108"><span class="linenos">108</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span id="LCCLoss-109"><a href="#LCCLoss-109"><span class="linenos">109</span></a><span class="sd">        Distributes or shares this object&#39;s data across all ranks. Call this</span>
 </span><span id="LCCLoss-110"><a href="#LCCLoss-110"><span class="linenos">110</span></a><span class="sd">        after each ranks called `update`. Is just a barrier by default.</span>
@@ -1245,7 +1245,7 @@ have fewer (but never more) nodes.</li>
 </span><span id="LCCLoss-113"><a href="#LCCLoss-113"><span class="linenos">113</span></a>            <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>
 </span><span id="LCCLoss-114"><a href="#LCCLoss-114"><span class="linenos">114</span></a>
 </span><span id="LCCLoss-115"><a href="#LCCLoss-115"><span class="linenos">115</span></a>    <span class="nd">@abstractmethod</span>
-</span><span id="LCCLoss-116"><a href="#LCCLoss-116"><span class="linenos">116</span></a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span>
+</span><span id="LCCLoss-116"><a href="#LCCLoss-116"><span class="linenos">116</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span>
 </span><span id="LCCLoss-117"><a href="#LCCLoss-117"><span class="linenos">117</span></a>        <span class="bp">self</span><span class="p">,</span>
 </span><span id="LCCLoss-118"><a href="#LCCLoss-118"><span class="linenos">118</span></a>        <span class="n">dl</span><span class="p">:</span> <span class="n">DataLoader</span><span class="p">,</span>
 </span><span id="LCCLoss-119"><a href="#LCCLoss-119"><span class="linenos">119</span></a>        <span class="n">y_true</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
@@ -1293,7 +1293,7 @@ have fewer (but never more) nodes.</li>
 
     </div>
     <a class="headerlink" href="#LCCLoss.on_after_sync"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="LCCLoss.on_after_sync-90"><a href="#LCCLoss.on_after_sync-90"><span class="linenos">90</span></a>    <span class="k">def</span> <span class="nf">on_after_sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="LCCLoss.on_after_sync-90"><a href="#LCCLoss.on_after_sync-90"><span class="linenos">90</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">on_after_sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="LCCLoss.on_after_sync-91"><a href="#LCCLoss.on_after_sync-91"><span class="linenos">91</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span id="LCCLoss.on_after_sync-92"><a href="#LCCLoss.on_after_sync-92"><span class="linenos">92</span></a><span class="sd">        Should be called on all ranks after the loss object has been synced.</span>
 </span><span id="LCCLoss.on_after_sync-93"><a href="#LCCLoss.on_after_sync-93"><span class="linenos">93</span></a><span class="sd">        &quot;&quot;&quot;</span>
@@ -1322,7 +1322,7 @@ have fewer (but never more) nodes.</li>
 
     </div>
     <a class="headerlink" href="#LCCLoss.on_before_sync"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="LCCLoss.on_before_sync-101"><a href="#LCCLoss.on_before_sync-101"><span class="linenos">101</span></a>    <span class="k">def</span> <span class="nf">on_before_sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="LCCLoss.on_before_sync-101"><a href="#LCCLoss.on_before_sync-101"><span class="linenos">101</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">on_before_sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="LCCLoss.on_before_sync-102"><a href="#LCCLoss.on_before_sync-102"><span class="linenos">102</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span id="LCCLoss.on_before_sync-103"><a href="#LCCLoss.on_before_sync-103"><span class="linenos">103</span></a><span class="sd">        Should be called on all ranks before syncing the loss object from rank 0</span>
 </span><span id="LCCLoss.on_before_sync-104"><a href="#LCCLoss.on_before_sync-104"><span class="linenos">104</span></a><span class="sd">        to other ranks.</span>
@@ -1347,7 +1347,7 @@ to other ranks.</p>
 
     </div>
     <a class="headerlink" href="#LCCLoss.sync"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="LCCLoss.sync-107"><a href="#LCCLoss.sync-107"><span class="linenos">107</span></a>    <span class="k">def</span> <span class="nf">sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="LCCLoss.sync-107"><a href="#LCCLoss.sync-107"><span class="linenos">107</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="LCCLoss.sync-108"><a href="#LCCLoss.sync-108"><span class="linenos">108</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span id="LCCLoss.sync-109"><a href="#LCCLoss.sync-109"><span class="linenos">109</span></a><span class="sd">        Distributes or shares this object&#39;s data across all ranks. Call this</span>
 </span><span id="LCCLoss.sync-110"><a href="#LCCLoss.sync-110"><span class="linenos">110</span></a><span class="sd">        after each ranks called `update`. Is just a barrier by default.</span>
@@ -1376,7 +1376,7 @@ after each ranks called <code><a href="#LCCLoss.update">update</a></code>. Is ju
     </div>
     <a class="headerlink" href="#LCCLoss.update"></a>
             <div class="pdoc-code codehilite"><pre><span></span><span id="LCCLoss.update-115"><a href="#LCCLoss.update-115"><span class="linenos">115</span></a>    <span class="nd">@abstractmethod</span>
-</span><span id="LCCLoss.update-116"><a href="#LCCLoss.update-116"><span class="linenos">116</span></a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span>
+</span><span id="LCCLoss.update-116"><a href="#LCCLoss.update-116"><span class="linenos">116</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span>
 </span><span id="LCCLoss.update-117"><a href="#LCCLoss.update-117"><span class="linenos">117</span></a>        <span class="bp">self</span><span class="p">,</span>
 </span><span id="LCCLoss.update-118"><a href="#LCCLoss.update-118"><span class="linenos">118</span></a>        <span class="n">dl</span><span class="p">:</span> <span class="n">DataLoader</span><span class="p">,</span>
 </span><span id="LCCLoss.update-119"><a href="#LCCLoss.update-119"><span class="linenos">119</span></a>        <span class="n">y_true</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
@@ -1427,7 +1427,7 @@ first of which is a 2D tensor of samples.</p>
 
     </div>
     <a class="headerlink" href="#louvain_clustering"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="louvain_clustering-49"><a href="#louvain_clustering-49"><span class="linenos">49</span></a><span class="k">def</span> <span class="nf">louvain_clustering</span><span class="p">(</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="louvain_clustering-49"><a href="#louvain_clustering-49"><span class="linenos">49</span></a><span class="k">def</span><span class="w"> </span><span class="nf">louvain_clustering</span><span class="p">(</span>
 </span><span id="louvain_clustering-50"><a href="#louvain_clustering-50"><span class="linenos">50</span></a>    <span class="n">ds</span><span class="p">:</span> <span class="n">BatchedTensorDataset</span><span class="p">,</span>
 </span><span id="louvain_clustering-51"><a href="#louvain_clustering-51"><span class="linenos">51</span></a>    <span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
 </span><span id="louvain_clustering-52"><a href="#louvain_clustering-52"><span class="linenos">52</span></a>    <span class="n">strategy</span><span class="p">:</span> <span class="n">Strategy</span> <span class="o">|</span> <span class="n">Fabric</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1495,7 +1495,7 @@ meaning that the algorithm will not be parallelized.</li>
 
     </div>
     <a class="headerlink" href="#max_connected_confusion_choice"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="max_connected_confusion_choice-235"><a href="#max_connected_confusion_choice-235"><span class="linenos">235</span></a><span class="k">def</span> <span class="nf">max_connected_confusion_choice</span><span class="p">(</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="max_connected_confusion_choice-235"><a href="#max_connected_confusion_choice-235"><span class="linenos">235</span></a><span class="k">def</span><span class="w"> </span><span class="nf">max_connected_confusion_choice</span><span class="p">(</span>
 </span><span id="max_connected_confusion_choice-236"><a href="#max_connected_confusion_choice-236"><span class="linenos">236</span></a>    <span class="n">y_pred</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
 </span><span id="max_connected_confusion_choice-237"><a href="#max_connected_confusion_choice-237"><span class="linenos">237</span></a>    <span class="n">y_true</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
 </span><span id="max_connected_confusion_choice-238"><a href="#max_connected_confusion_choice-238"><span class="linenos">238</span></a>    <span class="n">n_classes</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
@@ -1565,7 +1565,7 @@ less than that number of samples. See also
 
     </div>
     <a class="headerlink" href="#otm_matching_predicates"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="otm_matching_predicates-132"><a href="#otm_matching_predicates-132"><span class="linenos">132</span></a><span class="k">def</span> <span class="nf">otm_matching_predicates</span><span class="p">(</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="otm_matching_predicates-132"><a href="#otm_matching_predicates-132"><span class="linenos">132</span></a><span class="k">def</span><span class="w"> </span><span class="nf">otm_matching_predicates</span><span class="p">(</span>
 </span><span id="otm_matching_predicates-133"><a href="#otm_matching_predicates-133"><span class="linenos">133</span></a>    <span class="n">y_a</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
 </span><span id="otm_matching_predicates-134"><a href="#otm_matching_predicates-134"><span class="linenos">134</span></a>    <span class="n">y_b</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
 </span><span id="otm_matching_predicates-135"><a href="#otm_matching_predicates-135"><span class="linenos">135</span></a>    <span class="n">matching</span><span class="p">:</span> <span class="n">Matching</span><span class="p">,</span>
@@ -1709,7 +1709,7 @@ If <code>None</code>, then <code>y_a</code> is assumed to contain all classes, a
 
     </div>
     <a class="headerlink" href="#peer_pressure_clustering"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="peer_pressure_clustering-100"><a href="#peer_pressure_clustering-100"><span class="linenos">100</span></a><span class="k">def</span> <span class="nf">peer_pressure_clustering</span><span class="p">(</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="peer_pressure_clustering-100"><a href="#peer_pressure_clustering-100"><span class="linenos">100</span></a><span class="k">def</span><span class="w"> </span><span class="nf">peer_pressure_clustering</span><span class="p">(</span>
 </span><span id="peer_pressure_clustering-101"><a href="#peer_pressure_clustering-101"><span class="linenos">101</span></a>    <span class="n">ds</span><span class="p">:</span> <span class="n">BatchedTensorDataset</span><span class="p">,</span>
 </span><span id="peer_pressure_clustering-102"><a href="#peer_pressure_clustering-102"><span class="linenos">102</span></a>    <span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
 </span><span id="peer_pressure_clustering-103"><a href="#peer_pressure_clustering-103"><span class="linenos">103</span></a>    <span class="n">strategy</span><span class="p">:</span> <span class="n">Strategy</span> <span class="o">|</span> <span class="n">Fabric</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1765,7 +1765,7 @@ meaning that the algorithm will not be parallelized.</li>
 
     </div>
     <a class="headerlink" href="#RandomizedLCCLoss"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="RandomizedLCCLoss-27"><a href="#RandomizedLCCLoss-27"><span class="linenos"> 27</span></a><span class="k">class</span> <span class="nc">RandomizedLCCLoss</span><span class="p">(</span><span class="n">LCCLoss</span><span class="p">):</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="RandomizedLCCLoss-27"><a href="#RandomizedLCCLoss-27"><span class="linenos"> 27</span></a><span class="k">class</span><span class="w"> </span><span class="nc">RandomizedLCCLoss</span><span class="p">(</span><span class="n">LCCLoss</span><span class="p">):</span>
 </span><span id="RandomizedLCCLoss-28"><a href="#RandomizedLCCLoss-28"><span class="linenos"> 28</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 </span><span id="RandomizedLCCLoss-29"><a href="#RandomizedLCCLoss-29"><span class="linenos"> 29</span></a><span class="sd">    A LCC loss function that pulls misclustered samples towards a CC sample in</span>
 </span><span id="RandomizedLCCLoss-30"><a href="#RandomizedLCCLoss-30"><span class="linenos"> 30</span></a><span class="sd">    the same class.</span>
@@ -1783,7 +1783,7 @@ meaning that the algorithm will not be parallelized.</li>
 </span><span id="RandomizedLCCLoss-42"><a href="#RandomizedLCCLoss-42"><span class="linenos"> 42</span></a>    <span class="n">tqdm_style</span><span class="p">:</span> <span class="n">TqdmStyle</span>
 </span><span id="RandomizedLCCLoss-43"><a href="#RandomizedLCCLoss-43"><span class="linenos"> 43</span></a>    <span class="n">matching</span><span class="p">:</span> <span class="n">Matching</span>
 </span><span id="RandomizedLCCLoss-44"><a href="#RandomizedLCCLoss-44"><span class="linenos"> 44</span></a>
-</span><span id="RandomizedLCCLoss-45"><a href="#RandomizedLCCLoss-45"><span class="linenos"> 45</span></a>    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
+</span><span id="RandomizedLCCLoss-45"><a href="#RandomizedLCCLoss-45"><span class="linenos"> 45</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
 </span><span id="RandomizedLCCLoss-46"><a href="#RandomizedLCCLoss-46"><span class="linenos"> 46</span></a>        <span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">y_true</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span> <span class="n">y_clst</span><span class="p">:</span> <span class="n">ArrayLike</span>
 </span><span id="RandomizedLCCLoss-47"><a href="#RandomizedLCCLoss-47"><span class="linenos"> 47</span></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 </span><span id="RandomizedLCCLoss-48"><a href="#RandomizedLCCLoss-48"><span class="linenos"> 48</span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -1836,7 +1836,7 @@ meaning that the algorithm will not be parallelized.</li>
 </span><span id="RandomizedLCCLoss-95"><a href="#RandomizedLCCLoss-95"><span class="linenos"> 95</span></a>            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 </span><span id="RandomizedLCCLoss-96"><a href="#RandomizedLCCLoss-96"><span class="linenos"> 96</span></a>        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">losses</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
 </span><span id="RandomizedLCCLoss-97"><a href="#RandomizedLCCLoss-97"><span class="linenos"> 97</span></a>
-</span><span id="RandomizedLCCLoss-98"><a href="#RandomizedLCCLoss-98"><span class="linenos"> 98</span></a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+</span><span id="RandomizedLCCLoss-98"><a href="#RandomizedLCCLoss-98"><span class="linenos"> 98</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
 </span><span id="RandomizedLCCLoss-99"><a href="#RandomizedLCCLoss-99"><span class="linenos"> 99</span></a>        <span class="bp">self</span><span class="p">,</span>
 </span><span id="RandomizedLCCLoss-100"><a href="#RandomizedLCCLoss-100"><span class="linenos">100</span></a>        <span class="n">n_classes</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
 </span><span id="RandomizedLCCLoss-101"><a href="#RandomizedLCCLoss-101"><span class="linenos">101</span></a>        <span class="n">ccspc</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
@@ -1847,7 +1847,7 @@ meaning that the algorithm will not be parallelized.</li>
 </span><span id="RandomizedLCCLoss-106"><a href="#RandomizedLCCLoss-106"><span class="linenos">106</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">n_classes</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ccspc</span> <span class="o">=</span> <span class="n">n_classes</span><span class="p">,</span> <span class="n">ccspc</span>
 </span><span id="RandomizedLCCLoss-107"><a href="#RandomizedLCCLoss-107"><span class="linenos">107</span></a>        <span class="bp">self</span><span class="o">.</span><span class="n">tqdm_style</span> <span class="o">=</span> <span class="n">tqdm_style</span>
 </span><span id="RandomizedLCCLoss-108"><a href="#RandomizedLCCLoss-108"><span class="linenos">108</span></a>
-</span><span id="RandomizedLCCLoss-109"><a href="#RandomizedLCCLoss-109"><span class="linenos">109</span></a>    <span class="k">def</span> <span class="nf">sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="RandomizedLCCLoss-109"><a href="#RandomizedLCCLoss-109"><span class="linenos">109</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="RandomizedLCCLoss-110"><a href="#RandomizedLCCLoss-110"><span class="linenos">110</span></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="RandomizedLCCLoss-111"><a href="#RandomizedLCCLoss-111"><span class="linenos">111</span></a>            <span class="k">return</span>
 </span><span id="RandomizedLCCLoss-112"><a href="#RandomizedLCCLoss-112"><span class="linenos">112</span></a>        <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_tmp_dir</span><span class="p">()</span>
@@ -1864,7 +1864,7 @@ meaning that the algorithm will not be parallelized.</li>
 </span><span id="RandomizedLCCLoss-123"><a href="#RandomizedLCCLoss-123"><span class="linenos">123</span></a>            <span class="bp">self</span><span class="o">.</span><span class="n">targets</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="nb">int</span><span class="p">(</span><span class="n">k</span><span class="p">):</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
 </span><span id="RandomizedLCCLoss-124"><a href="#RandomizedLCCLoss-124"><span class="linenos">124</span></a>        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">sync</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </span><span id="RandomizedLCCLoss-125"><a href="#RandomizedLCCLoss-125"><span class="linenos">125</span></a>
-</span><span id="RandomizedLCCLoss-126"><a href="#RandomizedLCCLoss-126"><span class="linenos">126</span></a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span>
+</span><span id="RandomizedLCCLoss-126"><a href="#RandomizedLCCLoss-126"><span class="linenos">126</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span>
 </span><span id="RandomizedLCCLoss-127"><a href="#RandomizedLCCLoss-127"><span class="linenos">127</span></a>        <span class="bp">self</span><span class="p">,</span>
 </span><span id="RandomizedLCCLoss-128"><a href="#RandomizedLCCLoss-128"><span class="linenos">128</span></a>        <span class="n">dl</span><span class="p">:</span> <span class="n">DataLoader</span><span class="p">,</span>
 </span><span id="RandomizedLCCLoss-129"><a href="#RandomizedLCCLoss-129"><span class="linenos">129</span></a>        <span class="n">y_true</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
@@ -1957,7 +1957,7 @@ targets.</p>
 
     </div>
     <a class="headerlink" href="#RandomizedLCCLoss.__init__"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="RandomizedLCCLoss.__init__-98"><a href="#RandomizedLCCLoss.__init__-98"><span class="linenos"> 98</span></a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="RandomizedLCCLoss.__init__-98"><a href="#RandomizedLCCLoss.__init__-98"><span class="linenos"> 98</span></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
 </span><span id="RandomizedLCCLoss.__init__-99"><a href="#RandomizedLCCLoss.__init__-99"><span class="linenos"> 99</span></a>        <span class="bp">self</span><span class="p">,</span>
 </span><span id="RandomizedLCCLoss.__init__-100"><a href="#RandomizedLCCLoss.__init__-100"><span class="linenos">100</span></a>        <span class="n">n_classes</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
 </span><span id="RandomizedLCCLoss.__init__-101"><a href="#RandomizedLCCLoss.__init__-101"><span class="linenos">101</span></a>        <span class="n">ccspc</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
@@ -2040,7 +2040,7 @@ targets.</p>
 
     </div>
     <a class="headerlink" href="#RandomizedLCCLoss.sync"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="RandomizedLCCLoss.sync-109"><a href="#RandomizedLCCLoss.sync-109"><span class="linenos">109</span></a>    <span class="k">def</span> <span class="nf">sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="RandomizedLCCLoss.sync-109"><a href="#RandomizedLCCLoss.sync-109"><span class="linenos">109</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">sync</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="RandomizedLCCLoss.sync-110"><a href="#RandomizedLCCLoss.sync-110"><span class="linenos">110</span></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="RandomizedLCCLoss.sync-111"><a href="#RandomizedLCCLoss.sync-111"><span class="linenos">111</span></a>            <span class="k">return</span>
 </span><span id="RandomizedLCCLoss.sync-112"><a href="#RandomizedLCCLoss.sync-112"><span class="linenos">112</span></a>        <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_tmp_dir</span><span class="p">()</span>
@@ -2076,7 +2076,7 @@ after each ranks called <code><a href="#RandomizedLCCLoss.update">update</a></co
 
     </div>
     <a class="headerlink" href="#RandomizedLCCLoss.update"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="RandomizedLCCLoss.update-126"><a href="#RandomizedLCCLoss.update-126"><span class="linenos">126</span></a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="RandomizedLCCLoss.update-126"><a href="#RandomizedLCCLoss.update-126"><span class="linenos">126</span></a>    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span>
 </span><span id="RandomizedLCCLoss.update-127"><a href="#RandomizedLCCLoss.update-127"><span class="linenos">127</span></a>        <span class="bp">self</span><span class="p">,</span>
 </span><span id="RandomizedLCCLoss.update-128"><a href="#RandomizedLCCLoss.update-128"><span class="linenos">128</span></a>        <span class="n">dl</span><span class="p">:</span> <span class="n">DataLoader</span><span class="p">,</span>
 </span><span id="RandomizedLCCLoss.update-129"><a href="#RandomizedLCCLoss.update-129"><span class="linenos">129</span></a>        <span class="n">y_true</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
@@ -2192,7 +2192,7 @@ Then, the whole dataset is iterated to collect the actual samples.</p>
 
     </div>
     <a class="headerlink" href="#top_confusion_pairs"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="top_confusion_pairs-266"><a href="#top_confusion_pairs-266"><span class="linenos">266</span></a><span class="k">def</span> <span class="nf">top_confusion_pairs</span><span class="p">(</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="top_confusion_pairs-266"><a href="#top_confusion_pairs-266"><span class="linenos">266</span></a><span class="k">def</span><span class="w"> </span><span class="nf">top_confusion_pairs</span><span class="p">(</span>
 </span><span id="top_confusion_pairs-267"><a href="#top_confusion_pairs-267"><span class="linenos">267</span></a>    <span class="n">y_pred</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
 </span><span id="top_confusion_pairs-268"><a href="#top_confusion_pairs-268"><span class="linenos">268</span></a>    <span class="n">y_true</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
 </span><span id="top_confusion_pairs-269"><a href="#top_confusion_pairs-269"><span class="linenos">269</span></a>    <span class="n">n_classes</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
