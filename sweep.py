@@ -15,7 +15,7 @@ import torch
 import turbo_broccoli as tb
 from loguru import logger as logging
 
-OUTPUT_DIR = Path("out") / "sweep.ppc"
+OUTPUT_DIR = Path("out") / "sweep"
 
 DATASETS = [
     {  # https://huggingface.co/datasets/uoft-cs/cifar100
@@ -95,12 +95,12 @@ MODELS = [
     },
 ]
 
-LCC_WEIGHTS = [1e-2]
+LCC_WEIGHTS = [1e-2, 1e-4]
 LCC_INTERVALS = [1]
 LCC_WARMUPS = [1]
-LCC_KS = [5, 50, 100]
+LCC_KS = [5, 50, 500]
 LCC_LOSS = ["exact"]
-LCC_CLUSTERING_METHODS = ["louvain", "peer_pressure"]
+LCC_CLUSTERING_METHODS = ["louvain"]
 SEEDS = [0, 1, 2]
 
 STUPID_CUDA_SPAM = r"CUDA call.*failed with initialization error"
