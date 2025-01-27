@@ -2,8 +2,9 @@
 
 ![Python 3.10](https://img.shields.io/badge/Python-3.10-blue?logo=python)
 ![CUDA 12](https://img.shields.io/badge/CUDA-12-green?logo=nvidia)
-[![Documentation](https://img.shields.io/badge/docs-here-pink)](https://cedric.hothanh.fr/lcc/lcc.html)
-[![License](https://img.shields.io/badge/license-MIT-white)](https://choosealicense.com/licenses/mit/)
+[![Documentation](https://img.shields.io/badge/Documentation-here-pink)](https://cedric.hothanh.fr/lcc/lcc.html)
+[![License](https://img.shields.io/badge/License-MIT-white)](https://choosealicense.com/licenses/mit/)
+[![Paper](https://img.shields.io/badge/Preprint-2501.11919-black?logo=arxiv)](https://arxiv.org/abs/2501.11919)
 
 - Neural networks take input samples and transform them into **latent
   representations**
@@ -103,3 +104,22 @@ uv sync --all-extras
   - [`lcc.plotting.class_scatter`](https://cedric.hothanh.fr/lcc/lcc/plotting.html#class_scatter):
     2D scatter plot where samples are colored by class. Also support "outliers",
     which are samples with negative label.
+
+# Cite
+
+```bibtex
+@misc{hothanhImprovingFineTuningLatent2025,
+  title = {Improving {{Fine-Tuning}} with {{Latent Cluster Correction}}},
+  author = {Ho Thanh, C{\'e}dric},
+  year = {2025},
+  month = jan,
+  number = {arXiv:2501.11919},
+  eprint = {2501.11919},
+  primaryclass = {cs},
+  publisher = {arXiv},
+  doi = {10.48550/arXiv.2501.11919},
+  urldate = {2025-01-22},
+  archiveprefix = {arXiv},
+  keywords = {Computer Science - Machine Learning},
+}
+```
