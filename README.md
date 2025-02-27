@@ -4,6 +4,7 @@
 ![CUDA 12](https://img.shields.io/badge/CUDA-12-green?logo=nvidia)
 [![Documentation](https://img.shields.io/badge/Documentation-here-pink)](https://cedric.hothanh.fr/lcc/lcc.html)
 [![License](https://img.shields.io/badge/License-MIT-white)](https://choosealicense.com/licenses/mit/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14934702.svg)](https://doi.org/10.5281/zenodo.14934702)
 [![Paper](https://img.shields.io/badge/Preprint-2501.11919-black?logo=arxiv)](https://arxiv.org/abs/2501.11919)
 
 - Neural networks take input samples and transform them into **latent
@@ -11,13 +12,24 @@
 - Semantically similar samples tend to aggregate into **latent clusters**
 - This repository implements **Latent Cluster Correction**, a new technique to
   improve said latent clusters
-- I don't want to write more academic blabla rn
-- I'll link the article somedays
 
-![](docs/imgs/microsoft-resnet-18_cifar10.png)
+## Pretty images
 
-<!-- ![](docs/imgs/timm-vgg11.tv_in1k_timm-eurosat-rgb.png) -->
-<!-- ![](docs/imgs/alexnet_microsoft-cats_vs_dogs.png) -->
+These are examples of input datasets fed into image classifier models. Some
+selected latent representations are extracted and plotted in 2D (via
+dimensionality reduction). Initially, during the feature extraction phase, the
+samples are not clearly separated. But as the samples progressively get into the
+classification phase, visible latent clusters emerge. The goal of LCC is to help
+the formation of these clusters.
+
+- [Resnet-18](https://huggingface.co/microsoft/resnet-18) on [CIFAR-10](https://huggingface.co/datasets/uoft-cs/cifar10):
+  ![](docs/imgs/microsoft-resnet-18_cifar10.png)
+
+- [VGG-11](https://huggingface.co/timm/vgg11.tv_in1k) on [EuroSAT](https://huggingface.co/datasets/timm/eurosat-rgb):
+  ![](docs/imgs/timm-vgg11.tv_in1k_timm-eurosat-rgb.png)
+
+- [AlexNet](https://pytorch.org/vision/main/models/generated/torchvision.models.alexnet.html) on [Cats vs Dogs](https://huggingface.co/datasets/microsoft/cats_vs_dogs):
+  ![](docs/imgs/alexnet_microsoft-cats_vs_dogs.png)
 
 ## Installation
 
@@ -107,19 +119,35 @@ uv sync --all-extras
 
 # Cite
 
-```bibtex
-@misc{hothanhImprovingFineTuningLatent2025,
-  title = {Improving {{Fine-Tuning}} with {{Latent Cluster Correction}}},
-  author = {Ho Thanh, C{\'e}dric},
-  year = {2025},
-  month = jan,
-  number = {arXiv:2501.11919},
-  eprint = {2501.11919},
-  primaryclass = {cs},
-  publisher = {arXiv},
-  doi = {10.48550/arXiv.2501.11919},
-  urldate = {2025-01-22},
-  archiveprefix = {arXiv},
-  keywords = {Computer Science - Machine Learning},
-}
-```
+- [Preprint](https://arxiv.org/abs/2501.11919)
+
+  ```bibtex
+  @misc{hothanhImprovingFineTuningLatent2025,
+    title = {Improving {{Fine-Tuning}} with {{Latent Cluster Correction}}},
+    author = {Ho Thanh, C{\'e}dric},
+    year = {2025},
+    month = jan,
+    number = {arXiv:2501.11919},
+    eprint = {2501.11919},
+    primaryclass = {cs},
+    publisher = {arXiv},
+    doi = {10.48550/arXiv.2501.11919},
+    urldate = {2025-01-22},
+    archiveprefix = {arXiv},
+    keywords = {Computer Science - Machine Learning},
+  }
+  ```
+
+- Code
+
+  ```bibtex
+  @software{Ho_Thanh_LCC_Latent_Cluster_2025,
+    author = {Ho Thanh, Cédric},
+    license = {MIT},
+    month = jan,
+    title = {{LCC: Latent Cluster Correction}},
+    url = {https://github.com/altaris/lcc},
+    version = {1.0.0},
+    year = {2025}
+  }
+  ```
